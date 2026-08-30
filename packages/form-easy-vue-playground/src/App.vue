@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { elementPlusRenderer } from './element-plus-renderer';
+import { playgroundVueRenderer } from './playground-vue-renderer';
 
 /** 演示基础、对象、数组和事件驱动字段。 */
 const schema = {
@@ -11,6 +13,10 @@ const schema = {
       name: '基础字段：字符串默认值示例',
       category: 'basic',
       dataType: 'string',
+      component: 'elementInput',
+      componentProperties: {
+        placeholder: 'Element Plus 输入框'
+      },
       required: true,
       hint: '展示 string、required、hint 和 defaultValue 配置。',
       defaultValue: '默认字符串'
@@ -20,6 +26,11 @@ const schema = {
       name: '基础字段：数字类型示例',
       category: 'basic',
       dataType: 'number',
+      component: 'elementInputNumber',
+      componentProperties: {
+        min: 0,
+        max: 9999
+      },
       defaultValue: 100
     },
     {
@@ -27,6 +38,7 @@ const schema = {
       name: '基础字段：布尔类型示例',
       category: 'basic',
       dataType: 'boolean',
+      component: 'elementSwitch',
       defaultValue: true
     },
     {
@@ -34,6 +46,10 @@ const schema = {
       name: '基础字段：日期类型示例',
       category: 'basic',
       dataType: 'date',
+      component: 'elementDatePicker',
+      componentProperties: {
+        type: 'date'
+      },
       defaultValue: '2026-08-30'
     },
     {
@@ -41,6 +57,10 @@ const schema = {
       name: '基础字段：日期时间类型示例',
       category: 'basic',
       dataType: 'datetime',
+      component: 'elementDatePicker',
+      componentProperties: {
+        type: 'datetime'
+      },
       defaultValue: '2026-08-30T09:30'
     },
     {
@@ -48,18 +68,19 @@ const schema = {
       name: '基础字段：时间类型示例',
       category: 'basic',
       dataType: 'time',
+      component: 'elementTimePicker',
       defaultValue: '09:30'
     },
     {
-      key: 'componentFallback',
-      name: '基础字段：自定义组件与组件属性透传示例',
+      key: 'vueComponent',
+      name: '渲染器差异：Vue 自定义组件与属性透传示例',
       category: 'basic',
       dataType: 'string',
-      component: '未注册组件示例',
+      component: 'playgroundVueInput',
       componentProperties: {
-        placeholder: '该属性会透传给已注册组件；未注册时回退为原生输入框。'
+        placeholder: '此属性仅由 Vue 自定义组件以醒目的样式呈现。'
       },
-      hint: '展示 component 和 componentProperties 配置，以及未注册组件的原生控件回退。'
+      hint: 'H5 渲染器未注册该组件会回退原生输入框；Vue 渲染器会使用已注册的 Vue 组件。'
     },
     {
       key: 'objectField',
@@ -213,14 +234,26 @@ const schema = {
   ]
 };
 
-/** 当前选中的示例标签。 */
-const activeTab = ref<'render' | 'preset'>('render');
+/** 当前选中的一级渲染器。 */
+const activeRenderer = ref<'h5' | 'vue' | 'elementPlus'>('h5');
+
+/** 当前选中的二级初始化场景。 */
+const activeScenario = ref<'default' | 'preset'>('default');
 
 /** 当前示例表单的字段标签位置。 */
 const labelPosition = ref<'left' | 'top' | 'right'>('left');
 
 /** 标签位置切换器提供的可选项。 */
 const labelPositions = ['left', 'top', 'right'] as const;
+
+/** 按一级选择返回表单级渲染器；null 强制使用核心默认 H5 渲染。 */
+const selectedRenderer = computed(() =>
+  activeRenderer.value === 'vue'
+    ? playgroundVueRenderer
+    : activeRenderer.value === 'elementPlus'
+      ? elementPlusRenderer
+      : null
+);
 
 /** 将当前标签位置合并到传递给表单组件的 schema。 */
 const activeSchema = computed(() => ({
@@ -239,6 +272,15 @@ const presetValue = {
   stringArray: ['预设标签 A', '预设标签 B'],
   valueBindingSource: '预设同步值'
 };
+
+/** 当前工作台对应的说明标题。 */
+const rendererTitle = computed(() =>
+  activeRenderer.value === 'h5'
+    ? '默认 H5 渲染器'
+    : activeRenderer.value === 'vue'
+      ? 'Vue 渲染器'
+      : 'Vue + Element UI 渲染器'
+);
 </script>
 
 <template>
@@ -256,7 +298,7 @@ const presetValue = {
         <div>
           <p class="eyebrow">PLAYGROUND / VUE</p>
           <h1 id="page-title">动态表单示例</h1>
-          <p class="description">在不同初始化策略下检查 schema、默认值、预设值和字段联动。</p>
+          <p class="description">在同一份 schema 下，检查不同渲染器与初始化策略的表现。</p>
         </div>
         <div class="workspace-actions">
           <div class="label-position-control" role="group" aria-label="字段标签位置">
@@ -276,49 +318,48 @@ const presetValue = {
         </div>
       </div>
 
-      <nav class="tabs" aria-label="示例类型">
-        <button
-          type="button"
-          :class="{ active: activeTab === 'render' }"
-          :aria-selected="activeTab === 'render'"
-          @click="activeTab = 'render'"
-        >
-          表单渲染示例
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeTab === 'preset' }"
-          :aria-selected="activeTab === 'preset'"
-          @click="activeTab = 'preset'"
-        >
-          表单预设值加载示例
-        </button>
-      </nav>
+      <div class="renderer-workbench">
+        <nav class="renderer-rail" aria-label="渲染器选择">
+          <p>RENDERER</p>
+          <button :class="{ active: activeRenderer === 'h5' }" :aria-current="activeRenderer === 'h5' ? 'page' : undefined" type="button" @click="activeRenderer = 'h5'">
+            <strong>H5</strong><span>默认控件</span>
+          </button>
+          <button :class="{ active: activeRenderer === 'vue' }" :aria-current="activeRenderer === 'vue' ? 'page' : undefined" type="button" @click="activeRenderer = 'vue'">
+            <strong>Vue</strong><span>适配器渲染</span>
+          </button>
+          <button :class="{ active: activeRenderer === 'elementPlus' }" :aria-current="activeRenderer === 'elementPlus' ? 'page' : undefined" type="button" @click="activeRenderer = 'elementPlus'">
+            <strong>Element UI</strong><span>Element Plus 组件</span>
+          </button>
+        </nav>
 
-      <div class="content-grid">
-        <section class="form-surface" aria-live="polite">
-          <div v-if="activeTab === 'render'" class="tab-panel">
-            <div class="panel-heading">
-              <span>01 / 默认渲染</span>
-              <p>未传入预设值，字段按 schema 的默认值或 null 初始化。</p>
-            </div>
-            <form-easy :schema.prop="activeSchema" />
-          </div>
+        <div class="workbench-main">
+          <nav class="scenario-nav" aria-label="初始化场景">
+            <button :class="{ active: activeScenario === 'default' }" :aria-pressed="activeScenario === 'default'" type="button" @click="activeScenario = 'default'">默认值加载</button>
+            <button :class="{ active: activeScenario === 'preset' }" :aria-pressed="activeScenario === 'preset'" type="button" @click="activeScenario = 'preset'">预设值加载</button>
+          </nav>
 
-          <div v-else class="tab-panel">
-            <div class="panel-heading">
-              <span>02 / 预设值加载</span>
-              <p>传入预设值后，未出现在预设中的字段统一初始化为 null。</p>
-            </div>
-            <form-easy :schema.prop="activeSchema" :value.prop="presetValue" />
-          </div>
-        </section>
+          <div class="content-grid">
+            <section class="form-surface" aria-live="polite">
+              <div class="tab-panel">
+                <div class="panel-heading">
+                  <span>{{ activeRenderer === 'h5' ? '01 / H5 DEFAULT' : activeRenderer === 'vue' ? '02 / VUE ADAPTER' : '03 / ELEMENT PLUS' }}</span>
+                  <p>{{ activeScenario === 'default' ? '未传入预设值，字段按 schema 的默认值或 null 初始化。' : '传入预设值后，未出现在预设中的字段统一初始化为 null。' }}</p>
+                </div>
+                <form-easy
+                  :key="`${activeRenderer}-${activeScenario}-${labelPosition}`"
+                  :schema.prop="activeSchema"
+                  :value.prop="activeScenario === 'preset' ? presetValue : undefined"
+                  :basicFieldRenderer.prop="selectedRenderer"
+                />
+              </div>
+            </section>
 
-        <aside class="inspector" aria-label="示例说明">
-          <p class="eyebrow">INITIALIZATION</p>
-          <h2>{{ activeTab === 'render' ? '默认值路径' : '预设值路径' }}</h2>
+            <aside class="inspector" aria-label="示例说明">
+          <p class="eyebrow">{{ activeRenderer === 'h5' ? 'CORE RENDERER' : activeRenderer === 'vue' ? 'VUE ADAPTER' : 'ELEMENT PLUS' }}</p>
+          <h2>{{ rendererTitle }}</h2>
+          <p class="renderer-description">{{ activeRenderer === 'h5' ? '表单级传入 null，强制走 form-easy 内置 H5 控件与核心组件注册中心。' : activeRenderer === 'vue' ? '表单级传入 Vue renderer，组件名会从 Playground 的 Vue 专用注册中心解析。' : '表单级传入独立的 Element Plus renderer，elementInput、elementSwitch 等组件名会从该实例注册中心解析。' }}</p>
           <p class="current-position">当前标签位置：<strong>{{ labelPosition }}</strong></p>
-          <ol v-if="activeTab === 'render'">
+          <ol v-if="activeScenario === 'default'">
             <li>挂载表单控件并注册字段订阅。</li>
             <li>读取每个字段的 defaultValue。</li>
             <li>缺失默认值时写入 null 并触发 onChange。</li>
@@ -328,11 +369,13 @@ const presetValue = {
             <li>仅按预设对象写入字段值。</li>
             <li>缺失字段写入 null 并触发 onChange。</li>
           </ol>
-          <div v-if="activeTab === 'preset'" class="preset-preview">
+          <div v-if="activeScenario === 'preset'" class="preset-preview">
             <p>当前传入预设</p>
             <pre>{{ JSON.stringify(presetValue, null, 2) }}</pre>
           </div>
-        </aside>
+            </aside>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -399,15 +442,24 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
 .label-position-control button:hover { color: #101827; background: #f1f3f7; }
 .label-position-control button.active { color: #101827; background: #b9ff66; }
 
-.tabs { display: flex; gap: 28px; border-bottom: 1px solid #d9deea; }
+.renderer-workbench { display: grid; grid-template-columns: 170px minmax(0, 1fr); min-height: 620px; border-top: 1px solid #d9deea; border-bottom: 1px solid #d9deea; }
+.renderer-rail { display: flex; flex-direction: column; gap: 6px; padding: 28px 18px; border-right: 1px solid #d9deea; background: #f1f3f7; }
+.renderer-rail p { margin: 0 0 10px; color: #778298; font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+.renderer-rail button { display: grid; gap: 4px; padding: 12px; border: 1px solid transparent; border-radius: 6px; color: #69758a; background: transparent; cursor: pointer; text-align: left; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+.renderer-rail button:hover { color: #172033; background: #fff; }
+.renderer-rail button.active { border-color: #a7d76a; color: #172033; background: #fff; box-shadow: 0 2px 7px rgb(23 32 51 / 5%); }
+.renderer-rail strong { font-size: 15px; letter-spacing: -.02em; }
+.renderer-rail span { font-size: 11px; }
 
-.tabs button { position: relative; padding: 0 0 15px; border: 0; color: #7a8598; background: transparent; cursor: pointer; font: inherit; font-size: 14px; }
-.tabs button::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; content: ""; background: #101827; transform: scaleX(0); transition: transform .2s ease; }
-.tabs button:hover { color: #101827; }
-.tabs button.active { color: #101827; font-weight: 700; }
-.tabs button.active::after { transform: scaleX(1); }
+.workbench-main { min-width: 0; }
+.scenario-nav { display: flex; gap: 22px; padding: 21px 34px 0; border-bottom: 1px solid #e1e5ee; }
+.scenario-nav button { position: relative; padding: 0 0 14px; border: 0; color: #7a8598; background: transparent; cursor: pointer; font: inherit; font-size: 13px; }
+.scenario-nav button::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; content: ""; background: #101827; transform: scaleX(0); transition: transform .2s ease; }
+.scenario-nav button:hover { color: #101827; }
+.scenario-nav button.active { color: #101827; font-weight: 700; }
+.scenario-nav button.active::after { transform: scaleX(1); }
 
-.content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 56px; padding-top: 34px; }
+.content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 42px; padding: 30px 34px 38px; }
 
 .form-surface { min-width: 0; }
 .tab-panel { animation: panel-in .25s ease-out both; }
@@ -418,6 +470,7 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
 
 .inspector { align-self: start; padding: 3px 0 0 24px; border-left: 1px solid #d9deea; }
 .inspector h2 { margin-bottom: 18px; color: #1f2a3d; font-size: 20px; letter-spacing: -.035em; }
+.renderer-description { margin-bottom: 18px; color: #68758a; font-size: 13px; line-height: 1.55; }
 .current-position { margin-bottom: 20px; color: #718096; font-size: 13px; }
 .current-position strong { color: #27354f; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .inspector ol { padding-left: 19px; margin: 0; color: #68758a; font-size: 13px; line-height: 1.7; }
@@ -436,6 +489,10 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
   .workspace-heading, .panel-heading { align-items: flex-start; flex-direction: column; }
   .workspace-actions { align-items: flex-start; }
   .panel-heading p { text-align: left; }
+  .renderer-workbench { grid-template-columns: 1fr; border-top: 0; }
+  .renderer-rail { display: grid; grid-template-columns: 1fr 1fr; padding: 18px 0; border-right: 0; border-bottom: 1px solid #d9deea; background: transparent; }
+  .renderer-rail p { grid-column: 1 / -1; padding: 0 2px; }
+  .scenario-nav { padding: 20px 0 0; }
   .content-grid { grid-template-columns: 1fr; gap: 34px; }
   .inspector { padding: 22px 0 0; border-top: 1px solid #d9deea; border-left: 0; }
 }

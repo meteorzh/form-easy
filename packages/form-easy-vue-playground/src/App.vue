@@ -57,7 +57,7 @@ const schema = {
       name: '基础字段：日期时间类型示例',
       category: 'basic',
       dataType: 'datetime',
-      component: 'elementDatePicker',
+      component: 'elementDateTimePicker',
       componentProperties: {
         type: 'datetime'
       },

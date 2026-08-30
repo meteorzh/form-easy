@@ -14,7 +14,7 @@ import type {
 } from '../../types';
 
 /** 渲染单个字段，并提供通用的 form-easy 组件操作。 */
-@Component({ tag: 'form-easy-field', styleUrl: 'form-easy-field.css', shadow: true })
+@Component({ tag: 'form-easy-field', styleUrl: 'form-easy-field.css' })
 export class FormEasyField implements HandleTarget {
   /** 待渲染的字段定义。 */
   @Prop() field!: FormField;

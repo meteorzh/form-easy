@@ -4,7 +4,7 @@ import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
 /** 为数组字段提供添加和删除编辑功能。 */
-@Component({ tag: 'form-easy-array', styleUrl: 'form-easy-array.css', shadow: true })
+@Component({ tag: 'form-easy-array', styleUrl: 'form-easy-array.css' })
 export class FormEasyArray {
   /** 数组字段定义。 */
   @Prop() field!: FormField;

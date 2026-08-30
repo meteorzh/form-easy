@@ -4,7 +4,7 @@ import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
-@Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css', shadow: true })
+@Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css' })
 export class FormEasyObject {
   /** 子字段定义列表。 */
   @Prop() fields: FormField[] = [];

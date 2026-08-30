@@ -6,8 +6,7 @@ import type { FormChangeDetail, FormSchema, LabelPosition } from '../../types';
 /** 根据 JSON schema 渲染完整动态表单。 */
 @Component({
   tag: 'form-easy',
-  styleUrl: 'form-easy.css',
-  shadow: true
+  styleUrl: 'form-easy.css'
 })
 export class FormEasy {
   /** 描述表单及其字段的 JSON schema。 */

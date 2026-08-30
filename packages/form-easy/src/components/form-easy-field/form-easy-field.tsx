@@ -1,6 +1,8 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
-import { componentRegistry, type ComponentRegistry } from '../../managers/component-registry';
+import { componentRegistry } from '../../managers/component-registry';
 import { EventCenter } from '../../managers/event-center';
+import { getBasicFieldRenderer } from '../../renderers/basic-field-renderer';
+import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   ComponentEventName,
   ComponentHandle,
@@ -24,10 +26,13 @@ export class FormEasyField implements HandleTarget {
   @Prop() formKey!: string;
   /** 字段标签相对于编辑器的位置。 */
   @Prop() labelPosition: LabelPosition = 'left';
+  /**
+   * 当前字段所属表单指定的基础字段渲染器。
+   * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
+   */
+  @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 表单内所有字段共用的事件路由器。 */
   @Prop() eventCenter: EventCenter = new EventCenter();
-  /** 用于自定义基础控件的组件注册中心。 */
-  @Prop() registry: ComponentRegistry = componentRegistry;
   /** 向父级渲染器通知字段值变更。 */
   @Event() valueChange!: EventEmitter<unknown>;
 
@@ -39,6 +44,10 @@ export class FormEasyField implements HandleTarget {
   @State() private currentValue: unknown;
   /** 已注册事件订阅的清理回调。 */
   private unsubscribe: Array<() => void> = [];
+  /** 供框架渲染适配器挂载视图的稳定宿主元素。 */
+  private rendererHost?: HTMLDivElement;
+  /** 上一次实际用于渲染的适配器，用于切换时正确卸载。 */
+  private activeRenderer?: BasicFieldRenderer;
 
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
@@ -56,6 +65,17 @@ export class FormEasyField implements HandleTarget {
   disconnectedCallback(): void {
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
+    if (this.rendererHost) this.activeRenderer?.unmount(this.rendererHost);
+  }
+
+  /** 字段完成首次挂载后调用已注册的框架渲染适配器。 */
+  componentDidLoad(): void {
+    this.renderWithAdapter();
+  }
+
+  /** 字段状态或属性更新后同步更新已注册的框架渲染适配器。 */
+  componentDidUpdate(): void {
+    this.renderWithAdapter();
   }
 
   /** 供事件中心或外部代码执行标准操作命令。 */
@@ -261,9 +281,46 @@ export class FormEasyField implements HandleTarget {
     return <input type={type} value={String(this.currentValue ?? '')} disabled={this.disabled} onInput={this.onInput} />;
   }
 
+  /** 保存适配器宿主元素的引用。 */
+  private setRendererHost = (host?: HTMLDivElement): void => {
+    if (!host && this.rendererHost && this.activeRenderer) {
+      this.activeRenderer.unmount(this.rendererHost);
+      this.activeRenderer = undefined;
+    }
+    this.rendererHost = host;
+  };
+
+  /** 获取当前字段实际生效的渲染器。 */
+  private getActiveRenderer(): BasicFieldRenderer | undefined {
+    if (this.basicFieldRenderer === null) return undefined;
+    return this.basicFieldRenderer ?? getBasicFieldRenderer();
+  }
+
+  /** 在已注册的框架适配器中渲染或更新基础字段。 */
+  private renderWithAdapter(): void {
+    const renderer = this.getActiveRenderer();
+    if (this.activeRenderer && this.activeRenderer !== renderer && this.rendererHost) {
+      this.activeRenderer.unmount(this.rendererHost);
+      this.activeRenderer = undefined;
+    }
+    if (!renderer || !this.rendererHost || this.field.category !== 'basic') return;
+
+    this.activeRenderer = renderer;
+    renderer.render(this.rendererHost, {
+      field: this.field,
+      fieldId: this.fieldId,
+      value: this.currentValue,
+      disabled: this.disabled,
+      onChange: value => this.updateValue(value, 'onChange')
+    });
+  }
+
   /** 渲染已注册自定义组件或原生默认基础字段。 */
   private renderBasicField() {
-    const registered = this.registry.get(this.field.component);
+    if (this.getActiveRenderer()) {
+      return <div class="framework-renderer" ref={this.setRendererHost} />;
+    }
+    const registered = componentRegistry.get(this.field.component);
     if (!registered) return this.renderDefaultBasicField();
     return h(registered.tagName, {
       ...this.field.componentProperties,
@@ -282,9 +339,9 @@ export class FormEasyField implements HandleTarget {
           fieldId={this.fieldId}
           formKey={this.formKey}
           labelPosition={this.labelPosition}
+          basicFieldRenderer={this.basicFieldRenderer}
           value={this.currentValue}
           eventCenter={this.eventCenter}
-          registry={this.registry}
           disabled={this.disabled}
           onValueChange={this.onNestedValueChange}
         />
@@ -297,9 +354,9 @@ export class FormEasyField implements HandleTarget {
           fieldId={this.fieldId}
           formKey={this.formKey}
           labelPosition={this.labelPosition}
+          basicFieldRenderer={this.basicFieldRenderer}
           value={this.currentValue}
           eventCenter={this.eventCenter}
-          registry={this.registry}
           disabled={this.disabled}
           onValueChange={this.onNestedValueChange}
         />

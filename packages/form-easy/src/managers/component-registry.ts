@@ -4,18 +4,18 @@ export interface RegisteredComponent {
   tagName: string;
 }
 
-/** 供表单渲染器解析配置组件名称的注册中心。 */
-export class ComponentRegistry {
+/** 供表单渲染器解析配置组件名称的泛型注册中心。 */
+export class ComponentRegistry<T> {
   /** 按 schema 组件名称索引的已注册组件。 */
-  private readonly components = new Map<string, RegisteredComponent>();
+  private readonly components = new Map<string, T>();
 
-  /** 注册或替换一个自定义元素组件。 */
-  register(name: string, component: RegisteredComponent): void {
+  /** 注册或替换一个组件值。 */
+  register(name: string, component: T): void {
     this.components.set(name, component);
   }
 
-  /** 获取 schema 组件名称对应的已注册组件。 */
-  get(name: string | undefined): RegisteredComponent | undefined {
+  /** 获取 schema 组件名称对应的已注册组件值。 */
+  get(name: string | undefined): T | undefined {
     return name ? this.components.get(name) : undefined;
   }
 
@@ -25,5 +25,18 @@ export class ComponentRegistry {
   }
 }
 
-/** 未传入其他注册中心时，由 form-easy 实例共用的默认注册中心。 */
-export const componentRegistry = new ComponentRegistry();
+/** form-easy 默认 H5 渲染逻辑使用的组件注册中心。 */
+export const componentRegistry = new ComponentRegistry<RegisteredComponent>();
+
+/** 为默认 H5 渲染逻辑注册额外的自定义元素组件。 */
+export function registerExtraBasicFieldComponent(
+  name: string,
+  component: RegisteredComponent
+): void {
+  componentRegistry.register(name, component);
+}
+
+/** 从默认 H5 渲染逻辑中卸载额外的自定义元素组件。 */
+export function unregisterExtraBasicFieldComponent(name: string): void {
+  componentRegistry.unregister(name);
+}

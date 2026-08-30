@@ -1,6 +1,6 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
-import { componentRegistry, type ComponentRegistry } from '../../managers/component-registry';
 import { EventCenter } from '../../managers/event-center';
+import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
 /** 为数组字段提供添加和删除编辑功能。 */
@@ -14,12 +14,12 @@ export class FormEasyArray {
   @Prop() formKey!: string;
   /** 字段标签相对于编辑器的位置。 */
   @Prop() labelPosition: LabelPosition = 'left';
+  /** 当前表单指定的基础字段渲染器。 */
+  @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 当前数组值。 */
   @Prop() value: unknown;
   /** 共享事件路由器。 */
   @Prop() eventCenter: EventCenter = new EventCenter();
-  /** 共享自定义组件注册中心。 */
-  @Prop() registry: ComponentRegistry = componentRegistry;
   /** 是否禁用数组修改。 */
   @Prop() disabled = false;
   /** 数组变更后触发新的数组值。 */
@@ -71,9 +71,9 @@ export class FormEasyArray {
               fieldId={`${this.fieldId}[${index}]`}
               formKey={this.formKey}
               labelPosition={this.labelPosition}
+              basicFieldRenderer={this.basicFieldRenderer}
               value={item}
               eventCenter={this.eventCenter}
-              registry={this.registry}
               onValueChange={(event: CustomEvent<unknown>) => this.changeItem(index, event)}
             />
             <button type="button" disabled={this.disabled} onClick={() => this.removeItem(index)}>

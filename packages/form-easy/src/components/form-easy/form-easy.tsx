@@ -1,6 +1,6 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
-import { componentRegistry, type ComponentRegistry } from '../../managers/component-registry';
 import { EventCenter } from '../../managers/event-center';
+import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormChangeDetail, FormSchema, LabelPosition } from '../../types';
 
 /** 根据 JSON schema 渲染完整动态表单。 */
@@ -14,8 +14,11 @@ export class FormEasy {
   @Prop() schema!: FormSchema;
   /** 初始化完成后加载的表单预设值。 */
   @Prop() value?: Record<string, unknown>;
-  /** 用于解析自定义基础控件的组件注册中心。 */
-  @Prop() registry: ComponentRegistry = componentRegistry;
+  /**
+   * 当前表单的基础字段渲染器。
+   * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
+   */
+  @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
   /** 当前表单中全部字段渲染器共享的事件中心。 */
@@ -200,9 +203,9 @@ export class FormEasy {
             fieldId={`${schema.key}.${field.key}`}
             formKey={schema.key}
             labelPosition={this.labelPosition}
+            basicFieldRenderer={this.basicFieldRenderer}
             value={this.formData[field.key]}
             eventCenter={this.eventCenter}
-            registry={this.registry}
             onValueChange={(event: CustomEvent<unknown>) =>
               this.changeField(field.key!, `${schema.key}.${field.key}`, event)
             }

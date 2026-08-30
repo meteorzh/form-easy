@@ -12,6 +12,8 @@ small { color: #64748b; }
 .field--right .editor { grid-column: 1; grid-row: 1 / span 2; }
 .field--top { grid-template-columns: 1fr; }
 .required { color: #dc2626; }
+.framework-renderer { width: 100%; }
+.framework-renderer > * { width: 100%; }
 .editor input { box-sizing: border-box; min-height: 36px; padding: 6px 8px; }
 
 @media (max-width: 540px) {

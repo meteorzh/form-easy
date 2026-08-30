@@ -6,10 +6,10 @@
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
-import { ComponentRegistry } from "./managers/component-registry";
+import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
-export { ComponentRegistry } from "./managers/component-registry";
+export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export namespace Components {
     /**
@@ -17,10 +17,9 @@ export namespace Components {
      */
     interface FormEasy {
         /**
-          * 用于解析自定义基础控件的组件注册中心。
-          * @default componentRegistry
+          * 当前表单的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
          */
-        "registry": ComponentRegistry;
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 描述表单及其字段的 JSON schema。
          */
@@ -34,6 +33,10 @@ export namespace Components {
      * 为数组字段提供添加和删除编辑功能。
      */
     interface FormEasyArray {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -62,11 +65,6 @@ export namespace Components {
          */
         "labelPosition": LabelPosition;
         /**
-          * 共享自定义组件注册中心。
-          * @default componentRegistry
-         */
-        "registry": ComponentRegistry;
-        /**
           * 当前数组值。
          */
         "value": unknown;
@@ -79,6 +77,10 @@ export namespace Components {
           * 供事件中心或外部代码执行标准操作命令。
          */
         "applyHandle": (handle: ComponentHandle, value?: unknown, history?: EventFlowHistory) => Promise<void>;
+        /**
+          * 当前字段所属表单指定的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 表单内所有字段共用的事件路由器。
           * @default new EventCenter()
@@ -102,11 +104,6 @@ export namespace Components {
          */
         "labelPosition": LabelPosition;
         /**
-          * 用于自定义基础控件的组件注册中心。
-          * @default componentRegistry
-         */
-        "registry": ComponentRegistry;
-        /**
           * 当前字段值。
          */
         "value": unknown;
@@ -115,6 +112,10 @@ export namespace Components {
      * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
      */
     interface FormEasyObject {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 是否禁用嵌套字段编辑。
           * @default false
@@ -143,11 +144,6 @@ export namespace Components {
           * @default 'left'
          */
         "labelPosition": LabelPosition;
-        /**
-          * 共享自定义组件注册中心。
-          * @default componentRegistry
-         */
-        "registry": ComponentRegistry;
         /**
           * 当前对象值。
          */
@@ -266,14 +262,13 @@ declare namespace LocalJSX {
      */
     interface FormEasy {
         /**
+          * 当前表单的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
           * 每次值变更时触发字段和完整表单上下文。
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
-        /**
-          * 用于解析自定义基础控件的组件注册中心。
-          * @default componentRegistry
-         */
-        "registry"?: ComponentRegistry;
         /**
           * 描述表单及其字段的 JSON schema。
          */
@@ -287,6 +282,10 @@ declare namespace LocalJSX {
      * 为数组字段提供添加和删除编辑功能。
      */
     interface FormEasyArray {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -319,11 +318,6 @@ declare namespace LocalJSX {
          */
         "onValueChange"?: (event: FormEasyArrayCustomEvent<unknown[]>) => void;
         /**
-          * 共享自定义组件注册中心。
-          * @default componentRegistry
-         */
-        "registry"?: ComponentRegistry;
-        /**
           * 当前数组值。
          */
         "value"?: unknown;
@@ -332,6 +326,10 @@ declare namespace LocalJSX {
      * 渲染单个字段，并提供通用的 form-easy 组件操作。
      */
     interface FormEasyField {
+        /**
+          * 当前字段所属表单指定的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 表单内所有字段共用的事件路由器。
           * @default new EventCenter()
@@ -359,11 +357,6 @@ declare namespace LocalJSX {
          */
         "onValueChange"?: (event: FormEasyFieldCustomEvent<unknown>) => void;
         /**
-          * 用于自定义基础控件的组件注册中心。
-          * @default componentRegistry
-         */
-        "registry"?: ComponentRegistry;
-        /**
           * 当前字段值。
          */
         "value"?: unknown;
@@ -372,6 +365,10 @@ declare namespace LocalJSX {
      * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
      */
     interface FormEasyObject {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 是否禁用嵌套字段编辑。
           * @default false
@@ -404,11 +401,6 @@ declare namespace LocalJSX {
           * 子字段变更后触发完整的嵌套对象。
          */
         "onValueChange"?: (event: FormEasyObjectCustomEvent<Record<string, unknown>>) => void;
-        /**
-          * 共享自定义组件注册中心。
-          * @default componentRegistry
-         */
-        "registry"?: ComponentRegistry;
         /**
           * 当前对象值。
          */

@@ -1,6 +1,6 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
-import { componentRegistry, type ComponentRegistry } from '../../managers/component-registry';
 import { EventCenter } from '../../managers/event-center';
+import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
@@ -14,12 +14,12 @@ export class FormEasyObject {
   @Prop() formKey!: string;
   /** 字段标签相对于编辑器的位置。 */
   @Prop() labelPosition: LabelPosition = 'left';
+  /** 当前表单指定的基础字段渲染器。 */
+  @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 当前对象值。 */
   @Prop() value: unknown;
   /** 共享事件路由器。 */
   @Prop() eventCenter: EventCenter = new EventCenter();
-  /** 共享自定义组件注册中心。 */
-  @Prop() registry: ComponentRegistry = componentRegistry;
   /** 是否禁用嵌套字段编辑。 */
   @Prop() disabled = false;
   /** 子字段变更后触发完整的嵌套对象。 */
@@ -50,9 +50,9 @@ export class FormEasyObject {
             fieldId={`${this.fieldId}.${field.key}`}
             formKey={this.formKey}
             labelPosition={this.labelPosition}
+            basicFieldRenderer={this.basicFieldRenderer}
             value={this.objectValue[field.key]}
             eventCenter={this.eventCenter}
-            registry={this.registry}
             onValueChange={(event: CustomEvent<unknown>) => this.changeField(field.key!, event)}
           />
         ) : null)}

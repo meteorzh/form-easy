@@ -1,0 +1,22 @@
+{
+  "name": "form-easy-vue",
+  "version": "0.1.0",
+  "description": "Vue integration helpers for form-easy",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist/"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch"
+  },
+  "peerDependencies": {
+    "form-easy": "^0.1.0",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "form-easy": "file:../form-easy",
+    "vue": "^3.5.0"
+  },
+  "license": "MIT"
+}

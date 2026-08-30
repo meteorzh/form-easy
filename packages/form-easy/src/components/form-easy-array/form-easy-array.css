@@ -1,0 +1,5 @@
+:host { display: block; }
+.array { display: grid; gap: 8px; }
+.item { border: 1px solid #e2e8f0; padding: 12px; }
+button { width: fit-content; padding: 6px 10px; }
+.error { color: #dc2626; }

@@ -1,0 +1,21 @@
+{
+  "name": "form-easy-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Dynamic form components and Vue integrations",
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "lerna run build",
+    "dev": "npm run dev --workspace=form-easy-vue-playground",
+    "test": "lerna run test --if-present",
+    "lint": "lerna run lint --if-present",
+    "clean": "lerna clean --yes"
+  },
+  "devDependencies": {
+    "lerna": "^9.0.0",
+    "typescript": "^5.7.3"
+  }
+}

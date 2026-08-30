@@ -1,0 +1,32 @@
+{
+  "name": "form-easy",
+  "version": "0.1.0",
+  "description": "Dynamic form Web Components built with Stencil",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "collection": "dist/collection/collection-manifest.json",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs.js"
+    },
+    "./loader": {
+      "types": "./dist/loader/index.d.ts",
+      "import": "./dist/loader/index.js",
+      "require": "./dist/loader/index.cjs.js"
+    }
+  },
+  "files": ["dist/"],
+  "scripts": {
+    "build": "stencil build",
+    "dev": "stencil build --dev --watch",
+    "test": "stencil test --spec",
+    "generate": "stencil generate"
+  },
+  "dependencies": {
+    "@stencil/core": "^4.31.0"
+  },
+  "license": "MIT"
+}

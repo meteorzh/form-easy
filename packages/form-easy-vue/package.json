@@ -1,11 +1,42 @@
 {
   "name": "form-easy-vue",
   "version": "0.1.0",
-  "description": "Vue integration helpers for form-easy",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": ["dist/"],
+  "description": "form-easy 的 Vue 3 渲染器与 UI 组件库适配工具",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "keywords": [
+    "form",
+    "dynamic-form",
+    "vue",
+    "vue3",
+    "element-plus",
+    "form-easy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meteorzh/form-easy.git",
+    "directory": "packages/form-easy-vue"
+  },
+  "bugs": {
+    "url": "https://github.com/meteorzh/form-easy/issues"
+  },
+  "homepage": "https://github.com/meteorzh/form-easy#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch"
@@ -18,5 +49,5 @@
     "form-easy": "file:../form-easy",
     "vue": "^3.5.0"
   },
-  "license": "MIT"
+  "license": "Apache-2.0"
 }

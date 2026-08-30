@@ -1,7 +1,7 @@
 {
   "name": "form-easy",
   "version": "0.1.0",
-  "description": "Dynamic form Web Components built with Stencil",
+  "description": "JSON 驱动的动态表单 Web Components，基于 Stencil 构建",
   "main": "dist/index.cjs.js",
   "module": "dist/index.js",
   "types": "dist/types/index.d.ts",
@@ -18,7 +18,30 @@
       "require": "./dist/loader/index.cjs.js"
     }
   },
-  "files": ["dist/"],
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "keywords": [
+    "form",
+    "dynamic-form",
+    "json-schema",
+    "web-components",
+    "stencil",
+    "form-easy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meteorzh/form-easy.git",
+    "directory": "packages/form-easy"
+  },
+  "bugs": {
+    "url": "https://github.com/meteorzh/form-easy/issues"
+  },
+  "homepage": "https://github.com/meteorzh/form-easy#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "stencil build",
     "dev": "stencil build --dev --watch",
@@ -28,5 +51,5 @@
   "dependencies": {
     "@stencil/core": "^4.31.0"
   },
-  "license": "MIT"
+  "license": "Apache-2.0"
 }

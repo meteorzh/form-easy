@@ -136,6 +136,8 @@ userRenderer.registerFieldComponent('userNameInput', UserNameInput);
 
 schema 中配置 `component: 'userNameInput'` 后，渲染器会将 `componentProperties`、`modelValue`、`disabled` 和 `update:modelValue` 事件传递给该 Vue 组件。
 
+Vue 渲染器实例会自动注册默认组件列表；目前包含 `select`，会使用 `componentData` 渲染原生下拉选项。
+
 ### 使用 Element Plus 渲染器
 
 Element Plus 组件由业务方传入，因此 `form-easy-vue` 不会产生对 Element Plus 的直接依赖：
@@ -145,6 +147,8 @@ import {
   ElDatePicker,
   ElInput,
   ElInputNumber,
+  ElOption,
+  ElSelect,
   ElSwitch,
   ElTimePicker
 } from 'element-plus';
@@ -156,11 +160,13 @@ const elementRenderer = createElementPlusBasicFieldRenderer({
   inputNumber: ElInputNumber,
   switch: ElSwitch,
   datePicker: ElDatePicker,
-  timePicker: ElTimePicker
+  timePicker: ElTimePicker,
+  select: ElSelect,
+  option: ElOption
 });
 ```
 
-该渲染器预注册以下组件名：`elementInput`、`elementInputNumber`、`elementSwitch`、`elementDatePicker`、`elementDateTimePicker`、`elementTimePicker`。
+该渲染器预注册以下组件名：`elementInput`、`elementInputNumber`、`elementSwitch`、`elementDatePicker`、`elementDateTimePicker`、`elementTimePicker`。同时传入 `select: ElSelect` 与 `option: ElOption` 时，还会覆盖注册 `select`，以 `ElSelect + ElOption` 渲染 `componentData` 选项。
 
 ```ts
 const schema = {
@@ -215,6 +221,39 @@ const schema = {
 
 `dataType` 可取：`string`、`number`、`boolean`、`date`、`datetime`、`time`。
 
+### 默认基础组件
+
+核心包会在默认 H5 组件注册中心预注册常用组件。目前内置 `select`，可直接在字段中指定 `component: 'select'`；它接收 `componentData` 或由 `componentDataKey` 解析得到的选项数组：
+
+```ts
+{
+  key: 'status',
+  name: '状态',
+  category: 'basic',
+  dataType: 'string',
+  component: 'select',
+  componentData: [
+    { label: '草稿', value: 'draft' },
+    { label: '已启用', value: 'enabled' },
+    { label: '已停用', value: 'disabled', disabled: true }
+  ]
+}
+```
+
+可从 `componentRegistry` 获取默认 H5 注册中心；额外组件可用 `registerExtraBasicFieldComponent()` 注册，或使用 `unregisterExtraBasicFieldComponent()` 卸载。
+
+#### H5 默认渲染效果
+
+下图展示了默认 H5 渲染器：`select` 在选项加载完成后显示默认值“草稿”；紧随其后的字段使用不存在的数据键，因此显示字段级加载失败提示。
+
+![H5 默认 Select 与数据加载失败效果](./docs/images/playground-h5-select.png)
+
+#### Element Plus 渲染效果
+
+同一份 `component: 'select'` 配置，在 Element Plus 渲染器中会被映射为 `ElSelect + ElOption`；其他基础字段也会使用已注册的 Element Plus 组件。
+
+![Element Plus Select 与数据加载失败效果](./docs/images/playground-element-plus-select.png)
+
 ### 对象与数组字段
 
 ```ts
@@ -259,6 +298,35 @@ const isolatedEventCenter = new EventCenter();
 ```vue
 <form-easy :schema.prop="schema" :eventCenter.prop="isolatedEventCenter" />
 ```
+
+### 组件数据加载
+
+为下拉框等组件配置 `componentData` 可直接提供数据；配置 `componentDataKey` 时，字段将按“表单级解析器 → 全局解析器”的顺序异步加载数据。加载完成前不会挂载实际字段组件，因此不会出现组件先接收值、后接收选项的时序问题。
+
+```ts
+import { registerGlobalComponentDataResolver } from 'form-easy';
+
+registerGlobalComponentDataResolver(async ({ componentDataKey, signal }) => {
+  const response = await fetch(`/api/options/${componentDataKey}`, { signal });
+  if (!response.ok) throw new Error('选项加载失败');
+  return response.json();
+});
+
+const schema = {
+  key: 'settings',
+  name: '设置',
+  fields: [{
+    key: 'status',
+    name: '状态',
+    category: 'basic',
+    dataType: 'string',
+    component: 'statusSelect',
+    componentDataKey: 'status-options'
+  }]
+};
+```
+
+`componentData` 优先于 `componentDataKey`；两者同时出现时会输出警告并使用前者。解析器接收字段、字段标识、表单键及 `AbortSignal`，字段卸载或配置变更时会自动取消旧请求。数据最终作为 `componentData` 属性传给自定义组件。
 
 ## 本地开发 🛠️
 

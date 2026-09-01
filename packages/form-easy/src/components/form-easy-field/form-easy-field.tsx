@@ -1,11 +1,13 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
 import { componentRegistry } from '../../managers/component-registry';
+import { getGlobalComponentDataResolver } from '../../managers/component-data-resolver';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import { getBasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   ComponentEventName,
   ComponentHandle,
+  ComponentDataResolver,
   EventFlowHistory,
   FieldBinding,
   FormField,
@@ -31,6 +33,8 @@ export class FormEasyField implements HandleTarget {
    * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
    */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
+  /** 当前表单覆盖全局配置的组件数据解析器。 */
+  @Prop() componentDataResolver?: ComponentDataResolver;
   /** 表单内所有字段共用的事件路由器。 */
   @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 向父级渲染器通知字段值变更。 */
@@ -42,17 +46,26 @@ export class FormEasyField implements HandleTarget {
   @State() private disabled = false;
   /** 本地维护的字段值。 */
   @State() private currentValue: unknown;
+  /** 已为当前组件准备完成的数据。 */
+  @State() private componentData: unknown;
+  /** 组件数据是否仍在加载。 */
+  @State() private componentDataLoading = false;
+  /** 组件数据加载失败时保留的错误。 */
+  @State() private componentDataError?: Error;
   /** 已注册事件订阅的清理回调。 */
   private unsubscribe: Array<() => void> = [];
   /** 供框架渲染适配器挂载视图的稳定宿主元素。 */
   private rendererHost?: HTMLDivElement;
   /** 上一次实际用于渲染的适配器，用于切换时正确卸载。 */
   private activeRenderer?: BasicFieldRenderer;
+  /** 用于取消已过期组件数据请求的控制器。 */
+  private componentDataAbortController?: AbortController;
 
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
     this.currentValue = this.value ?? null;
     this.registerSubscriptions();
+    void this.prepareComponentData();
   }
 
   /** 将根表单传入的新字段值同步到当前字段。 */
@@ -61,10 +74,23 @@ export class FormEasyField implements HandleTarget {
     this.currentValue = newValue ?? null;
   }
 
+  /** 字段配置更新后重新解析组件数据。 */
+  @Watch('field')
+  reloadComponentData(): void {
+    void this.prepareComponentData();
+  }
+
+  /** 表单级解析器更新后重新解析组件数据。 */
+  @Watch('componentDataResolver')
+  reloadComponentDataResolver(): void {
+    void this.prepareComponentData();
+  }
+
   /** 当前字段被移除时释放事件订阅。 */
   disconnectedCallback(): void {
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
+    this.componentDataAbortController?.abort();
     if (this.rendererHost) this.activeRenderer?.unmount(this.rendererHost);
   }
 
@@ -272,6 +298,66 @@ export class FormEasyField implements HandleTarget {
     return value;
   }
 
+  /** 当前字段是否声明了需要准备的组件数据。 */
+  private hasComponentDataConfiguration(): boolean {
+    return Object.prototype.hasOwnProperty.call(this.field, 'componentData')
+      || Boolean(this.field.componentDataKey);
+  }
+
+  /** 按字段显式数据、表单级解析器、全局解析器的优先级准备组件数据。 */
+  private async prepareComponentData(): Promise<void> {
+    this.componentDataAbortController?.abort();
+    this.componentDataError = undefined;
+
+    if (this.field.category !== 'basic' || !this.hasComponentDataConfiguration()) {
+      this.componentData = undefined;
+      this.componentDataLoading = false;
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(this.field, 'componentData')) {
+      if (this.field.componentDataKey) {
+        console.warn(`字段“${this.fieldId}”同时配置了 componentData 和 componentDataKey；将使用 componentData。`);
+      }
+      this.componentData = this.field.componentData;
+      this.componentDataLoading = false;
+      return;
+    }
+
+    const resolver = this.componentDataResolver ?? getGlobalComponentDataResolver();
+    if (!resolver || !this.field.componentDataKey) {
+      this.componentData = undefined;
+      this.componentDataLoading = false;
+      this.componentDataError = new Error(`字段“${this.fieldId}”未找到 componentDataKey 对应的组件数据解析器。`);
+      console.error(this.componentDataError);
+      return;
+    }
+
+    const abortController = new AbortController();
+    this.componentDataAbortController = abortController;
+    this.componentDataLoading = true;
+    try {
+      const componentData = await resolver({
+        componentDataKey: this.field.componentDataKey,
+        field: this.field,
+        fieldId: this.fieldId,
+        formKey: this.formKey,
+        signal: abortController.signal
+      });
+      if (abortController.signal.aborted) return;
+      this.componentData = componentData;
+      this.componentDataError = undefined;
+    } catch (error) {
+      if (abortController.signal.aborted) return;
+      this.componentData = undefined;
+      this.componentDataError = error instanceof Error
+        ? error
+        : new Error(String(error));
+      console.error(`字段“${this.fieldId}”加载组件数据失败：`, this.componentDataError);
+    } finally {
+      if (!abortController.signal.aborted) this.componentDataLoading = false;
+    }
+  }
+
   /** 未选择已注册组件时渲染原生 HTML 输入控件。 */
   private renderDefaultBasicField() {
     const type = this.field.dataType === 'datetime' ? 'datetime-local' : this.field.dataType === 'string' ? 'text' : this.field.dataType ?? 'text';
@@ -303,7 +389,7 @@ export class FormEasyField implements HandleTarget {
       this.activeRenderer.unmount(this.rendererHost);
       this.activeRenderer = undefined;
     }
-    if (!renderer || !this.rendererHost || this.field.category !== 'basic') return;
+    if (!renderer || !this.rendererHost || this.field.category !== 'basic' || this.componentDataLoading || this.componentDataError) return;
 
     this.activeRenderer = renderer;
     renderer.render(this.rendererHost, {
@@ -311,12 +397,15 @@ export class FormEasyField implements HandleTarget {
       fieldId: this.fieldId,
       value: this.currentValue,
       disabled: this.disabled,
+      componentData: this.componentData,
       onChange: value => this.updateValue(value, 'onChange')
     });
   }
 
   /** 渲染已注册自定义组件或原生默认基础字段。 */
   private renderBasicField() {
+    if (this.componentDataLoading) return <p class="component-data-status">正在加载组件数据…</p>;
+    if (this.componentDataError) return <p class="component-data-status component-data-status--error">组件数据加载失败。</p>;
     if (this.getActiveRenderer()) {
       return <div class="framework-renderer" ref={this.setRendererHost} />;
     }
@@ -325,8 +414,10 @@ export class FormEasyField implements HandleTarget {
     return h(registered.tagName, {
       ...this.field.componentProperties,
       value: this.currentValue,
+      componentData: this.componentData,
       disabled: this.disabled,
-      onChange: (event: CustomEvent<unknown>) => this.updateValue(event.detail, 'onChange')
+      onChange: (event: CustomEvent<unknown>) => this.updateValue(event.detail, 'onChange'),
+      onValueChange: (event: CustomEvent<unknown>) => this.updateValue(event.detail, 'onChange')
     });
   }
 
@@ -340,6 +431,7 @@ export class FormEasyField implements HandleTarget {
           formKey={this.formKey}
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
+          componentDataResolver={this.componentDataResolver}
           value={this.currentValue}
           eventCenter={this.eventCenter}
           disabled={this.disabled}
@@ -355,6 +447,7 @@ export class FormEasyField implements HandleTarget {
           formKey={this.formKey}
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
+          componentDataResolver={this.componentDataResolver}
           value={this.currentValue}
           eventCenter={this.eventCenter}
           disabled={this.disabled}

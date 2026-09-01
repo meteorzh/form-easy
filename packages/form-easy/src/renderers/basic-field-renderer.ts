@@ -10,6 +10,8 @@ export interface BasicFieldRenderContext {
   value: unknown;
   /** 当前字段是否禁用。 */
   disabled: boolean;
+  /** 已准备完成并可供组件使用的数据。 */
+  componentData: unknown;
   /** 将渲染器中的值变更同步回表单字段。 */
   onChange: (value: unknown) => void;
 }

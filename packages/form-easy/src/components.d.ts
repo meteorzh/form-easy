@@ -5,10 +5,10 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+import { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
-export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+export { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export namespace Components {
@@ -20,6 +20,10 @@ export namespace Components {
           * 当前表单的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
         /**
           * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
          */
@@ -41,6 +45,10 @@ export namespace Components {
           * 当前表单指定的基础字段渲染器。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -86,6 +94,10 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
+        /**
           * 表单内所有字段共用的事件路由器。
           * @default globalEventCenter
          */
@@ -121,6 +133,10 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
+        /**
           * 是否禁用嵌套字段编辑。
           * @default false
          */
@@ -153,6 +169,29 @@ export namespace Components {
          */
         "value": unknown;
     }
+    /**
+     * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
+     */
+    interface FormEasySelect {
+        /**
+          * 由字段组件数据加载机制提供的下拉选项。
+         */
+        "componentData": unknown;
+        /**
+          * 是否禁用当前控件。
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * 未选择值时展示的占位选项文本。
+          * @default '请选择'
+         */
+        "placeholder": string;
+        /**
+          * 当前字段值。
+         */
+        "value": unknown;
+    }
 }
 export interface FormEasyCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -169,6 +208,10 @@ export interface FormEasyFieldCustomEvent<T> extends CustomEvent<T> {
 export interface FormEasyObjectCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLFormEasyObjectElement;
+}
+export interface FormEasySelectCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLFormEasySelectElement;
 }
 declare global {
     interface HTMLFormEasyElementEventMap {
@@ -251,11 +294,32 @@ declare global {
         prototype: HTMLFormEasyObjectElement;
         new (): HTMLFormEasyObjectElement;
     };
+    interface HTMLFormEasySelectElementEventMap {
+        "valueChange": string | number;
+    }
+    /**
+     * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
+     */
+    interface HTMLFormEasySelectElement extends Components.FormEasySelect, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLFormEasySelectElementEventMap>(type: K, listener: (this: HTMLFormEasySelectElement, ev: FormEasySelectCustomEvent<HTMLFormEasySelectElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLFormEasySelectElementEventMap>(type: K, listener: (this: HTMLFormEasySelectElement, ev: FormEasySelectCustomEvent<HTMLFormEasySelectElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLFormEasySelectElement: {
+        prototype: HTMLFormEasySelectElement;
+        new (): HTMLFormEasySelectElement;
+    };
     interface HTMLElementTagNameMap {
         "form-easy": HTMLFormEasyElement;
         "form-easy-array": HTMLFormEasyArrayElement;
         "form-easy-field": HTMLFormEasyFieldElement;
         "form-easy-object": HTMLFormEasyObjectElement;
+        "form-easy-select": HTMLFormEasySelectElement;
     }
 }
 declare namespace LocalJSX {
@@ -269,6 +333,10 @@ declare namespace LocalJSX {
           * 当前表单的基础字段渲染器。 undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
         /**
           * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
          */
@@ -294,6 +362,10 @@ declare namespace LocalJSX {
           * 当前表单指定的基础字段渲染器。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -339,6 +411,10 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
+        /**
           * 表单内所有字段共用的事件路由器。
           * @default globalEventCenter
          */
@@ -378,6 +454,10 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单覆盖全局配置的组件数据解析器。
+         */
+        "componentDataResolver"?: ComponentDataResolver;
+        /**
           * 是否禁用嵌套字段编辑。
           * @default false
          */
@@ -414,6 +494,33 @@ declare namespace LocalJSX {
          */
         "value"?: unknown;
     }
+    /**
+     * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
+     */
+    interface FormEasySelect {
+        /**
+          * 由字段组件数据加载机制提供的下拉选项。
+         */
+        "componentData"?: unknown;
+        /**
+          * 是否禁用当前控件。
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * 值变更时通知 form-easy 字段。
+         */
+        "onValueChange"?: (event: FormEasySelectCustomEvent<string | number>) => void;
+        /**
+          * 未选择值时展示的占位选项文本。
+          * @default '请选择'
+         */
+        "placeholder"?: string;
+        /**
+          * 当前字段值。
+         */
+        "value"?: unknown;
+    }
 
     interface FormEasyArrayAttributes {
         "fieldId": string;
@@ -432,12 +539,17 @@ declare namespace LocalJSX {
         "labelPosition": LabelPosition;
         "disabled": boolean;
     }
+    interface FormEasySelectAttributes {
+        "disabled": boolean;
+        "placeholder": string;
+    }
 
     interface IntrinsicElements {
         "form-easy": FormEasy;
         "form-easy-array": Omit<FormEasyArray, keyof FormEasyArrayAttributes> & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes]?: FormEasyArray[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `attr:${K}`]?: FormEasyArrayAttributes[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `prop:${K}`]?: FormEasyArray[K] } & OneOf<"fieldId", FormEasyArray["fieldId"], FormEasyArrayAttributes["fieldId"]> & OneOf<"formKey", FormEasyArray["formKey"], FormEasyArrayAttributes["formKey"]>;
         "form-easy-field": Omit<FormEasyField, keyof FormEasyFieldAttributes> & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes]?: FormEasyField[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `attr:${K}`]?: FormEasyFieldAttributes[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `prop:${K}`]?: FormEasyField[K] } & OneOf<"fieldId", FormEasyField["fieldId"], FormEasyFieldAttributes["fieldId"]> & OneOf<"formKey", FormEasyField["formKey"], FormEasyFieldAttributes["formKey"]>;
         "form-easy-object": Omit<FormEasyObject, keyof FormEasyObjectAttributes> & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes]?: FormEasyObject[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `attr:${K}`]?: FormEasyObjectAttributes[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `prop:${K}`]?: FormEasyObject[K] } & OneOf<"fieldId", FormEasyObject["fieldId"], FormEasyObjectAttributes["fieldId"]> & OneOf<"formKey", FormEasyObject["formKey"], FormEasyObjectAttributes["formKey"]>;
+        "form-easy-select": Omit<FormEasySelect, keyof FormEasySelectAttributes> & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes]?: FormEasySelect[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `attr:${K}`]?: FormEasySelectAttributes[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `prop:${K}`]?: FormEasySelect[K] };
     }
 }
 export { LocalJSX as JSX };
@@ -460,6 +572,10 @@ declare module "@stencil/core" {
              * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
              */
             "form-easy-object": LocalJSX.IntrinsicElements["form-easy-object"] & JSXBase.HTMLAttributes<HTMLFormEasyObjectElement>;
+            /**
+             * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
+             */
+            "form-easy-select": LocalJSX.IntrinsicElements["form-easy-select"] & JSXBase.HTMLAttributes<HTMLFormEasySelectElement>;
         }
     }
 }

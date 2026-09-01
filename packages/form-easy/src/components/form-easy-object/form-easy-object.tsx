@@ -1,7 +1,7 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { FormField, LabelPosition } from '../../types';
+import type { ComponentDataResolver, FormField, LabelPosition } from '../../types';
 
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
 @Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css' })
@@ -16,6 +16,8 @@ export class FormEasyObject {
   @Prop() labelPosition: LabelPosition = 'left';
   /** 当前表单指定的基础字段渲染器。 */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
+  /** 当前表单覆盖全局配置的组件数据解析器。 */
+  @Prop() componentDataResolver?: ComponentDataResolver;
   /** 当前对象值。 */
   @Prop() value: unknown;
   /** 共享事件路由器。 */
@@ -51,6 +53,7 @@ export class FormEasyObject {
             formKey={this.formKey}
             labelPosition={this.labelPosition}
             basicFieldRenderer={this.basicFieldRenderer}
+            componentDataResolver={this.componentDataResolver}
             value={this.objectValue[field.key]}
             eventCenter={this.eventCenter}
             onValueChange={(event: CustomEvent<unknown>) => this.changeField(field.key!, event)}

@@ -2,6 +2,8 @@ import {
   ElDatePicker,
   ElInput,
   ElInputNumber,
+  ElOption,
+  ElSelect,
   ElSwitch,
   ElTimePicker
 } from 'element-plus';
@@ -13,5 +15,7 @@ export const elementPlusRenderer = createElementPlusBasicFieldRenderer({
   inputNumber: ElInputNumber,
   switch: ElSwitch,
   datePicker: ElDatePicker,
-  timePicker: ElTimePicker
+  timePicker: ElTimePicker,
+  select: ElSelect,
+  option: ElOption
 });

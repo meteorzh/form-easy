@@ -1,7 +1,12 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { FormChangeDetail, FormSchema, LabelPosition } from '../../types';
+import type {
+  ComponentDataResolver,
+  FormChangeDetail,
+  FormSchema,
+  LabelPosition
+} from '../../types';
 
 /** 根据 JSON schema 渲染完整动态表单。 */
 @Component({
@@ -23,6 +28,8 @@ export class FormEasy {
    * 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
    */
   @Prop() eventCenter?: EventCenter;
+  /** 当前表单覆盖全局配置的组件数据解析器。 */
+  @Prop() componentDataResolver?: ComponentDataResolver;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
   /** 当前完整表单数据。 */
@@ -211,6 +218,7 @@ export class FormEasy {
             formKey={schema.key}
             labelPosition={this.labelPosition}
             basicFieldRenderer={this.basicFieldRenderer}
+            componentDataResolver={this.componentDataResolver}
             value={this.formData[field.key]}
             eventCenter={this.activeEventCenter}
             onValueChange={(event: CustomEvent<unknown>) =>

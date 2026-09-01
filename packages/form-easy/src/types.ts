@@ -70,11 +70,34 @@ export interface FormField {
   fields?: FormField[];
   /** 透传给已注册自定义组件的属性。 */
   componentProperties?: Record<string, unknown>;
+  /** 直接提供给组件的数据，优先于 componentDataKey。 */
+  componentData?: unknown;
+  /** 用于通过组件数据解析器加载数据的业务键。 */
+  componentDataKey?: string;
   /** 当前字段拥有的事件订阅配置。 */
   eventSubscriptions?: EventSubscription[];
   /** 当前字段拥有的单向绑定配置。 */
   binds?: FieldBinding[];
 }
+
+/** 组件数据解析器执行时携带的上下文。 */
+export interface ComponentDataResolverContext {
+  /** 当前字段的组件数据键。 */
+  componentDataKey: string;
+  /** 当前字段配置。 */
+  field: FormField;
+  /** 当前字段完整唯一标识。 */
+  fieldId: string;
+  /** 当前所属表单键。 */
+  formKey: string;
+  /** 用于取消过期异步请求的信号。 */
+  signal: AbortSignal;
+}
+
+/** 根据字段配置加载组件数据的函数。 */
+export type ComponentDataResolver = (
+  context: ComponentDataResolverContext
+) => unknown | Promise<unknown>;
 
 /** 描述完整的动态表单。 */
 export interface FormSchema {

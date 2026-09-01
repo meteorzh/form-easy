@@ -42,6 +42,28 @@ const schema = {
       defaultValue: true
     },
     {
+      key: 'selectField',
+      name: '默认组件：select 与 componentDataKey 选项加载示例',
+      category: 'basic',
+      dataType: 'string',
+      component: 'select',
+      componentDataKey: 'playground-status-options',
+      componentProperties: {
+        placeholder: '请选择状态'
+      },
+      hint: '核心包会预注册 select；该示例通过全局解析器异步加载选项。',
+      defaultValue: 'draft'
+    },
+    {
+      key: 'selectDataFailureField',
+      name: '组件数据：select 选项加载失败示例',
+      category: 'basic',
+      dataType: 'string',
+      component: 'select',
+      componentDataKey: 'playground-missing-options',
+      hint: '数据键不存在时会显示字段级错误，且不会挂载实际 select 组件。'
+    },
+    {
       key: 'dateField',
       name: '基础字段：日期类型示例',
       category: 'basic',
@@ -266,6 +288,7 @@ const presetValue = {
   stringDefault: '预设值覆盖字符串默认值',
   numberField: 2026,
   booleanField: false,
+  selectField: 'enabled',
   objectField: {
     nickname: '预设昵称'
   },

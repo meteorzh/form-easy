@@ -10,6 +10,7 @@ export {
 } from './basic-field-renderer';
 
 export type { VueBasicFieldRenderer } from './basic-field-renderer';
+export { defaultVueFieldComponents } from './basic/default-components';
 
 export { createElementPlusBasicFieldRenderer } from './element-plus-basic-field-renderer';
 export type { ElementPlusFieldComponents } from './element-plus-basic-field-renderer';

@@ -59,3 +59,32 @@ export class EventCenter {
     return `${fieldId}::${eventName}`;
   }
 }
+
+/** 用于跨 form-easy 打包入口共享全局事件中心的注册键。 */
+const GLOBAL_EVENT_CENTER_KEY = Symbol.for('form-easy.global-event-center');
+
+/** 全局对象上保存事件中心实例的内部类型。 */
+type GlobalEventCenterStore = typeof globalThis & {
+  /** 可选的全局共享事件中心实例。 */
+  [GLOBAL_EVENT_CENTER_KEY]?: EventCenter;
+};
+
+/** 全部未指定事件中心的表单共用的默认事件中心。 */
+const globalEventCenterStore = globalThis as GlobalEventCenterStore;
+
+/**
+ * 获取全局共享事件中心。
+ *
+ * 使用 Symbol.for 保存实例，确保通过不同 Stencil 打包入口加载时仍能共享同一中心。
+ */
+export function getGlobalEventCenter(): EventCenter {
+  const existingEventCenter = globalEventCenterStore[GLOBAL_EVENT_CENTER_KEY];
+  if (existingEventCenter) return existingEventCenter;
+
+  const eventCenter = new EventCenter();
+  globalEventCenterStore[GLOBAL_EVENT_CENTER_KEY] = eventCenter;
+  return eventCenter;
+}
+
+/** 全局共享事件中心实例。 */
+export const globalEventCenter = getGlobalEventCenter();

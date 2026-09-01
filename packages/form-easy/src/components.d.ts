@@ -21,6 +21,10 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
+         */
+        "eventCenter"?: EventCenter;
+        /**
           * 描述表单及其字段的 JSON schema。
          */
         "schema": FormSchema;
@@ -44,7 +48,7 @@ export namespace Components {
         "disabled": boolean;
         /**
           * 共享事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter": EventCenter;
         /**
@@ -83,7 +87,7 @@ export namespace Components {
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 表单内所有字段共用的事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter": EventCenter;
         /**
@@ -123,7 +127,7 @@ export namespace Components {
         "disabled": boolean;
         /**
           * 共享事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter": EventCenter;
         /**
@@ -266,6 +270,10 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
+         */
+        "eventCenter"?: EventCenter;
+        /**
           * 每次值变更时触发字段和完整表单上下文。
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
@@ -293,7 +301,7 @@ declare namespace LocalJSX {
         "disabled"?: boolean;
         /**
           * 共享事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter"?: EventCenter;
         /**
@@ -332,7 +340,7 @@ declare namespace LocalJSX {
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
           * 表单内所有字段共用的事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter"?: EventCenter;
         /**
@@ -376,7 +384,7 @@ declare namespace LocalJSX {
         "disabled"?: boolean;
         /**
           * 共享事件路由器。
-          * @default new EventCenter()
+          * @default globalEventCenter
          */
         "eventCenter"?: EventCenter;
         /**

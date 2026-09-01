@@ -1,5 +1,5 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
-import { EventCenter } from '../../managers/event-center';
+import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
@@ -19,7 +19,7 @@ export class FormEasyObject {
   /** 当前对象值。 */
   @Prop() value: unknown;
   /** 共享事件路由器。 */
-  @Prop() eventCenter: EventCenter = new EventCenter();
+  @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 是否禁用嵌套字段编辑。 */
   @Prop() disabled = false;
   /** 子字段变更后触发完整的嵌套对象。 */

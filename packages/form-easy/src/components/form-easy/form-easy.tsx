@@ -1,5 +1,5 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
-import { EventCenter } from '../../managers/event-center';
+import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormChangeDetail, FormSchema, LabelPosition } from '../../types';
 
@@ -18,16 +18,24 @@ export class FormEasy {
    * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
    */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
+  /**
+   * 当前表单使用的事件中心。
+   * 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
+   */
+  @Prop() eventCenter?: EventCenter;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
-  /** 当前表单中全部字段渲染器共享的事件中心。 */
-  private readonly eventCenter = new EventCenter();
   /** 当前完整表单数据。 */
   @State() private formData: Record<string, unknown> = {};
 
   /** 当前表单生效的字段标签位置。 */
   private get labelPosition(): LabelPosition {
     return this.schema.labelPosition ?? 'left';
+  }
+
+  /** 获取当前表单实际使用的事件中心。 */
+  private get activeEventCenter(): EventCenter {
+    return this.eventCenter ?? globalEventCenter;
   }
 
   /** 初始化第一阶段：挂载控件时先提供空表单数据。 */
@@ -159,7 +167,7 @@ export class FormEasy {
 
       const fieldId = `${parentFieldId}.${field.key}`;
       const fieldValue = data[field.key] ?? null;
-      this.eventCenter.publish(fieldId, 'onChange', fieldValue);
+      this.activeEventCenter.publish(fieldId, 'onChange', fieldValue);
 
       if (field.category === 'object' && this.isRecord(fieldValue)) {
         this.publishFieldChanges(field.fields ?? [], fieldId, fieldValue);
@@ -181,7 +189,7 @@ export class FormEasy {
 
     items.forEach((item, index) => {
       const elementId = `${fieldId}[${index}]`;
-      this.eventCenter.publish(elementId, 'onChange', item);
+      this.activeEventCenter.publish(elementId, 'onChange', item);
       if (element.category === 'object' && this.isRecord(item)) {
         this.publishFieldChanges(element.fields ?? [], elementId, item);
       }
@@ -204,7 +212,7 @@ export class FormEasy {
             labelPosition={this.labelPosition}
             basicFieldRenderer={this.basicFieldRenderer}
             value={this.formData[field.key]}
-            eventCenter={this.eventCenter}
+            eventCenter={this.activeEventCenter}
             onValueChange={(event: CustomEvent<unknown>) =>
               this.changeField(field.key!, `${schema.key}.${field.key}`, event)
             }

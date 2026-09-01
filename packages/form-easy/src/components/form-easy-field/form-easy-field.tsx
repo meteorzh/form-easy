@@ -1,6 +1,6 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
 import { componentRegistry } from '../../managers/component-registry';
-import { EventCenter } from '../../managers/event-center';
+import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import { getBasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
@@ -32,7 +32,7 @@ export class FormEasyField implements HandleTarget {
    */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 表单内所有字段共用的事件路由器。 */
-  @Prop() eventCenter: EventCenter = new EventCenter();
+  @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 向父级渲染器通知字段值变更。 */
   @Event() valueChange!: EventEmitter<unknown>;
 

@@ -5,8 +5,8 @@ import {
   EndpointManager,
   registerGlobalComponentDataManager,
   registerGlobalEndpointManager
-} from 'form-easy';
-import { defineCustomElements } from 'form-easy/loader';
+} from '@wenzhencn/form-easy';
+import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 import 'element-plus/dist/index.css';
 
 /** 为 Playground 示例注册按数据键加载的下拉选项。 */

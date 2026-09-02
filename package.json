@@ -12,7 +12,8 @@
     "dev": "npm run dev --workspace=form-easy-vue-playground",
     "test": "lerna run test --if-present",
     "lint": "lerna run lint --if-present",
-    "clean": "lerna clean --yes"
+    "clean": "lerna clean --yes",
+    "publish": "npm run build && npm publish -w ./packages/form-easy --registry=https://registry.npmjs.org && npm publish -w ./packages/form-easy-vue --registry=https://registry.npmjs.org"
   },
   "devDependencies": {
     "lerna": "^9.0.0",

@@ -1,13 +1,13 @@
-# form-easy ✨
+# @wenzhencn/form-easy ✨
 
 JSON 驱动的动态表单 Web Components，基于 Stencil 构建。
 
 ```bash
-npm install form-easy
+npm install @wenzhencn/form-easy
 ```
 
 ```ts
-import { defineCustomElements } from 'form-easy/loader';
+import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 
 defineCustomElements();
 ```

@@ -1,5 +1,5 @@
 {
-  "name": "form-easy",
+  "name": "@wenzhencn/form-easy",
   "version": "0.1.0",
   "description": "JSON 驱动的动态表单 Web Components，基于 Stencil 构建",
   "main": "dist/index.cjs.js",

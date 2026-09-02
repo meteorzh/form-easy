@@ -1,4 +1,4 @@
-import { createVueBasicFieldRenderer } from 'form-easy-vue';
+import { createVueBasicFieldRenderer } from '@wenzhencn/form-easy-vue';
 import PlaygroundVueInput from './components/PlaygroundVueInput.vue';
 
 /** Playground 的专用 Vue 渲染器，只影响传入该实例的表单。 */

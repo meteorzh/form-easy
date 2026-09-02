@@ -1,5 +1,5 @@
 {
-  "name": "form-easy-vue",
+  "name": "@wenzhencn/form-easy-vue",
   "version": "0.1.0",
   "description": "form-easy 的 Vue 3 渲染器与 UI 组件库适配工具",
   "type": "module",
@@ -47,7 +47,7 @@
     "dev": "tsc -p tsconfig.build.json --watch"
   },
   "peerDependencies": {
-    "form-easy": "^0.1.0",
+    "@wenzhencn/form-easy": "^0.1.0",
     "vue": "^3.4.0",
     "element-plus": "^2.0.0"
   },
@@ -57,7 +57,7 @@
     }
   },
   "devDependencies": {
-    "form-easy": "file:../form-easy",
+    "@wenzhencn/form-easy": "file:../form-easy",
     "vue": "^3.5.0",
     "element-plus": "^2.14.5"
   },

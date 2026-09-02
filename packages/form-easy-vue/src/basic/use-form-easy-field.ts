@@ -9,7 +9,7 @@ import type {
   EndpointKey,
   EndpointManager,
   FormField
-} from 'form-easy';
+} from '@wenzhencn/form-easy';
 
 /** form-easy 传给 Vue 自定义字段组件的通用属性。 */
 export interface FormEasyFieldProps {

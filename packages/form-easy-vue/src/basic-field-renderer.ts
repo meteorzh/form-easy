@@ -4,7 +4,7 @@ import {
   registerGlobalBasicFieldRenderer,
   type BasicFieldComponentKey,
   type BasicFieldRenderContext
-} from 'form-easy';
+} from '@wenzhencn/form-easy';
 import { VueSelect } from './basic/vue-select';
 import { VueUpload } from './basic/vue-upload';
 

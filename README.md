@@ -18,8 +18,8 @@
 
 | 包 | 用途 | 是否发布 |
 | --- | --- | --- |
-| [`form-easy`](./packages/form-easy) | 核心 Web Components、schema 类型、事件与默认 H5 渲染 | ✅ |
-| [`form-easy-vue`](./packages/form-easy-vue) | Vue 3 渲染器与 Element Plus 适配工厂 | ✅ |
+| [`@wenzhencn/form-easy`](./packages/form-easy) | 核心 Web Components、schema 类型、事件与默认 H5 渲染 | ✅ |
+| [`@wenzhencn/form-easy-vue`](./packages/form-easy-vue) | Vue 3 渲染器与 Element Plus 适配工厂 | ✅ |
 | [`form-easy-vue-playground`](./packages/form-easy-vue-playground) | 本地交互式示例 | ❌ |
 
 ## 安装 💿
@@ -27,13 +27,13 @@
 ### 原生 H5 / 任意框架
 
 ```bash
-npm install form-easy
+npm install @wenzhencn/form-easy
 ```
 
 ### Vue 3
 
 ```bash
-npm install form-easy form-easy-vue vue
+npm install @wenzhencn/form-easy @wenzhencn/form-easy-vue vue
 ```
 
 ### Vue 3 + Element Plus
@@ -41,7 +41,7 @@ npm install form-easy form-easy-vue vue
 `form-easy-vue` 不会安装或打包 Element Plus。请由业务项目自行选择版本、安装组件库与引入样式：
 
 ```bash
-npm install form-easy form-easy-vue vue element-plus
+npm install @wenzhencn/form-easy @wenzhencn/form-easy-vue vue element-plus
 ```
 
 ## 快速开始 ⚡
@@ -51,7 +51,7 @@ npm install form-easy form-easy-vue vue element-plus
 在应用启动入口注册一次即可：
 
 ```ts
-import { defineCustomElements } from 'form-easy/loader';
+import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 
 defineCustomElements();
 ```
@@ -99,7 +99,7 @@ Vue 模板中请使用 `.prop`，将对象和渲染器实例作为 DOM Property 
 
 ```vue
 <script setup lang="ts">
-import { defineCustomElements } from 'form-easy/loader';
+import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 
 defineCustomElements();
 
@@ -120,7 +120,7 @@ const schema = {
 每个 Vue 渲染器都有独立的组件注册中心。适合不同业务表单使用不同组件映射，彼此不会冲突：
 
 ```ts
-import { createVueBasicFieldRenderer } from 'form-easy-vue';
+import { createVueBasicFieldRenderer } from '@wenzhencn/form-easy-vue';
 import UserNameInput from './UserNameInput.vue';
 
 const userRenderer = createVueBasicFieldRenderer();
@@ -149,7 +149,7 @@ import {
   useFormEasyField,
   type FormEasyFieldEmits,
   type FormEasyFieldProps
-} from 'form-easy-vue';
+} from '@wenzhencn/form-easy-vue';
 
 const props = defineProps<FormEasyFieldProps & {
   /** schema 的 componentProperties 会透传为同名属性。 */
@@ -181,7 +181,7 @@ const fileUrl = await invokeEndpoint<File, string>('upload', file, abortControll
 注册组件时建议创建独立渲染器，避免不同业务表单之间的组件映射冲突：
 
 ```ts
-import { createVueBasicFieldRenderer } from 'form-easy-vue';
+import { createVueBasicFieldRenderer } from '@wenzhencn/form-easy-vue';
 import UserNameInput from './UserNameInput.vue';
 
 const renderer = createVueBasicFieldRenderer();
@@ -220,7 +220,7 @@ Element Plus 组件由业务方传入，因此 `form-easy-vue` 不会产生对 E
 import 'element-plus/dist/index.css';
 import {
   getDefaultElementPlusBasicFieldRenderer
-} from 'form-easy-vue/element-plus';
+} from '@wenzhencn/form-easy-vue/element-plus';
 
 const elementRenderer = getDefaultElementPlusBasicFieldRenderer();
 ```
@@ -349,7 +349,7 @@ const schema = {
 表单默认使用全局共享的 `globalEventCenter`，相同表单键的字段可跨表单订阅事件。如需隔离一组表单，可自行创建并传入 `EventCenter`：
 
 ```ts
-import { EventCenter } from 'form-easy';
+import { EventCenter } from '@wenzhencn/form-easy';
 
 const isolatedEventCenter = new EventCenter();
 ```
@@ -366,7 +366,7 @@ const isolatedEventCenter = new EventCenter();
 import {
   ComponentDataManager,
   registerGlobalComponentDataManager
-} from 'form-easy';
+} from '@wenzhencn/form-easy';
 
 const componentDataManager = new ComponentDataManager();
 componentDataManager.register('status-options', async ({ signal }) => {
@@ -397,7 +397,7 @@ const schema = {
 `EndpointManager` 用于注册上传、远程校验等需要调用接口的异步能力。组件内部决定调用哪个端点键，schema 不保存 URL、鉴权信息、请求函数或端点键；运行时按“表单级端点管理器 → 全局端点管理器”的顺序解析。
 
 ```ts
-import { EndpointManager, registerGlobalEndpointManager } from 'form-easy';
+import { EndpointManager, registerGlobalEndpointManager } from '@wenzhencn/form-easy';
 
 const endpointManager = new EndpointManager();
 endpointManager.register<File, string>('upload', async ({ input, signal }) => {
@@ -448,7 +448,7 @@ npm run dev
 | `npm run dev` | 启动 Vue Playground。 |
 | `npm run build` | 构建全部工作区包。 |
 | `npm test` | 执行已配置的测试。 |
-| `npm pack --workspace=form-easy --dry-run` | 检查核心包的发布内容。 |
+| `npm pack --workspace=@wenzhencn/form-easy --dry-run` | 检查核心包的发布内容。 |
 
 ## 发布到 npm 📤
 
@@ -456,11 +456,11 @@ npm run dev
 
 ```bash
 npm run build
-npm pack --workspace=form-easy --dry-run
-npm pack --workspace=form-easy-vue --dry-run
+npm pack --workspace=@wenzhencn/form-easy --dry-run
+npm pack --workspace=@wenzhencn/form-easy-vue --dry-run
 
-npm publish --workspace=form-easy
-npm publish --workspace=form-easy-vue
+npm publish --workspace=@wenzhencn/form-easy
+npm publish --workspace=@wenzhencn/form-easy-vue
 ```
 
 两个可发布包均已设置 `publishConfig.access: public`、仓库信息、问题追踪链接、关键词和明确的发布文件列表。Playground 的 `private: true` 保持不变，无法被发布。

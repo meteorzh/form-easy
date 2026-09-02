@@ -1,14 +1,8 @@
-import {
-  ComponentRegistry
-} from '../managers/component-registry';
-import {
-  getDefaultBasicFieldComponentKey,
-  type BasicFieldComponentKey
-} from '../types';
+import { type BasicFieldComponentKey } from '../types';
 import type {
-  BasicFieldRenderContext,
-  BasicFieldRenderer
+  BasicFieldRenderContext
 } from './basic-field-renderer';
+import { AbstractBasicFieldRenderer } from './abstract-basic-field-renderer';
 
 /** H5 渲染器注册 Web Component 所需的组件描述。 */
 export interface RegisteredComponent {
@@ -17,20 +11,28 @@ export interface RegisteredComponent {
 }
 
 /** 使用原生 DOM 与 Web Components 渲染基础字段的默认 H5 渲染器。 */
-export class H5BasicFieldRenderer implements BasicFieldRenderer {
-  /** 当前 H5 渲染器实例独立维护的组件注册中心。 */
-  readonly componentRegistry = new ComponentRegistry<RegisteredComponent>();
-
-  /** 在宿主元素中创建或更新原生 H5 控件或已注册的 Web Component。 */
-  render(host: HTMLElement, context: BasicFieldRenderContext): void {
+export class H5BasicFieldRenderer extends AbstractBasicFieldRenderer<RegisteredComponent> {
+  /** 创建并挂载已注册的 Web Component。 */
+  protected renderRegisteredComponent(
+    host: HTMLElement,
+    registeredComponent: RegisteredComponent,
+    context: BasicFieldRenderContext
+  ): void {
     host.replaceChildren();
-    const registeredComponent = this.componentRegistry.get(
-      this.getComponentKey(context)
-    );
-    const fieldElement = registeredComponent
-      ? this.createRegisteredComponent(registeredComponent, context)
-      : this.createDefaultInput(context);
-    host.append(fieldElement);
+    host.append(this.createRegisteredComponent(registeredComponent, context));
+  }
+
+  /** 创建并挂载当前数据类型的原生 H5 输入控件。 */
+  protected renderDefaultField(host: HTMLElement, context: BasicFieldRenderContext): void {
+    host.replaceChildren(this.createDefaultInput(context));
+  }
+
+  /** 渲染显式配置组件未注册时的错误提示。 */
+  protected renderMissingComponentError(host: HTMLElement, message: string): void {
+    const error = document.createElement('p');
+    error.textContent = message;
+    error.className = 'form-easy-renderer-error';
+    host.replaceChildren(error);
   }
 
   /** 清空宿主元素及其已绑定的事件监听器。 */
@@ -92,11 +94,6 @@ export class H5BasicFieldRenderer implements BasicFieldRenderer {
     };
   }
 
-  /** 获取字段显式配置或由数据类型推导出的组件注册键。 */
-  private getComponentKey(context: BasicFieldRenderContext): BasicFieldComponentKey {
-    return context.field.component
-      ?? getDefaultBasicFieldComponentKey(context.field.dataType);
-  }
 }
 
 /** form-easy 在未指定其他渲染器时使用的默认 H5 渲染器。 */

@@ -1,11 +1,9 @@
 import { h, render, type Component, type VNode } from 'vue';
 import {
-  ComponentRegistry,
-  getDefaultBasicFieldComponentKey,
+  AbstractBasicFieldRenderer,
   registerGlobalBasicFieldRenderer,
   type BasicFieldComponentKey,
-  type BasicFieldRenderContext,
-  type BasicFieldRenderer
+  type BasicFieldRenderContext
 } from 'form-easy';
 import { VueSelect } from './basic/vue-select';
 import { VueUpload } from './basic/vue-upload';
@@ -22,12 +20,10 @@ export const defaultVueFieldComponents: ReadonlyArray<{
 ];
 
 /** 可按表单独立配置组件的 Vue 基础字段渲染器。 */
-export class VueBasicFieldRenderer implements BasicFieldRenderer {
-  /** 当前 Vue 渲染器实例独立维护的组件注册中心。 */
-  readonly componentRegistry = new ComponentRegistry<Component>();
-
+export class VueBasicFieldRenderer extends AbstractBasicFieldRenderer<Component> {
   /** 创建渲染器并预注册 Vue 内置基础字段组件。 */
   constructor() {
+    super();
     defaultVueFieldComponents.forEach(({ name, component }) => {
       this.componentRegistry.register(name, component);
     });
@@ -43,27 +39,18 @@ export class VueBasicFieldRenderer implements BasicFieldRenderer {
     this.componentRegistry.unregister(name);
   }
 
-  /** 在宿主元素中渲染或更新一个 Vue 字段视图。 */
-  render(host: HTMLElement, context: BasicFieldRenderContext): void {
-    const component = this.componentRegistry.get(
-      context.field.component
-        ?? getDefaultBasicFieldComponentKey(context.field.dataType)
-    );
-    render(
-      component
-        ? this.renderVueComponent(component, context)
-        : this.renderDefaultField(context),
-      host
-    );
-  }
-
   /** 卸载宿主元素中的 Vue 视图。 */
   unmount(host: HTMLElement): void {
     render(null, host);
   }
 
   /** 渲染未配置 Vue 自定义组件时的基础 H5 输入控件。 */
-  private renderDefaultField(context: BasicFieldRenderContext): VNode {
+  protected renderDefaultField(host: HTMLElement, context: BasicFieldRenderContext): void {
+    render(this.createDefaultFieldVNode(context), host);
+  }
+
+  /** 创建未配置 Vue 自定义组件时使用的基础 H5 输入控件视图。 */
+  private createDefaultFieldVNode(context: BasicFieldRenderContext): VNode {
     const { dataType } = context.field;
     const onChange = (event: Event) =>
       context.onChange(this.getChangedValue(event, dataType));
@@ -89,13 +76,14 @@ export class VueBasicFieldRenderer implements BasicFieldRenderer {
   }
 
   /** 渲染已注册 Vue 字段组件，并将通用字段上下文透传给它。 */
-  private renderVueComponent(
+  protected renderRegisteredComponent(
+    host: HTMLElement,
     component: Component,
     context: BasicFieldRenderContext
-  ): VNode {
+  ): void {
     const onChange = (eventOrValue: unknown) =>
       context.onChange(this.getChangedValue(eventOrValue, context.field.dataType));
-    return h(component, {
+    render(h(component, {
       ...context.field.componentProperties,
       value: context.value,
       modelValue: context.value,
@@ -107,7 +95,12 @@ export class VueBasicFieldRenderer implements BasicFieldRenderer {
       formKey: context.formKey,
       'onUpdate:modelValue': onChange,
       onChange
-    });
+    }), host);
+  }
+
+  /** 卸载旧 Vue 视图后渲染显式配置组件未注册时的错误提示。 */
+  protected renderMissingComponentError(host: HTMLElement, message: string): void {
+    render(h('p', { class: 'form-easy-renderer-error' }, message), host);
   }
 
   /** 将 Vue 输入事件中的值统一提取为表单字段值。 */

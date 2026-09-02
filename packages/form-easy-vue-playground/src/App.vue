@@ -119,7 +119,7 @@ const schema = {
       componentProperties: {
         placeholder: '此属性仅由 Vue 自定义组件以醒目的样式呈现。'
       },
-      hint: 'H5 渲染器未注册该组件会回退原生输入框；Vue 渲染器会使用已注册的 Vue 组件。'
+      hint: 'H5 与 Element Plus 渲染器未注册该显式自定义组件时会显示缺失组件错误；Vue 渲染器会使用已注册的 Vue 组件。'
     },
     {
       key: 'objectField',

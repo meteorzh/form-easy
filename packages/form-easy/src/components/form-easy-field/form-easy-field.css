@@ -17,6 +17,7 @@ small { color: #64748b; }
 .editor input { box-sizing: border-box; min-height: 36px; padding: 6px 8px; }
 .component-data-status { margin: 0; color: #64748b; font-size: 14px; }
 .component-data-status--error { color: #dc2626; }
+.form-easy-renderer-error { margin: 0; color: #dc2626; font-size: 14px; }
 
 @media (max-width: 540px) {
   .field--left,

@@ -1,19 +1,17 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import {
-  registerGlobalComponentDataResolver,
+  ComponentDataManager,
   EndpointManager,
+  registerGlobalComponentDataManager,
   registerGlobalEndpointManager
 } from 'form-easy';
 import { defineCustomElements } from 'form-easy/loader';
 import 'element-plus/dist/index.css';
 
-/** 为 Playground 示例提供按数据键加载的下拉选项。 */
-registerGlobalComponentDataResolver(async ({ componentDataKey, signal }) => {
-  if (componentDataKey !== 'playground-status-options') {
-    throw new Error(`未找到 Playground 组件数据：${componentDataKey}`);
-  }
-
+/** 为 Playground 示例注册按数据键加载的下拉选项。 */
+const playgroundComponentDataManager = new ComponentDataManager();
+playgroundComponentDataManager.register('playground-status-options', async ({ signal }) => {
   await new Promise<void>((resolve, reject) => {
     const timeoutId = window.setTimeout(resolve, 300);
     signal.addEventListener('abort', () => {
@@ -28,6 +26,7 @@ registerGlobalComponentDataResolver(async ({ componentDataKey, signal }) => {
     { label: '已停用', value: 'disabled', disabled: true }
   ];
 });
+registerGlobalComponentDataManager(playgroundComponentDataManager);
 
 /** 为 Playground 上传示例注册模拟文件上传端点。 */
 const playgroundEndpointManager = new EndpointManager();

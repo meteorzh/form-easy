@@ -1,5 +1,8 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
-import { getGlobalComponentDataResolver } from '../../managers/component-data-resolver';
+import {
+  getGlobalComponentDataManager,
+  type ComponentDataManager
+} from '../../managers/component-data-manager';
 import {
   getGlobalEndpointManager,
   type EndpointManager
@@ -13,7 +16,6 @@ import { defaultH5BasicFieldRenderer } from '../../renderers/h5-basic-field-rend
 import type {
   ComponentEventName,
   ComponentHandle,
-  ComponentDataResolver,
   EventFlowHistory,
   FieldBinding,
   FormField,
@@ -39,8 +41,8 @@ export class FormEasyField implements HandleTarget {
    * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
    */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
-  /** 当前表单覆盖全局配置的组件数据解析器。 */
-  @Prop() componentDataResolver?: ComponentDataResolver;
+  /** 当前表单覆盖全局配置的组件数据管理器。 */
+  @Prop() componentDataManager?: ComponentDataManager;
   /** 当前表单覆盖全局配置的异步服务端点管理器。 */
   @Prop() endpointManager?: EndpointManager;
   /** 表单内所有字段共用的事件路由器。 */
@@ -88,9 +90,9 @@ export class FormEasyField implements HandleTarget {
     void this.prepareComponentData();
   }
 
-  /** 表单级解析器更新后重新解析组件数据。 */
-  @Watch('componentDataResolver')
-  reloadComponentDataResolver(): void {
+  /** 表单级组件数据管理器更新后重新加载组件数据。 */
+  @Watch('componentDataManager')
+  reloadComponentDataManager(): void {
     void this.prepareComponentData();
   }
 
@@ -305,7 +307,7 @@ export class FormEasyField implements HandleTarget {
       || Boolean(this.field.componentDataKey);
   }
 
-  /** 按字段显式数据、表单级解析器、全局解析器的优先级准备组件数据。 */
+  /** 按字段显式数据、表单级管理器、全局管理器的优先级准备组件数据。 */
   private async prepareComponentData(): Promise<void> {
     this.componentDataAbortController?.abort();
     this.componentDataError = undefined;
@@ -324,11 +326,11 @@ export class FormEasyField implements HandleTarget {
       return;
     }
 
-    const resolver = this.componentDataResolver ?? getGlobalComponentDataResolver();
-    if (!resolver || !this.field.componentDataKey) {
+    const componentDataManager = this.componentDataManager ?? getGlobalComponentDataManager();
+    if (!componentDataManager || !this.field.componentDataKey) {
       this.componentData = undefined;
       this.componentDataLoading = false;
-      this.componentDataError = new Error(`字段“${this.fieldId}”未找到 componentDataKey 对应的组件数据解析器。`);
+      this.componentDataError = new Error(`字段“${this.fieldId}”未找到 componentDataKey 对应的组件数据管理器。`);
       console.error(this.componentDataError);
       return;
     }
@@ -337,8 +339,7 @@ export class FormEasyField implements HandleTarget {
     this.componentDataAbortController = abortController;
     this.componentDataLoading = true;
     try {
-      const componentData = await resolver({
-        componentDataKey: this.field.componentDataKey,
+      const componentData = await componentDataManager.resolve(this.field.componentDataKey, {
         field: this.field,
         fieldId: this.fieldId,
         formKey: this.formKey,
@@ -415,7 +416,7 @@ export class FormEasyField implements HandleTarget {
           formKey={this.formKey}
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
-          componentDataResolver={this.componentDataResolver}
+          componentDataManager={this.componentDataManager}
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
@@ -432,7 +433,7 @@ export class FormEasyField implements HandleTarget {
           formKey={this.formKey}
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
-          componentDataResolver={this.componentDataResolver}
+          componentDataManager={this.componentDataManager}
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}

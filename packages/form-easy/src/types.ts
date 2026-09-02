@@ -34,6 +34,9 @@ export type DefaultEndpointKey = 'upload';
  */
 export type EndpointKey = DefaultEndpointKey | (string & {});
 
+/** 组件数据加载器的注册键，允许业务方使用任意字符串。 */
+export type ComponentDataKey = string & {};
+
 /** 数据类型未显式配置 component 时使用的默认组件键映射。 */
 export const defaultBasicFieldComponentKeyByDataType: Readonly<Record<
   DataType,
@@ -120,7 +123,7 @@ export interface FormField {
   /** 直接提供给组件的数据，优先于 componentDataKey。 */
   componentData?: unknown;
   /** 用于通过组件数据解析器加载数据的业务键。 */
-  componentDataKey?: string;
+  componentDataKey?: ComponentDataKey;
   /** 当前字段拥有的事件订阅配置。 */
   eventSubscriptions?: EventSubscription[];
   /** 当前字段拥有的单向绑定配置。 */
@@ -130,7 +133,7 @@ export interface FormField {
 /** 组件数据解析器执行时携带的上下文。 */
 export interface ComponentDataResolverContext {
   /** 当前字段的组件数据键。 */
-  componentDataKey: string;
+  componentDataKey: ComponentDataKey;
   /** 当前字段配置。 */
   field: FormField;
   /** 当前字段完整唯一标识。 */

@@ -1,8 +1,9 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
+import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { ComponentDataResolver, FormField, LabelPosition } from '../../types';
+import type { FormField, LabelPosition } from '../../types';
 
 /** 为数组字段提供添加和删除编辑功能。 */
 @Component({ tag: 'form-easy-array', styleUrl: 'form-easy-array.css' })
@@ -17,8 +18,8 @@ export class FormEasyArray {
   @Prop() labelPosition: LabelPosition = 'left';
   /** 当前表单指定的基础字段渲染器。 */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
-  /** 当前表单覆盖全局配置的组件数据解析器。 */
-  @Prop() componentDataResolver?: ComponentDataResolver;
+  /** 当前表单覆盖全局配置的组件数据管理器。 */
+  @Prop() componentDataManager?: ComponentDataManager;
   /** 当前表单覆盖全局配置的异步服务端点管理器。 */
   @Prop() endpointManager?: EndpointManager;
   /** 当前数组值。 */
@@ -77,7 +78,7 @@ export class FormEasyArray {
               formKey={this.formKey}
               labelPosition={this.labelPosition}
               basicFieldRenderer={this.basicFieldRenderer}
-              componentDataResolver={this.componentDataResolver}
+              componentDataManager={this.componentDataManager}
               endpointManager={this.endpointManager}
               value={item}
               eventCenter={this.eventCenter}

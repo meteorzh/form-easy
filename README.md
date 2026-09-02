@@ -286,16 +286,21 @@ const isolatedEventCenter = new EventCenter();
 
 ### 组件数据加载
 
-为下拉框等组件配置 `componentData` 可直接提供数据；配置 `componentDataKey` 时，字段将按“表单级解析器 → 全局解析器”的顺序异步加载数据。加载完成前不会挂载实际字段组件，因此不会出现组件先接收值、后接收选项的时序问题。
+为下拉框等组件配置 `componentData` 可直接提供数据；配置 `componentDataKey` 时，字段将按“表单级数据管理器 → 全局数据管理器”的顺序异步加载数据。加载完成前不会挂载实际字段组件，因此不会出现组件先接收值、后接收选项的时序问题。
 
 ```ts
-import { registerGlobalComponentDataResolver } from 'form-easy';
+import {
+  ComponentDataManager,
+  registerGlobalComponentDataManager
+} from 'form-easy';
 
-registerGlobalComponentDataResolver(async ({ componentDataKey, signal }) => {
-  const response = await fetch(`/api/options/${componentDataKey}`, { signal });
+const componentDataManager = new ComponentDataManager();
+componentDataManager.register('status-options', async ({ signal }) => {
+  const response = await fetch('/api/options/status', { signal });
   if (!response.ok) throw new Error('选项加载失败');
   return response.json();
 });
+registerGlobalComponentDataManager(componentDataManager);
 
 const schema = {
   key: 'settings',
@@ -311,7 +316,7 @@ const schema = {
 };
 ```
 
-`componentData` 优先于 `componentDataKey`；两者同时出现时会输出警告并使用前者。解析器接收字段、字段标识、表单键及 `AbortSignal`，字段卸载或配置变更时会自动取消旧请求。数据最终作为 `componentData` 属性传给自定义组件。
+`componentData` 优先于 `componentDataKey`；两者同时出现时会输出警告并使用前者。`ComponentDataManager` 按数据键注册加载函数，加载函数接收字段、字段标识、表单键及 `AbortSignal`；字段卸载或配置变更时会自动取消旧请求。数据最终作为 `componentData` 属性传给自定义组件。可通过 `componentDataManager` 属性将独立管理器传入单个 `<form-easy>` 实例。
 
 ### 异步端点与文件上传
 

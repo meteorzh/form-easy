@@ -5,13 +5,15 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
+import { ComponentDataManager } from "./managers/component-data-manager";
 import { EndpointManager } from "./managers/endpoint-manager";
-export { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
+export { ComponentDataManager } from "./managers/component-data-manager";
 export { EndpointManager } from "./managers/endpoint-manager";
 export namespace Components {
     /**
@@ -23,9 +25,9 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
@@ -52,9 +54,9 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -104,9 +106,9 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
@@ -147,9 +149,9 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 是否禁用嵌套字段编辑。
           * @default false
@@ -416,9 +418,9 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
@@ -449,9 +451,9 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 是否禁用数组修改。
           * @default false
@@ -501,9 +503,9 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
@@ -548,9 +550,9 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 当前表单覆盖全局配置的组件数据解析器。
+          * 当前表单覆盖全局配置的组件数据管理器。
          */
-        "componentDataResolver"?: ComponentDataResolver;
+        "componentDataManager"?: ComponentDataManager;
         /**
           * 是否禁用嵌套字段编辑。
           * @default false

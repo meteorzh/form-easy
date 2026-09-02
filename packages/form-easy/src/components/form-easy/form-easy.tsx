@@ -1,9 +1,9 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
+import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
-  ComponentDataResolver,
   FormChangeDetail,
   FormSchema,
   LabelPosition
@@ -29,8 +29,8 @@ export class FormEasy {
    * 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
    */
   @Prop() eventCenter?: EventCenter;
-  /** 当前表单覆盖全局配置的组件数据解析器。 */
-  @Prop() componentDataResolver?: ComponentDataResolver;
+  /** 当前表单覆盖全局配置的组件数据管理器。 */
+  @Prop() componentDataManager?: ComponentDataManager;
   /** 当前表单覆盖全局配置的异步服务端点管理器。 */
   @Prop() endpointManager?: EndpointManager;
   /** 每次值变更时触发字段和完整表单上下文。 */
@@ -221,7 +221,7 @@ export class FormEasy {
             formKey={schema.key}
             labelPosition={this.labelPosition}
             basicFieldRenderer={this.basicFieldRenderer}
-            componentDataResolver={this.componentDataResolver}
+            componentDataManager={this.componentDataManager}
             endpointManager={this.endpointManager}
             value={this.formData[field.key]}
             eventCenter={this.activeEventCenter}

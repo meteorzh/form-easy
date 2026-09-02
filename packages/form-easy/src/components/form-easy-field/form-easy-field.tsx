@@ -1,9 +1,11 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
-import { componentRegistry } from '../../managers/component-registry';
 import { getGlobalComponentDataResolver } from '../../managers/component-data-resolver';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
-import { getGlobalBasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
+import {
+  getGlobalBasicFieldRenderer,
+  type BasicFieldRenderer
+} from '../../renderers/basic-field-renderer';
+import { defaultH5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
 import type {
   ComponentEventName,
   ComponentHandle,
@@ -139,13 +141,6 @@ export class FormEasyField implements HandleTarget {
   private onNestedValueChange = (event: CustomEvent<unknown>): void => {
     event.stopPropagation();
     this.updateValue(event.detail, 'onChange');
-  };
-
-  /** 处理原生基础控件的值变更。 */
-  private onInput = (event: Event): void => {
-    const target = event.target as HTMLInputElement;
-    const value = this.field.dataType === 'boolean' ? target.checked : this.field.dataType === 'number' ? Number(target.value) : target.value;
-    this.updateValue(value, 'onChange');
   };
 
   /** 更新本地状态、冒泡值事件并路由配置的事件。 */
@@ -358,15 +353,6 @@ export class FormEasyField implements HandleTarget {
     }
   }
 
-  /** 未选择已注册组件时渲染原生 HTML 输入控件。 */
-  private renderDefaultBasicField() {
-    const type = this.field.dataType === 'datetime' ? 'datetime-local' : this.field.dataType === 'string' ? 'text' : this.field.dataType ?? 'text';
-    if (this.field.dataType === 'boolean') {
-      return <input type="checkbox" checked={Boolean(this.currentValue)} disabled={this.disabled} onChange={this.onInput} />;
-    }
-    return <input type={type} value={String(this.currentValue ?? '')} disabled={this.disabled} onInput={this.onInput} />;
-  }
-
   /** 保存适配器宿主元素的引用。 */
   private setRendererHost = (host?: HTMLDivElement): void => {
     if (!host && this.rendererHost && this.activeRenderer) {
@@ -377,19 +363,21 @@ export class FormEasyField implements HandleTarget {
   };
 
   /** 获取当前字段实际生效的渲染器。 */
-  private getActiveRenderer(): BasicFieldRenderer | undefined {
-    if (this.basicFieldRenderer === null) return undefined;
-    return this.basicFieldRenderer ?? getGlobalBasicFieldRenderer();
+  private getActiveRenderer(): BasicFieldRenderer {
+    if (this.basicFieldRenderer === null) return defaultH5BasicFieldRenderer;
+    return this.basicFieldRenderer
+      ?? getGlobalBasicFieldRenderer()
+      ?? defaultH5BasicFieldRenderer;
   }
 
-  /** 在已注册的框架适配器中渲染或更新基础字段。 */
+  /** 在当前生效的基础字段渲染器中渲染或更新字段。 */
   private renderWithAdapter(): void {
     const renderer = this.getActiveRenderer();
     if (this.activeRenderer && this.activeRenderer !== renderer && this.rendererHost) {
       this.activeRenderer.unmount(this.rendererHost);
       this.activeRenderer = undefined;
     }
-    if (!renderer || !this.rendererHost || this.field.category !== 'basic' || this.componentDataLoading || this.componentDataError) return;
+    if (!this.rendererHost || this.field.category !== 'basic' || this.componentDataLoading || this.componentDataError) return;
 
     this.activeRenderer = renderer;
     renderer.render(this.rendererHost, {
@@ -402,23 +390,11 @@ export class FormEasyField implements HandleTarget {
     });
   }
 
-  /** 渲染已注册自定义组件或原生默认基础字段。 */
+  /** 渲染基础字段的数据加载状态和稳定渲染宿主。 */
   private renderBasicField() {
     if (this.componentDataLoading) return <p class="component-data-status">正在加载组件数据…</p>;
     if (this.componentDataError) return <p class="component-data-status component-data-status--error">组件数据加载失败。</p>;
-    if (this.getActiveRenderer()) {
-      return <div class="framework-renderer" ref={this.setRendererHost} />;
-    }
-    const registered = componentRegistry.get(this.field.component);
-    if (!registered) return this.renderDefaultBasicField();
-    return h(registered.tagName, {
-      ...this.field.componentProperties,
-      value: this.currentValue,
-      componentData: this.componentData,
-      disabled: this.disabled,
-      onChange: (event: CustomEvent<unknown>) => this.updateValue(event.detail, 'onChange'),
-      onValueChange: (event: CustomEvent<unknown>) => this.updateValue(event.detail, 'onChange')
-    });
+    return <div class="framework-renderer" ref={this.setRendererHost} />;
   }
 
   /** 按配置字段分类渲染内部编辑器。 */

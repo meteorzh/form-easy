@@ -1,7 +1,9 @@
 import { h, render, type Component, type VNode } from 'vue';
 import {
   ComponentRegistry,
+  getDefaultBasicFieldComponentKey,
   registerGlobalBasicFieldRenderer,
+  type BasicFieldComponentKey,
   type BasicFieldRenderContext,
   type BasicFieldRenderer
 } from 'form-easy';
@@ -10,7 +12,7 @@ import { VueSelect } from './basic/vue-select';
 /** Vue 渲染器实例初始化时自动注册的常用字段组件。 */
 export const defaultVueFieldComponents: ReadonlyArray<{
   /** schema 中使用的组件名称。 */
-  name: string;
+  name: BasicFieldComponentKey;
   /** 对应的 Vue 组件。 */
   component: Component;
 }> = [{ name: 'select', component: VueSelect }];
@@ -28,18 +30,21 @@ export class VueBasicFieldRenderer implements BasicFieldRenderer {
   }
 
   /** 注册供当前渲染器使用的 Vue 字段组件。 */
-  registerFieldComponent(name: string, component: Component): void {
+  registerFieldComponent(name: BasicFieldComponentKey, component: Component): void {
     this.componentRegistry.register(name, component);
   }
 
   /** 移除当前渲染器中的 Vue 字段组件。 */
-  unregisterFieldComponent(name: string): void {
+  unregisterFieldComponent(name: BasicFieldComponentKey): void {
     this.componentRegistry.unregister(name);
   }
 
   /** 在宿主元素中渲染或更新一个 Vue 字段视图。 */
   render(host: HTMLElement, context: BasicFieldRenderContext): void {
-    const component = this.componentRegistry.get(context.field.component);
+    const component = this.componentRegistry.get(
+      context.field.component
+        ?? getDefaultBasicFieldComponentKey(context.field.dataType)
+    );
     render(
       component
         ? this.renderVueComponent(component, context)
@@ -119,11 +124,14 @@ export function createVueBasicFieldRenderer(): VueBasicFieldRenderer {
 const defaultVueBasicFieldRenderer = createVueBasicFieldRenderer();
 
 /** 注册供默认 Vue 渲染器使用的字段组件。 */
-export function registerVueFieldComponent(name: string, component: Component): void {
+export function registerVueFieldComponent(
+  name: BasicFieldComponentKey,
+  component: Component
+): void {
   defaultVueBasicFieldRenderer.registerFieldComponent(name, component);
 }
 /** 从默认 Vue 渲染器移除字段组件注册。 */
-export function unregisterVueFieldComponent(name: string): void {
+export function unregisterVueFieldComponent(name: BasicFieldComponentKey): void {
   defaultVueBasicFieldRenderer.unregisterFieldComponent(name);
 }
 /** 获取可传入单个 form-easy 实例的 Vue 基础字段渲染器。 */

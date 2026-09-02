@@ -13,6 +13,8 @@ const renderer = createVueBasicFieldRenderer();
 renderer.registerFieldComponent('myInput', MyInput);
 ```
 
+未显式配置 `component` 的基础字段会按数据类型查找 `input`、`input-number`、`bool`、`date`、`datetime` 或 `time` 组件；未注册时才回退到原生 H5 控件。`select` 与任意业务自定义组件键也可通过 `component` 显式指定。
+
 ```vue
 <form-easy :schema.prop="schema" :basicFieldRenderer.prop="renderer" />
 ```

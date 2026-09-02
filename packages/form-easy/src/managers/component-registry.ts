@@ -1,29 +1,22 @@
-import {
-  defaultBasicFieldComponents,
-  defaultH5BasicFieldRenderer
-} from '../renderers/h5-basic-field-renderer';
-import type { RegisteredComponent } from './component-registry-core';
+import type { BasicFieldComponentKey } from '../types';
 
-export {
-  ComponentRegistry,
-  type RegisteredComponent
-} from './component-registry-core';
+/** 供表单渲染器解析配置组件名称的泛型注册中心。 */
+export class ComponentRegistry<T> {
+  /** 按 schema 组件名称索引的已注册组件。 */
+  private readonly components = new Map<BasicFieldComponentKey, T>();
 
-/** 默认 H5 渲染器使用的组件注册中心。 */
-export const componentRegistry = defaultH5BasicFieldRenderer.componentRegistry;
+  /** 注册或替换一个组件值。 */
+  register(name: BasicFieldComponentKey, component: T): void {
+    this.components.set(name, component);
+  }
 
-/** 默认 H5 渲染器自动注册的常用基础字段组件。 */
-export { defaultBasicFieldComponents };
+  /** 获取 schema 组件名称对应的已注册组件值。 */
+  get(name: BasicFieldComponentKey | undefined): T | undefined {
+    return name ? this.components.get(name) : undefined;
+  }
 
-/** 为默认 H5 渲染器注册额外的自定义元素组件。 */
-export function registerExtraBasicFieldComponent(
-  name: string,
-  component: RegisteredComponent
-): void {
-  componentRegistry.register(name, component);
-}
-
-/** 从默认 H5 渲染器中卸载额外的自定义元素组件。 */
-export function unregisterExtraBasicFieldComponent(name: string): void {
-  componentRegistry.unregister(name);
+  /** 移除一个组件注册。 */
+  unregister(name: BasicFieldComponentKey): void {
+    this.components.delete(name);
+  }
 }

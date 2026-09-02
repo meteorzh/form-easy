@@ -7,6 +7,43 @@ export type LabelPosition = 'left' | 'top' | 'right';
 /** 基础字段支持的数据类型。 */
 export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'time';
 
+/** 基础字段渲染器约定的内置组件键。 */
+export type DefaultBasicFieldComponentKey =
+  | 'input'
+  | 'input-number'
+  | 'bool'
+  | 'date'
+  | 'datetime'
+  | 'time'
+  | 'select';
+
+/**
+ * 基础字段组件注册键。
+ *
+ * 内置键可获得代码补全，同时允许业务方使用任意自定义字符串。
+ */
+export type BasicFieldComponentKey = DefaultBasicFieldComponentKey | (string & {});
+
+/** 数据类型未显式配置 component 时使用的默认组件键映射。 */
+export const defaultBasicFieldComponentKeyByDataType: Readonly<Record<
+  DataType,
+  DefaultBasicFieldComponentKey
+>> = {
+  string: 'input',
+  number: 'input-number',
+  boolean: 'bool',
+  date: 'date',
+  datetime: 'datetime',
+  time: 'time'
+};
+
+/** 获取数据类型对应的默认基础字段组件键。 */
+export function getDefaultBasicFieldComponentKey(
+  dataType?: DataType
+): DefaultBasicFieldComponentKey {
+  return defaultBasicFieldComponentKeyByDataType[dataType ?? 'string'];
+}
+
 /** 所有 form-easy 字段组件支持的操作命令。 */
 export type ComponentHandle = 'show' | 'hide' | 'disable' | 'enable' | 'clear' | 'change';
 
@@ -62,8 +99,8 @@ export interface FormField {
   hint?: string;
   /** 值的数据类型，仅适用于基础字段。 */
   dataType?: DataType;
-  /** 优先于内置 H5 控件使用的已注册组件名称。 */
-  component?: string;
+  /** 优先于数据类型默认组件使用的已注册组件键。 */
+  component?: BasicFieldComponentKey;
   /** 数组字段的元素定义。 */
   element?: Omit<FormField, 'key' | 'name'>;
   /** 对象字段包含的子字段。 */

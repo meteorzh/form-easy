@@ -27,22 +27,22 @@ import {
  */
 export function createElementPlusBasicFieldRenderer(): VueBasicFieldRenderer {
   const renderer = createVueBasicFieldRenderer();
-  renderer.registerFieldComponent('elementInput', createElementInputField(ElInput));
+  renderer.registerFieldComponent('input', createElementInputField(ElInput));
   renderer.registerFieldComponent(
-    'elementInputNumber',
+    'input-number',
     createElementInputNumberField(ElInputNumber)
   );
-  renderer.registerFieldComponent('elementSwitch', createElementSwitchField(ElSwitch));
+  renderer.registerFieldComponent('bool', createElementSwitchField(ElSwitch));
   renderer.registerFieldComponent(
-    'elementDatePicker',
+    'date',
     createElementDatePickerField(ElDatePicker, 'YYYY-MM-DD')
   );
   renderer.registerFieldComponent(
-    'elementDateTimePicker',
+    'datetime',
     createElementDatePickerField(ElDatePicker, 'YYYY-MM-DD[T]HH:mm')
   );
   renderer.registerFieldComponent(
-    'elementTimePicker',
+    'time',
     createElementTimePickerField(ElTimePicker)
   );
   renderer.registerFieldComponent('select', createElementSelectField(ElSelect, ElOption));

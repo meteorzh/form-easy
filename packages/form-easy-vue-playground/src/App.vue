@@ -13,7 +13,6 @@ const schema = {
       name: '基础字段：字符串默认值示例',
       category: 'basic',
       dataType: 'string',
-      component: 'elementInput',
       componentProperties: {
         placeholder: 'Element Plus 输入框'
       },
@@ -26,7 +25,6 @@ const schema = {
       name: '基础字段：数字类型示例',
       category: 'basic',
       dataType: 'number',
-      component: 'elementInputNumber',
       componentProperties: {
         min: 0,
         max: 9999
@@ -38,7 +36,6 @@ const schema = {
       name: '基础字段：布尔类型示例',
       category: 'basic',
       dataType: 'boolean',
-      component: 'elementSwitch',
       defaultValue: true
     },
     {
@@ -68,7 +65,6 @@ const schema = {
       name: '基础字段：日期类型示例',
       category: 'basic',
       dataType: 'date',
-      component: 'elementDatePicker',
       componentProperties: {
         type: 'date'
       },
@@ -79,7 +75,6 @@ const schema = {
       name: '基础字段：日期时间类型示例',
       category: 'basic',
       dataType: 'datetime',
-      component: 'elementDateTimePicker',
       componentProperties: {
         type: 'datetime'
       },
@@ -90,7 +85,6 @@ const schema = {
       name: '基础字段：时间类型示例',
       category: 'basic',
       dataType: 'time',
-      component: 'elementTimePicker',
       defaultValue: '09:30'
     },
     {
@@ -380,7 +374,7 @@ const rendererTitle = computed(() =>
             <aside class="inspector" aria-label="示例说明">
           <p class="eyebrow">{{ activeRenderer === 'h5' ? 'CORE RENDERER' : activeRenderer === 'vue' ? 'VUE ADAPTER' : 'ELEMENT PLUS' }}</p>
           <h2>{{ rendererTitle }}</h2>
-          <p class="renderer-description">{{ activeRenderer === 'h5' ? '表单级传入 null，强制走 form-easy 内置 H5 控件与核心组件注册中心。' : activeRenderer === 'vue' ? '表单级传入 Vue renderer，组件名会从 Playground 的 Vue 专用注册中心解析。' : '表单级传入独立的 Element Plus renderer，elementInput、elementSwitch 等组件名会从该实例注册中心解析。' }}</p>
+          <p class="renderer-description">{{ activeRenderer === 'h5' ? '表单级传入 null，强制走 form-easy 内置 H5 控件与核心组件注册中心。' : activeRenderer === 'vue' ? '表单级传入 Vue renderer，组件名会从 Playground 的 Vue 专用注册中心解析。' : '表单级传入独立的 Element Plus renderer，会按数据类型自动解析 input、input-number、bool、date、datetime、time 等组件。' }}</p>
           <p class="current-position">当前标签位置：<strong>{{ labelPosition }}</strong></p>
           <ol v-if="activeScenario === 'default'">
             <li>挂载表单控件并注册字段订阅。</li>

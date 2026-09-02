@@ -151,7 +151,7 @@ import {
 const elementRenderer = getDefaultElementPlusBasicFieldRenderer();
 ```
 
-该独立入口内置并预注册：`elementInput`、`elementInputNumber`、`elementSwitch`、`elementDatePicker`、`elementDateTimePicker`、`elementTimePicker` 与 `select`。其中 `select` 使用 `ElSelect + ElOption` 渲染 `componentData` 选项。
+该独立入口内置并预注册：`input`、`input-number`、`bool`、`date`、`datetime`、`time` 与 `select`。当基础字段未配置 `component` 时，渲染器会按 `dataType` 自动使用对应组件；其中 `select` 使用 `ElSelect + ElOption` 渲染 `componentData` 选项。
 
 ```ts
 const schema = {
@@ -163,7 +163,6 @@ const schema = {
       name: '标题',
       category: 'basic',
       dataType: 'string',
-      component: 'elementInput',
       componentProperties: { placeholder: '请输入标题' }
     }
   ]
@@ -199,12 +198,13 @@ const schema = {
   required: true,
   hint: '请输入整数',
   defaultValue: 18,
-  component: 'elementInputNumber',
   componentProperties: { min: 0 }
 }
 ```
 
 `dataType` 可取：`string`、`number`、`boolean`、`date`、`datetime`、`time`。
+
+未配置 `component` 时，基础字段会依次按 `string → input`、`number → input-number`、`boolean → bool`、`date → date`、`datetime → datetime`、`time → time` 查询当前渲染器的组件注册中心；未注册时才回退到原生 H5 输入控件。`select` 是可显式配置的通用组件键。除这些内置键外，`component` 和组件注册 API 也支持任意业务自定义字符串。
 
 ### 默认基础组件
 

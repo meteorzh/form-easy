@@ -1,11 +1,20 @@
 import {
-  ComponentRegistry,
-  type RegisteredComponent
-} from '../managers/component-registry-core';
+  ComponentRegistry
+} from '../managers/component-registry';
+import {
+  getDefaultBasicFieldComponentKey,
+  type BasicFieldComponentKey
+} from '../types';
 import type {
   BasicFieldRenderContext,
   BasicFieldRenderer
 } from './basic-field-renderer';
+
+/** H5 渲染器注册 Web Component 所需的组件描述。 */
+export interface RegisteredComponent {
+  /** 自定义元素标签名。 */
+  tagName: string;
+}
 
 /** 使用原生 DOM 与 Web Components 渲染基础字段的默认 H5 渲染器。 */
 export class H5BasicFieldRenderer implements BasicFieldRenderer {
@@ -15,7 +24,9 @@ export class H5BasicFieldRenderer implements BasicFieldRenderer {
   /** 在宿主元素中创建或更新原生 H5 控件或已注册的 Web Component。 */
   render(host: HTMLElement, context: BasicFieldRenderContext): void {
     host.replaceChildren();
-    const registeredComponent = this.componentRegistry.get(context.field.component);
+    const registeredComponent = this.componentRegistry.get(
+      this.getComponentKey(context)
+    );
     const fieldElement = registeredComponent
       ? this.createRegisteredComponent(registeredComponent, context)
       : this.createDefaultInput(context);
@@ -76,20 +87,42 @@ export class H5BasicFieldRenderer implements BasicFieldRenderer {
       context.onChange(event.detail);
     };
   }
+
+  /** 获取字段显式配置或由数据类型推导出的组件注册键。 */
+  private getComponentKey(context: BasicFieldRenderContext): BasicFieldComponentKey {
+    return context.field.component
+      ?? getDefaultBasicFieldComponentKey(context.field.dataType);
+  }
 }
 
 /** form-easy 在未指定其他渲染器时使用的默认 H5 渲染器。 */
 export const defaultH5BasicFieldRenderer = new H5BasicFieldRenderer();
 
+/** 默认 H5 渲染器使用的组件注册中心。 */
+export const componentRegistry = defaultH5BasicFieldRenderer.componentRegistry;
+
 /** 核心包内置并会在初始化时自动注册的常用 H5 基础字段组件。 */
 export const defaultBasicFieldComponents: ReadonlyArray<{
   /** schema 中使用的组件名称。 */
-  name: string;
+  name: BasicFieldComponentKey;
   /** 对应的 Web Component 注册信息。 */
   component: RegisteredComponent;
 }> = [{ name: 'select', component: { tagName: 'form-easy-select' } }];
 
 /** 将内置组件注册到默认 H5 渲染器自己的组件注册中心。 */
 defaultBasicFieldComponents.forEach(({ name, component }) => {
-  defaultH5BasicFieldRenderer.componentRegistry.register(name, component);
+  componentRegistry.register(name, component);
 });
+
+/** 为默认 H5 渲染器注册额外的自定义元素组件。 */
+export function registerExtraBasicFieldComponent(
+  name: BasicFieldComponentKey,
+  component: RegisteredComponent
+): void {
+  componentRegistry.register(name, component);
+}
+
+/** 从默认 H5 渲染器中卸载额外的自定义元素组件。 */
+export function unregisterExtraBasicFieldComponent(name: BasicFieldComponentKey): void {
+  componentRegistry.unregister(name);
+}

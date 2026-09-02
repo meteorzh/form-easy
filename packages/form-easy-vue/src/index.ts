@@ -2,6 +2,7 @@ import type { DefineComponent } from 'vue';
 
 export {
   createVueBasicFieldRenderer,
+  defaultVueFieldComponents,
   installVueBasicFieldRenderer,
   getVueBasicFieldRenderer,
   registerVueFieldComponent,
@@ -9,11 +10,8 @@ export {
   unregisterVueFieldComponent
 } from './basic-field-renderer';
 
-export type { VueBasicFieldRenderer } from './basic-field-renderer';
-export { defaultVueFieldComponents } from './basic/default-components';
-
-export { createElementPlusBasicFieldRenderer } from './element-plus-basic-field-renderer';
-export type { ElementPlusFieldComponents } from './element-plus-basic-field-renderer';
+export { VueBasicFieldRenderer } from './basic-field-renderer';
+export { VueSelect } from './basic/vue-select';
 
 /** form-easy 自定义元素在 Vue 中的类型安全视图。 */
 export type FormEasyElement = HTMLElement & {

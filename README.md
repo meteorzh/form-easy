@@ -143,30 +143,15 @@ Vue 渲染器实例会自动注册默认组件列表；目前包含 `select`，�
 Element Plus 组件由业务方传入，因此 `form-easy-vue` 不会产生对 Element Plus 的直接依赖：
 
 ```ts
-import {
-  ElDatePicker,
-  ElInput,
-  ElInputNumber,
-  ElOption,
-  ElSelect,
-  ElSwitch,
-  ElTimePicker
-} from 'element-plus';
 import 'element-plus/dist/index.css';
-import { createElementPlusBasicFieldRenderer } from 'form-easy-vue';
+import {
+  getDefaultElementPlusBasicFieldRenderer
+} from 'form-easy-vue/element-plus';
 
-const elementRenderer = createElementPlusBasicFieldRenderer({
-  input: ElInput,
-  inputNumber: ElInputNumber,
-  switch: ElSwitch,
-  datePicker: ElDatePicker,
-  timePicker: ElTimePicker,
-  select: ElSelect,
-  option: ElOption
-});
+const elementRenderer = getDefaultElementPlusBasicFieldRenderer();
 ```
 
-该渲染器预注册以下组件名：`elementInput`、`elementInputNumber`、`elementSwitch`、`elementDatePicker`、`elementDateTimePicker`、`elementTimePicker`。同时传入 `select: ElSelect` 与 `option: ElOption` 时，还会覆盖注册 `select`，以 `ElSelect + ElOption` 渲染 `componentData` 选项。
+该独立入口内置并预注册：`elementInput`、`elementInputNumber`、`elementSwitch`、`elementDatePicker`、`elementDateTimePicker`、`elementTimePicker` 与 `select`。其中 `select` 使用 `ElSelect + ElOption` 渲染 `componentData` 选项。
 
 ```ts
 const schema = {

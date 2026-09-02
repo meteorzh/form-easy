@@ -10,8 +10,8 @@ interface VueSelectOption {
   disabled?: boolean;
 }
 
-/** 使用 componentData 渲染原生 select 的 Vue 默认组件。 */
-export const DefaultVueSelect = defineComponent({
+/** 使用 componentData 渲染原生 select 的 Vue 基础组件。 */
+export const VueSelect = defineComponent({
   name: 'FormEasyVueSelect',
   inheritAttrs: false,
   props: {

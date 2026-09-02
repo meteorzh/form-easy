@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./element-plus": {
+      "types": "./dist/element-plus-basic-field-renderer.d.ts",
+      "import": "./dist/element-plus-basic-field-renderer.js",
+      "default": "./dist/element-plus-basic-field-renderer.js"
     }
   },
   "files": [
@@ -43,11 +48,18 @@
   },
   "peerDependencies": {
     "form-easy": "^0.1.0",
-    "vue": "^3.4.0"
+    "vue": "^3.4.0",
+    "element-plus": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "element-plus": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "form-easy": "file:../form-easy",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "element-plus": "^2.14.5"
   },
   "license": "Apache-2.0"
 }

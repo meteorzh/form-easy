@@ -1,4 +1,12 @@
-import type { Component } from 'vue';
+import {
+  ElDatePicker,
+  ElInput,
+  ElInputNumber,
+  ElOption,
+  ElSelect,
+  ElSwitch,
+  ElTimePicker
+} from 'element-plus';
 import {
   createVueBasicFieldRenderer,
   type VueBasicFieldRenderer
@@ -12,58 +20,40 @@ import {
   createElementTimePickerField
 } from './element/element-plus-field-components';
 
-/** 创建 Element Plus 渲染器时由使用方提供的组件集合。 */
-export interface ElementPlusFieldComponents {
-  /** 文本输入组件，通常传入 ElInput。 */
-  input: Component;
-  /** 数字输入组件，通常传入 ElInputNumber。 */
-  inputNumber: Component;
-  /** 开关组件，通常传入 ElSwitch。 */
-  switch: Component;
-  /** 日期与日期时间选择组件，通常传入 ElDatePicker。 */
-  datePicker: Component;
-  /** 时间选择组件，通常传入 ElTimePicker。 */
-  timePicker: Component;
-  /** 下拉选择组件，通常传入 ElSelect；与 option 同时提供时注册 select。 */
-  select?: Component;
-  /** 下拉选项组件，通常传入 ElOption；与 select 同时提供时注册 select。 */
-  option?: Component;
-}
-
-/** 创建独立的 Element Plus 基础字段渲染器。 */
-export function createElementPlusBasicFieldRenderer(
-  components: ElementPlusFieldComponents
-): VueBasicFieldRenderer {
+/**
+ * 创建拥有 Element Plus 常用组件的独立基础字段渲染器。
+ *
+ * 调用方只需安装 element-plus 并引入其样式，无需重复传入 ElInput、ElSelect 等组件。
+ */
+export function createElementPlusBasicFieldRenderer(): VueBasicFieldRenderer {
   const renderer = createVueBasicFieldRenderer();
-  renderer.registerFieldComponent(
-    'elementInput',
-    createElementInputField(components.input)
-  );
+  renderer.registerFieldComponent('elementInput', createElementInputField(ElInput));
   renderer.registerFieldComponent(
     'elementInputNumber',
-    createElementInputNumberField(components.inputNumber)
+    createElementInputNumberField(ElInputNumber)
   );
-  renderer.registerFieldComponent(
-    'elementSwitch',
-    createElementSwitchField(components.switch)
-  );
+  renderer.registerFieldComponent('elementSwitch', createElementSwitchField(ElSwitch));
   renderer.registerFieldComponent(
     'elementDatePicker',
-    createElementDatePickerField(components.datePicker, 'YYYY-MM-DD')
+    createElementDatePickerField(ElDatePicker, 'YYYY-MM-DD')
   );
   renderer.registerFieldComponent(
     'elementDateTimePicker',
-    createElementDatePickerField(components.datePicker, 'YYYY-MM-DD[T]HH:mm')
+    createElementDatePickerField(ElDatePicker, 'YYYY-MM-DD[T]HH:mm')
   );
   renderer.registerFieldComponent(
     'elementTimePicker',
-    createElementTimePickerField(components.timePicker)
+    createElementTimePickerField(ElTimePicker)
   );
-  if (components.select && components.option) {
-    renderer.registerFieldComponent(
-      'select',
-      createElementSelectField(components.select, components.option)
-    );
-  }
+  renderer.registerFieldComponent('select', createElementSelectField(ElSelect, ElOption));
   return renderer;
+}
+
+/** 预注册 Element Plus 常用组件的默认渲染器实例。 */
+export const defaultElementPlusBasicFieldRenderer =
+  createElementPlusBasicFieldRenderer();
+
+/** 获取默认 Element Plus 基础字段渲染器。 */
+export function getDefaultElementPlusBasicFieldRenderer(): VueBasicFieldRenderer {
+  return defaultElementPlusBasicFieldRenderer;
 }

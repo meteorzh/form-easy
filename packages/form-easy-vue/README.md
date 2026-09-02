@@ -17,7 +17,7 @@ renderer.registerFieldComponent('myInput', MyInput);
 <form-easy :schema.prop="schema" :basicFieldRenderer.prop="renderer" />
 ```
 
-还提供 `createElementPlusBasicFieldRenderer`。该工厂不依赖 `element-plus`；请由使用者安装 Element Plus，并传入 `ElInput`、`ElSwitch` 等组件。
+Element Plus 渲染器通过 `form-easy-vue/element-plus` 独立入口提供。请由使用者安装 Element Plus 并引入样式，然后直接调用 `getDefaultElementPlusBasicFieldRenderer()`；常用组件已在该默认实例中完成注册。
 
 完整 API 与 Element Plus 配置示例请参阅 [项目主页](https://github.com/meteorzh/form-easy#readme)。
 

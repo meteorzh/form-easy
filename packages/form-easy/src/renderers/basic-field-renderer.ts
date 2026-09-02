@@ -31,11 +31,11 @@ const BASIC_FIELD_RENDERER_KEY = Symbol.for('form-easy.basic-field-renderer');
 const globalRendererStore = globalThis as { [key: symbol]: unknown };
 
 /** 注册全局基础字段渲染适配器；传入 undefined 可恢复原生 H5 渲染。 */
-export function registerBasicFieldRenderer(renderer?: BasicFieldRenderer): void {
+export function registerGlobalBasicFieldRenderer(renderer?: BasicFieldRenderer): void {
   globalRendererStore[BASIC_FIELD_RENDERER_KEY] = renderer;
 }
 
 /** 获取当前已注册的基础字段渲染适配器。 */
-export function getBasicFieldRenderer(): BasicFieldRenderer | undefined {
+export function getGlobalBasicFieldRenderer(): BasicFieldRenderer | undefined {
   return globalRendererStore[BASIC_FIELD_RENDERER_KEY] as BasicFieldRenderer | undefined;
 }

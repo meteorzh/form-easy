@@ -1,7 +1,7 @@
 import { h, render, type Component, type VNode } from 'vue';
 import {
   ComponentRegistry,
-  registerBasicFieldRenderer,
+  registerGlobalBasicFieldRenderer,
   type BasicFieldRenderContext,
   type BasicFieldRenderer
 } from 'form-easy';
@@ -120,9 +120,9 @@ export function getVueBasicFieldRenderer(): VueBasicFieldRenderer {
 }
 /** 安装 Vue 基础字段渲染适配器。 */
 export function installVueBasicFieldRenderer(): void {
-  registerBasicFieldRenderer(defaultVueBasicFieldRenderer);
+  registerGlobalBasicFieldRenderer(defaultVueBasicFieldRenderer);
 }
 /** 卸载 Vue 基础字段渲染适配器并恢复核心包默认 H5 渲染。 */
 export function uninstallVueBasicFieldRenderer(): void {
-  registerBasicFieldRenderer();
+  registerGlobalBasicFieldRenderer();
 }

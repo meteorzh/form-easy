@@ -2,7 +2,7 @@ import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@
 import { componentRegistry } from '../../managers/component-registry';
 import { getGlobalComponentDataResolver } from '../../managers/component-data-resolver';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
-import { getBasicFieldRenderer } from '../../renderers/basic-field-renderer';
+import { getGlobalBasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   ComponentEventName,
@@ -379,7 +379,7 @@ export class FormEasyField implements HandleTarget {
   /** 获取当前字段实际生效的渲染器。 */
   private getActiveRenderer(): BasicFieldRenderer | undefined {
     if (this.basicFieldRenderer === null) return undefined;
-    return this.basicFieldRenderer ?? getBasicFieldRenderer();
+    return this.basicFieldRenderer ?? getGlobalBasicFieldRenderer();
   }
 
   /** 在已注册的框架适配器中渲染或更新基础字段。 */

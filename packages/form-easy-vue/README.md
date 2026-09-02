@@ -19,6 +19,8 @@ renderer.registerFieldComponent('myInput', MyInput);
 <form-easy :schema.prop="schema" :basicFieldRenderer.prop="renderer" />
 ```
 
+自定义字段组件推荐使用 `useFormEasyField()`，它统一提供受控值、禁用状态、字段上下文与端点调用能力。组件仍需使用 `update:modelValue` 回传值；`componentProperties` 会透传为组件属性。完整示例和注意事项请参阅项目主页的「编写 Vue 3 自定义字段组件」章节。
+
 Element Plus 渲染器通过 `form-easy-vue/element-plus` 独立入口提供。请由使用者安装 Element Plus 并引入样式，然后直接调用 `getDefaultElementPlusBasicFieldRenderer()`；常用组件已在该默认实例中完成注册。
 
 Vue 默认渲染器与 Element Plus 渲染器均支持 `component: 'upload'`。请在核心包中通过 `EndpointManager` 注册 `upload` 端点；单文件写入 URL 字符串，多文件写入 URL 数组的 JSON 字符串。

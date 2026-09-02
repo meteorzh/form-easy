@@ -138,6 +138,80 @@ schema 中配置 `component: 'userNameInput'` 后，渲染器会将 `componentPr
 
 Vue 渲染器实例会自动注册默认组件列表；目前包含 `select` 和 `upload`。`select` 使用 `componentData` 渲染原生下拉选项，`upload` 使用 `EndpointManager` 调用上传端点。
 
+### 编写 Vue 3 自定义字段组件 🧩
+
+自定义字段组件应把自己当作一个受控组件：通过 `modelValue` 接收表单值，并在用户操作后发出 `update:modelValue`。这是与动态表单同步值的推荐且完整的约定。
+
+```vue
+<!-- UserNameInput.vue -->
+<script setup lang="ts">
+import {
+  useFormEasyField,
+  type FormEasyFieldEmits,
+  type FormEasyFieldProps
+} from 'form-easy-vue';
+
+const props = defineProps<FormEasyFieldProps & {
+  /** schema 的 componentProperties 会透传为同名属性。 */
+  placeholder?: string;
+}>();
+
+const emit = defineEmits<FormEasyFieldEmits>();
+
+const { value, disabled, fieldId } = useFormEasyField<string>(props, emit);
+</script>
+
+<template>
+  <input
+    v-model="value"
+    :disabled="disabled"
+    :placeholder="placeholder"
+    :aria-label="fieldId"
+  />
+</template>
+```
+
+`useFormEasyField()` 提供 `value`、`updateValue()`、`disabled`、`componentData`、`field`、`fieldId`、`formKey`、`endpointManager` 及 `invokeEndpoint()`。例如需要调用接口的组件可以使用：
+
+```ts
+const { invokeEndpoint } = useFormEasyField<File>(props, emit);
+const fileUrl = await invokeEndpoint<File, string>('upload', file, abortController.signal);
+```
+
+注册组件时建议创建独立渲染器，避免不同业务表单之间的组件映射冲突：
+
+```ts
+import { createVueBasicFieldRenderer } from 'form-easy-vue';
+import UserNameInput from './UserNameInput.vue';
+
+const renderer = createVueBasicFieldRenderer();
+renderer.registerFieldComponent('userNameInput', UserNameInput);
+```
+
+随后在 schema 中明确指定该组件键：
+
+```ts
+{
+  key: 'userName',
+  name: '用户名',
+  category: 'basic',
+  dataType: 'string',
+  component: 'userNameInput',
+  componentProperties: {
+    placeholder: '请输入用户名'
+  }
+}
+```
+
+注意事项：
+
+- `FormEasyFieldProps` 中的 `modelValue`、`disabled`、`componentData`、`field`、`fieldId`、`formKey` 与 `endpointManager` 是框架上下文；不要在 `componentProperties` 中覆盖它们。
+- 业务属性应放在 `componentProperties`，会原样透传给 Vue 组件；请通过 `useFormEasyField()` 返回的 `value` 或 `updateValue()` 回传字段值，避免直接修改 props。
+- 配置 `componentDataKey` 时，组件会在数据加载成功后才挂载；自定义组件可直接读取 `componentData`，不应自行重复请求相同数据。
+- 需要调用接口时使用框架传入的 `endpointManager`。例如上传组件内部调用固定的 `upload` 端点；不要把 URL、鉴权信息或请求函数写进 schema。
+- 显式配置的自定义 `component` 未在当前渲染器注册时，框架会显示“未找到字段组件”错误，不会静默回退为原生输入框。
+- `dataType` 仍用于默认组件解析与原生输入值转换；自定义组件应自行保证输出值符合业务期望的类型。
+
 ### 使用 Element Plus 渲染器
 
 Element Plus 组件由业务方传入，因此 `form-easy-vue` 不会产生对 Element Plus 的直接依赖：

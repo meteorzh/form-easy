@@ -1,13 +1,9 @@
-import { defineComponent, h, ref, type Component, type PropType } from 'vue';
-import type { EndpointManager, FormField } from 'form-easy';
-
-/** Element Plus 字段适配组件的通用属性定义。 */
-const fieldComponentProps = {
-  /** 由 form-easy 传入的字段值。 */
-  modelValue: { type: null as unknown as PropType<unknown>, default: null },
-  /** 字段是否禁用。 */
-  disabled: { type: Boolean, default: false }
-};
+import { defineComponent, h, ref, type Component } from 'vue';
+import {
+  formEasyFieldPropOptions,
+  useFormEasyField,
+  type FormEasyFieldProps
+} from '../basic/use-form-easy-field';
 
 /** 过滤不属于 Element Plus 基础组件的通用渲染属性。 */
 function getForwardedAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
@@ -50,15 +46,19 @@ function createValueField(
   return defineComponent({
     name,
     inheritAttrs: false,
-    props: fieldComponentProps,
+    props: formEasyFieldPropOptions,
     emits: ['update:modelValue'],
     setup(props, { attrs, emit }) {
+      const { value, disabled, updateValue } = useFormEasyField<unknown>(
+        props as FormEasyFieldProps,
+        emit
+      );
       return () => h(component, {
         ...getForwardedAttributes(attrs),
         ...extraProperties,
-        modelValue: resolveValue(props.modelValue),
-        disabled: props.disabled,
-        'onUpdate:modelValue': (value: unknown) => emit('update:modelValue', value)
+        modelValue: resolveValue(value.value),
+        disabled: disabled.value,
+        'onUpdate:modelValue': updateValue
       });
     }
   });
@@ -80,12 +80,14 @@ export function createElementSelectField(selectComponent: Component, optionCompo
     name: 'FormEasyElementSelectField',
     inheritAttrs: false,
     props: {
-      ...fieldComponentProps,
-      /** 由 form-easy 组件数据机制提供的选项数组。 */
-      componentData: { type: null as unknown as PropType<unknown>, default: undefined }
+      ...formEasyFieldPropOptions
     },
     emits: ['update:modelValue'],
     setup(props, { attrs, emit }) {
+      const { value, disabled, componentData, updateValue } = useFormEasyField<unknown>(
+        props as FormEasyFieldProps,
+        emit
+      );
       const isSelectOption = (value: unknown): value is ElementSelectOption => {
         if (!value || typeof value !== 'object') return false;
         const option = value as Record<string, unknown>;
@@ -94,14 +96,14 @@ export function createElementSelectField(selectComponent: Component, optionCompo
           && (option.disabled === undefined || typeof option.disabled === 'boolean');
       };
       const getOptions = (): ElementSelectOption[] => {
-        const componentData = props.componentData as unknown;
-        return Array.isArray(componentData) && componentData.every(isSelectOption) ? componentData : [];
+        const data = componentData.value;
+        return Array.isArray(data) && data.every(isSelectOption) ? data : [];
       };
       return () => h(selectComponent, {
         ...getForwardedAttributes(attrs),
-        modelValue: props.modelValue,
-        disabled: props.disabled,
-        'onUpdate:modelValue': (value: unknown) => emit('update:modelValue', value)
+        modelValue: value.value,
+        disabled: disabled.value,
+        'onUpdate:modelValue': updateValue
       }, {
         default: () => getOptions().map(option => h(optionComponent, {
           key: String(option.value), label: option.label, value: option.value, disabled: option.disabled
@@ -120,24 +122,20 @@ export function createElementUploadField(
     name: 'FormEasyElementUploadField',
     inheritAttrs: false,
     props: {
-      ...fieldComponentProps,
-      /** 当前字段可调用异步服务的端点管理器。 */
-      endpointManager: { type: null as unknown as PropType<EndpointManager | undefined>, default: undefined },
-      /** 当前字段配置。 */
-      field: { type: null as unknown as PropType<FormField>, required: true },
-      /** 当前字段完整唯一标识。 */
-      fieldId: { type: String, required: true },
-      /** 当前所属表单键。 */
-      formKey: { type: String, required: true }
+      ...formEasyFieldPropOptions
     },
     emits: ['update:modelValue'],
     setup(props, { attrs, emit }) {
+      const { value, disabled, invokeEndpoint, updateValue } = useFormEasyField<unknown>(
+        props as FormEasyFieldProps,
+        emit
+      );
       /** 当前本轮上传完成的 URL，用于多文件值汇总。 */
       const completedUrls = ref<string[]>([]);
 
       /** 从已有字段值读取 URL 列表。 */
       const getExistingUrls = (): string[] => {
-        const modelValue = props.modelValue as unknown;
+        const modelValue = value.value;
         if (typeof modelValue !== 'string' || modelValue.length === 0) return [];
         if (!(attrs.multiple === '' || attrs.multiple === true || attrs.multiple === 'true')) {
           return [modelValue];
@@ -152,16 +150,8 @@ export function createElementUploadField(
 
       /** 交由端点管理器执行实际文件上传，并返回 URL 给 ElUpload。 */
       const httpRequest = async (request: { file: File }): Promise<string> => {
-        if (!props.endpointManager) throw new Error('未配置可用的端点管理器。');
-        const result = await props.endpointManager.invoke<File, unknown>(
-          'upload',
-          {
-            formKey: props.formKey,
-            fieldId: props.fieldId,
-            field: props.field,
-            input: request.file,
-            signal: new AbortController().signal
-          }
+        const result = await invokeEndpoint<File, unknown>(
+          'upload', request.file, new AbortController().signal
         );
         if (typeof result !== 'string') throw new Error('上传端点必须返回文件 URL 字符串。');
         return result;
@@ -173,27 +163,27 @@ export function createElementUploadField(
         const multiple = attrs.multiple === '' || attrs.multiple === true || attrs.multiple === 'true';
         if (!multiple) {
           completedUrls.value = [url];
-          emit('update:modelValue', url);
+          updateValue(url);
           return;
         }
         const existingUrls = completedUrls.value.length > 0
           ? completedUrls.value
           : getExistingUrls();
         completedUrls.value = [...existingUrls, url];
-        emit('update:modelValue', JSON.stringify(completedUrls.value));
+        updateValue(JSON.stringify(completedUrls.value));
       };
 
       /** 渲染 Element Plus 上传组件，并将上传请求交由 EndpointManager 执行。 */
       return () => h(uploadComponent, {
         ...getForwardedAttributes(attrs),
-        disabled: props.disabled,
+        disabled: disabled.value,
         autoUpload: true,
         httpRequest,
         onSuccess: handleSuccess
       }, {
         default: () => h(buttonComponent, {
           type: 'primary',
-          disabled: props.disabled
+          disabled: disabled.value
         }, {
           default: () => '选择文件并上传'
         })

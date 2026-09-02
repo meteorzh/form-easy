@@ -1,4 +1,9 @@
 import { defineComponent, h } from 'vue';
+import {
+  formEasyFieldPropOptions,
+  useFormEasyField,
+  type FormEasyFieldProps
+} from './use-form-easy-field';
 
 /** Vue 默认下拉组件支持的单个选项。 */
 interface VueSelectOption {
@@ -15,17 +20,16 @@ export const VueSelect = defineComponent({
   name: 'FormEasyVueSelect',
   inheritAttrs: false,
   props: {
-    /** 当前字段值。 */
-    modelValue: { type: null, default: null },
-    /** 下拉选项数据。 */
-    componentData: { type: null, default: undefined },
-    /** 是否禁用当前控件。 */
-    disabled: { type: Boolean, default: false },
+    ...formEasyFieldPropOptions,
     /** 未选择值时展示的占位文本。 */
     placeholder: { type: String, default: '请选择' }
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
+    const { value, disabled, componentData, updateValue } = useFormEasyField<unknown>(
+      props as FormEasyFieldProps,
+      emit
+    );
     /** 判断组件数据是否为合法的下拉选项数组。 */
     const isSelectOption = (value: unknown): value is VueSelectOption => {
       if (!value || typeof value !== 'object') return false;
@@ -37,8 +41,8 @@ export const VueSelect = defineComponent({
 
     /** 将当前组件数据安全转换为选项数组。 */
     const getOptions = (): VueSelectOption[] => {
-      return Array.isArray(props.componentData) && props.componentData.every(isSelectOption)
-        ? props.componentData
+      return Array.isArray(componentData.value) && componentData.value.every(isSelectOption)
+        ? componentData.value
         : [];
     };
 
@@ -46,14 +50,14 @@ export const VueSelect = defineComponent({
     const handleChange = (event: Event): void => {
       const selectedValue = (event.target as HTMLSelectElement).value;
       const selectedOption = getOptions().find(option => String(option.value) === selectedValue);
-      if (selectedOption) emit('update:modelValue', selectedOption.value);
+      if (selectedOption) updateValue(selectedOption.value);
     };
 
     return () => {
       const options = getOptions();
-      const currentValue = String(props.modelValue ?? '');
+      const currentValue = String(value.value ?? '');
       const hasSelectedValue = options.some(option => String(option.value) === currentValue);
-      return h('select', { disabled: props.disabled, onChange: handleChange }, [
+      return h('select', { disabled: disabled.value, onChange: handleChange }, [
         h('option', { value: '', disabled: true, selected: !hasSelectedValue }, props.placeholder),
         ...options.map(option => h('option', {
           value: String(option.value),

@@ -50,6 +50,10 @@ export class H5BasicFieldRenderer implements BasicFieldRenderer {
     (component as unknown as Record<string, unknown>).value = context.value;
     (component as unknown as Record<string, unknown>).componentData = context.componentData;
     (component as unknown as Record<string, unknown>).disabled = context.disabled;
+    (component as unknown as Record<string, unknown>).endpointManager = context.endpointManager;
+    (component as unknown as Record<string, unknown>).field = context.field;
+    (component as unknown as Record<string, unknown>).fieldId = context.fieldId;
+    (component as unknown as Record<string, unknown>).formKey = context.formKey;
     component.addEventListener('change', this.createComponentChangeHandler(context));
     component.addEventListener('valueChange', this.createComponentChangeHandler(context));
     return component;
@@ -107,7 +111,10 @@ export const defaultBasicFieldComponents: ReadonlyArray<{
   name: BasicFieldComponentKey;
   /** 对应的 Web Component 注册信息。 */
   component: RegisteredComponent;
-}> = [{ name: 'select', component: { tagName: 'form-easy-select' } }];
+}> = [
+  { name: 'select', component: { tagName: 'form-easy-select' } },
+  { name: 'upload', component: { tagName: 'form-easy-upload' } }
+];
 
 /** 将内置组件注册到默认 H5 渲染器自己的组件注册中心。 */
 defaultBasicFieldComponents.forEach(({ name, component }) => {

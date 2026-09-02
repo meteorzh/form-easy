@@ -61,6 +61,29 @@ const schema = {
       hint: '数据键不存在时会显示字段级错误，且不会挂载实际 select 组件。'
     },
     {
+      key: 'uploadField',
+      name: '异步端点：单文件上传组件示例',
+      category: 'basic',
+      dataType: 'string',
+      component: 'upload',
+      componentProperties: {
+        accept: 'image/*'
+      },
+      hint: '选择文件后通过 EndpointManager 调用 upload 端点，字段值保存返回的 URL 字符串。'
+    },
+    {
+      key: 'multipleUploadField',
+      name: '异步端点：多文件上传组件示例',
+      category: 'basic',
+      dataType: 'string',
+      component: 'upload',
+      componentProperties: {
+        accept: 'image/*',
+        multiple: true
+      },
+      hint: '多文件模式下，字段值保存为上传 URL 数组的 JSON 字符串。'
+    },
+    {
       key: 'dateField',
       name: '基础字段：日期类型示例',
       category: 'basic',

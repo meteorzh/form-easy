@@ -1,0 +1,5 @@
+:host { display: block; }
+.upload { display: grid; gap: 8px; }
+.upload p { margin: 0; color: #526078; font-size: 13px; }
+.upload .error { color: #dc2626; }
+.upload a { overflow: hidden; color: #2563eb; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }

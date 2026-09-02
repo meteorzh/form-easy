@@ -1,5 +1,6 @@
 import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
+import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { ComponentDataResolver, FormField, LabelPosition } from '../../types';
 
@@ -18,6 +19,8 @@ export class FormEasyArray {
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 当前表单覆盖全局配置的组件数据解析器。 */
   @Prop() componentDataResolver?: ComponentDataResolver;
+  /** 当前表单覆盖全局配置的异步服务端点管理器。 */
+  @Prop() endpointManager?: EndpointManager;
   /** 当前数组值。 */
   @Prop() value: unknown;
   /** 共享事件路由器。 */
@@ -75,6 +78,7 @@ export class FormEasyArray {
               labelPosition={this.labelPosition}
               basicFieldRenderer={this.basicFieldRenderer}
               componentDataResolver={this.componentDataResolver}
+              endpointManager={this.endpointManager}
               value={item}
               eventCenter={this.eventCenter}
               onValueChange={(event: CustomEvent<unknown>) => this.changeItem(index, event)}

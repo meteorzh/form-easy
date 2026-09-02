@@ -1,7 +1,9 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import {
-  registerGlobalComponentDataResolver
+  registerGlobalComponentDataResolver,
+  EndpointManager,
+  registerGlobalEndpointManager
 } from 'form-easy';
 import { defineCustomElements } from 'form-easy/loader';
 import 'element-plus/dist/index.css';
@@ -26,6 +28,20 @@ registerGlobalComponentDataResolver(async ({ componentDataKey, signal }) => {
     { label: '已停用', value: 'disabled', disabled: true }
   ];
 });
+
+/** 为 Playground 上传示例注册模拟文件上传端点。 */
+const playgroundEndpointManager = new EndpointManager();
+playgroundEndpointManager.register<File, string>('upload', async ({ input, signal }) => {
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(resolve, 450);
+    signal.addEventListener('abort', () => {
+      window.clearTimeout(timeoutId);
+      reject(new DOMException('上传请求已取消。', 'AbortError'));
+    }, { once: true });
+  });
+  return `https://example.com/uploads/${encodeURIComponent(input.name)}`;
+});
+registerGlobalEndpointManager(playgroundEndpointManager);
 
 defineCustomElements();
 createApp(App).mount('#app');

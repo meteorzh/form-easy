@@ -8,9 +8,11 @@ import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 import { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
+import { EndpointManager } from "./managers/endpoint-manager";
 export { ComponentDataResolver, ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
+export { EndpointManager } from "./managers/endpoint-manager";
 export namespace Components {
     /**
      * 根据 JSON schema 渲染完整动态表单。
@@ -24,6 +26,10 @@ export namespace Components {
           * 当前表单覆盖全局配置的组件数据解析器。
          */
         "componentDataResolver"?: ComponentDataResolver;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
          */
@@ -54,6 +60,10 @@ export namespace Components {
           * @default false
          */
         "disabled": boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 共享事件路由器。
           * @default globalEventCenter
@@ -98,6 +108,10 @@ export namespace Components {
          */
         "componentDataResolver"?: ComponentDataResolver;
         /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
+        /**
           * 表单内所有字段共用的事件路由器。
           * @default globalEventCenter
          */
@@ -141,6 +155,10 @@ export namespace Components {
           * @default false
          */
         "disabled": boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 共享事件路由器。
           * @default globalEventCenter
@@ -192,6 +210,45 @@ export namespace Components {
          */
         "value": unknown;
     }
+    /**
+     * 使用端点管理器上传文件的默认 H5 基础字段组件。
+     */
+    interface FormEasyUpload {
+        /**
+          * 原生文件选择框接受的 MIME 类型或扩展名。
+         */
+        "accept"?: string;
+        /**
+          * 是否禁用当前控件。
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * 当前字段可调用异步服务的端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
+        /**
+          * 当前字段配置。
+         */
+        "field": FormField;
+        /**
+          * 当前字段完整唯一标识。
+         */
+        "fieldId": string;
+        /**
+          * 当前所属表单键。
+         */
+        "formKey": string;
+        /**
+          * 是否允许一次选择多个文件。
+          * @default false
+         */
+        "multiple": boolean;
+        /**
+          * 当前字段值；单文件为 URL，多文件为 URL 数组的 JSON 字符串。
+         */
+        "value": unknown;
+    }
 }
 export interface FormEasyCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -212,6 +269,10 @@ export interface FormEasyObjectCustomEvent<T> extends CustomEvent<T> {
 export interface FormEasySelectCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLFormEasySelectElement;
+}
+export interface FormEasyUploadCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLFormEasyUploadElement;
 }
 declare global {
     interface HTMLFormEasyElementEventMap {
@@ -314,12 +375,33 @@ declare global {
         prototype: HTMLFormEasySelectElement;
         new (): HTMLFormEasySelectElement;
     };
+    interface HTMLFormEasyUploadElementEventMap {
+        "valueChange": string;
+    }
+    /**
+     * 使用端点管理器上传文件的默认 H5 基础字段组件。
+     */
+    interface HTMLFormEasyUploadElement extends Components.FormEasyUpload, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLFormEasyUploadElementEventMap>(type: K, listener: (this: HTMLFormEasyUploadElement, ev: FormEasyUploadCustomEvent<HTMLFormEasyUploadElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLFormEasyUploadElementEventMap>(type: K, listener: (this: HTMLFormEasyUploadElement, ev: FormEasyUploadCustomEvent<HTMLFormEasyUploadElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLFormEasyUploadElement: {
+        prototype: HTMLFormEasyUploadElement;
+        new (): HTMLFormEasyUploadElement;
+    };
     interface HTMLElementTagNameMap {
         "form-easy": HTMLFormEasyElement;
         "form-easy-array": HTMLFormEasyArrayElement;
         "form-easy-field": HTMLFormEasyFieldElement;
         "form-easy-object": HTMLFormEasyObjectElement;
         "form-easy-select": HTMLFormEasySelectElement;
+        "form-easy-upload": HTMLFormEasyUploadElement;
     }
 }
 declare namespace LocalJSX {
@@ -337,6 +419,10 @@ declare namespace LocalJSX {
           * 当前表单覆盖全局配置的组件数据解析器。
          */
         "componentDataResolver"?: ComponentDataResolver;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
          */
@@ -371,6 +457,10 @@ declare namespace LocalJSX {
           * @default false
          */
         "disabled"?: boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 共享事件路由器。
           * @default globalEventCenter
@@ -414,6 +504,10 @@ declare namespace LocalJSX {
           * 当前表单覆盖全局配置的组件数据解析器。
          */
         "componentDataResolver"?: ComponentDataResolver;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 表单内所有字段共用的事件路由器。
           * @default globalEventCenter
@@ -462,6 +556,10 @@ declare namespace LocalJSX {
           * @default false
          */
         "disabled"?: boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
         /**
           * 共享事件路由器。
           * @default globalEventCenter
@@ -521,6 +619,49 @@ declare namespace LocalJSX {
          */
         "value"?: unknown;
     }
+    /**
+     * 使用端点管理器上传文件的默认 H5 基础字段组件。
+     */
+    interface FormEasyUpload {
+        /**
+          * 原生文件选择框接受的 MIME 类型或扩展名。
+         */
+        "accept"?: string;
+        /**
+          * 是否禁用当前控件。
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * 当前字段可调用异步服务的端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
+        /**
+          * 当前字段配置。
+         */
+        "field": FormField;
+        /**
+          * 当前字段完整唯一标识。
+         */
+        "fieldId": string;
+        /**
+          * 当前所属表单键。
+         */
+        "formKey": string;
+        /**
+          * 是否允许一次选择多个文件。
+          * @default false
+         */
+        "multiple"?: boolean;
+        /**
+          * 上传完成后通知 form-easy 字段更新值。
+         */
+        "onValueChange"?: (event: FormEasyUploadCustomEvent<string>) => void;
+        /**
+          * 当前字段值；单文件为 URL，多文件为 URL 数组的 JSON 字符串。
+         */
+        "value"?: unknown;
+    }
 
     interface FormEasyArrayAttributes {
         "fieldId": string;
@@ -543,6 +684,13 @@ declare namespace LocalJSX {
         "disabled": boolean;
         "placeholder": string;
     }
+    interface FormEasyUploadAttributes {
+        "multiple": boolean;
+        "accept": string;
+        "disabled": boolean;
+        "fieldId": string;
+        "formKey": string;
+    }
 
     interface IntrinsicElements {
         "form-easy": FormEasy;
@@ -550,6 +698,7 @@ declare namespace LocalJSX {
         "form-easy-field": Omit<FormEasyField, keyof FormEasyFieldAttributes> & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes]?: FormEasyField[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `attr:${K}`]?: FormEasyFieldAttributes[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `prop:${K}`]?: FormEasyField[K] } & OneOf<"fieldId", FormEasyField["fieldId"], FormEasyFieldAttributes["fieldId"]> & OneOf<"formKey", FormEasyField["formKey"], FormEasyFieldAttributes["formKey"]>;
         "form-easy-object": Omit<FormEasyObject, keyof FormEasyObjectAttributes> & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes]?: FormEasyObject[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `attr:${K}`]?: FormEasyObjectAttributes[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `prop:${K}`]?: FormEasyObject[K] } & OneOf<"fieldId", FormEasyObject["fieldId"], FormEasyObjectAttributes["fieldId"]> & OneOf<"formKey", FormEasyObject["formKey"], FormEasyObjectAttributes["formKey"]>;
         "form-easy-select": Omit<FormEasySelect, keyof FormEasySelectAttributes> & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes]?: FormEasySelect[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `attr:${K}`]?: FormEasySelectAttributes[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `prop:${K}`]?: FormEasySelect[K] };
+        "form-easy-upload": Omit<FormEasyUpload, keyof FormEasyUploadAttributes> & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes]?: FormEasyUpload[K] } & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes as `attr:${K}`]?: FormEasyUploadAttributes[K] } & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes as `prop:${K}`]?: FormEasyUpload[K] } & OneOf<"fieldId", FormEasyUpload["fieldId"], FormEasyUploadAttributes["fieldId"]> & OneOf<"formKey", FormEasyUpload["formKey"], FormEasyUploadAttributes["formKey"]>;
     }
 }
 export { LocalJSX as JSX };
@@ -576,6 +725,10 @@ declare module "@stencil/core" {
              * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
              */
             "form-easy-select": LocalJSX.IntrinsicElements["form-easy-select"] & JSXBase.HTMLAttributes<HTMLFormEasySelectElement>;
+            /**
+             * 使用端点管理器上传文件的默认 H5 基础字段组件。
+             */
+            "form-easy-upload": LocalJSX.IntrinsicElements["form-easy-upload"] & JSXBase.HTMLAttributes<HTMLFormEasyUploadElement>;
         }
     }
 }

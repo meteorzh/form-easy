@@ -1,4 +1,5 @@
-import { defineComponent, h, type Component, type PropType } from 'vue';
+import { defineComponent, h, ref, type Component, type PropType } from 'vue';
+import type { EndpointManager, FormField } from 'form-easy';
 
 /** Element Plus 字段适配组件的通用属性定义。 */
 const fieldComponentProps = {
@@ -105,6 +106,97 @@ export function createElementSelectField(selectComponent: Component, optionCompo
         default: () => getOptions().map(option => h(optionComponent, {
           key: String(option.value), label: option.label, value: option.value, disabled: option.disabled
         }))
+      });
+    }
+  });
+}
+
+/** 创建使用 Element Plus 上传组件和按钮以及端点管理器的适配器。 */
+export function createElementUploadField(
+  uploadComponent: Component,
+  buttonComponent: Component
+): Component {
+  return defineComponent({
+    name: 'FormEasyElementUploadField',
+    inheritAttrs: false,
+    props: {
+      ...fieldComponentProps,
+      /** 当前字段可调用异步服务的端点管理器。 */
+      endpointManager: { type: null as unknown as PropType<EndpointManager | undefined>, default: undefined },
+      /** 当前字段配置。 */
+      field: { type: null as unknown as PropType<FormField>, required: true },
+      /** 当前字段完整唯一标识。 */
+      fieldId: { type: String, required: true },
+      /** 当前所属表单键。 */
+      formKey: { type: String, required: true }
+    },
+    emits: ['update:modelValue'],
+    setup(props, { attrs, emit }) {
+      /** 当前本轮上传完成的 URL，用于多文件值汇总。 */
+      const completedUrls = ref<string[]>([]);
+
+      /** 从已有字段值读取 URL 列表。 */
+      const getExistingUrls = (): string[] => {
+        const modelValue = props.modelValue as unknown;
+        if (typeof modelValue !== 'string' || modelValue.length === 0) return [];
+        if (!(attrs.multiple === '' || attrs.multiple === true || attrs.multiple === 'true')) {
+          return [modelValue];
+        }
+        try {
+          const urls = JSON.parse(modelValue);
+          return Array.isArray(urls) && urls.every(url => typeof url === 'string') ? urls : [];
+        } catch {
+          return [];
+        }
+      };
+
+      /** 交由端点管理器执行实际文件上传，并返回 URL 给 ElUpload。 */
+      const httpRequest = async (request: { file: File }): Promise<string> => {
+        if (!props.endpointManager) throw new Error('未配置可用的端点管理器。');
+        const result = await props.endpointManager.invoke<File, unknown>(
+          'upload',
+          {
+            formKey: props.formKey,
+            fieldId: props.fieldId,
+            field: props.field,
+            input: request.file,
+            signal: new AbortController().signal
+          }
+        );
+        if (typeof result !== 'string') throw new Error('上传端点必须返回文件 URL 字符串。');
+        return result;
+      };
+
+      /** 上传成功后将返回 URL 转换为字段约定值。 */
+      const handleSuccess = (url: unknown): void => {
+        if (typeof url !== 'string') return;
+        const multiple = attrs.multiple === '' || attrs.multiple === true || attrs.multiple === 'true';
+        if (!multiple) {
+          completedUrls.value = [url];
+          emit('update:modelValue', url);
+          return;
+        }
+        const existingUrls = completedUrls.value.length > 0
+          ? completedUrls.value
+          : getExistingUrls();
+        completedUrls.value = [...existingUrls, url];
+        emit('update:modelValue', JSON.stringify(completedUrls.value));
+      };
+
+      /** 渲染 Element Plus 上传组件，并将上传请求交由 EndpointManager 执行。 */
+      return () => h(uploadComponent, {
+        ...getForwardedAttributes(attrs),
+        disabled: props.disabled,
+        autoUpload: true,
+        httpRequest,
+        onSuccess: handleSuccess
+      }, {
+        default: () => h(buttonComponent, {
+          type: 'primary',
+          disabled: props.disabled
+        }, {
+          default: () => '选择文件并上传'
+        })
       });
     }
   });

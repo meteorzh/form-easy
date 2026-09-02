@@ -136,7 +136,7 @@ userRenderer.registerFieldComponent('userNameInput', UserNameInput);
 
 schema 中配置 `component: 'userNameInput'` 后，渲染器会将 `componentProperties`、`modelValue`、`disabled` 和 `update:modelValue` 事件传递给该 Vue 组件。
 
-Vue 渲染器实例会自动注册默认组件列表；目前包含 `select`，会使用 `componentData` 渲染原生下拉选项。
+Vue 渲染器实例会自动注册默认组件列表；目前包含 `select` 和 `upload`。`select` 使用 `componentData` 渲染原生下拉选项，`upload` 使用 `EndpointManager` 调用上传端点。
 
 ### 使用 Element Plus 渲染器
 
@@ -151,7 +151,7 @@ import {
 const elementRenderer = getDefaultElementPlusBasicFieldRenderer();
 ```
 
-该独立入口内置并预注册：`input`、`input-number`、`bool`、`date`、`datetime`、`time` 与 `select`。当基础字段未配置 `component` 时，渲染器会按 `dataType` 自动使用对应组件；其中 `select` 使用 `ElSelect + ElOption` 渲染 `componentData` 选项。
+该独立入口内置并预注册：`input`、`input-number`、`bool`、`date`、`datetime`、`time`、`select` 与 `upload`。当基础字段未配置 `component` 时，渲染器会按 `dataType` 自动使用对应组件；其中 `select` 使用 `ElSelect + ElOption` 渲染 `componentData` 选项，`upload` 使用 `ElUpload` 和 `EndpointManager` 调用上传端点。
 
 ```ts
 const schema = {
@@ -208,7 +208,7 @@ const schema = {
 
 ### 默认基础组件
 
-核心包会在默认 H5 组件注册中心预注册常用组件。目前内置 `select`，可直接在字段中指定 `component: 'select'`；它接收 `componentData` 或由 `componentDataKey` 解析得到的选项数组：
+核心包会在默认 H5 组件注册中心预注册常用组件。目前内置 `select` 和 `upload`。其中 `select` 可直接在字段中指定 `component: 'select'`；它接收 `componentData` 或由 `componentDataKey` 解析得到的选项数组：
 
 ```ts
 {
@@ -312,6 +312,46 @@ const schema = {
 ```
 
 `componentData` 优先于 `componentDataKey`；两者同时出现时会输出警告并使用前者。解析器接收字段、字段标识、表单键及 `AbortSignal`，字段卸载或配置变更时会自动取消旧请求。数据最终作为 `componentData` 属性传给自定义组件。
+
+### 异步端点与文件上传
+
+`EndpointManager` 用于注册上传、远程校验等需要调用接口的异步能力。组件内部决定调用哪个端点键，schema 不保存 URL、鉴权信息、请求函数或端点键；运行时按“表单级端点管理器 → 全局端点管理器”的顺序解析。
+
+```ts
+import { EndpointManager, registerGlobalEndpointManager } from 'form-easy';
+
+const endpointManager = new EndpointManager();
+endpointManager.register<File, string>('upload', async ({ input, signal }) => {
+  const formData = new FormData();
+  formData.append('file', input);
+  const response = await fetch('/api/files', {
+    method: 'POST',
+    body: formData,
+    signal
+  });
+  if (!response.ok) throw new Error('上传失败');
+  return (await response.json()).url;
+});
+registerGlobalEndpointManager(endpointManager);
+```
+
+上传组件使用内置 `upload` 端点键。单文件字段值为端点返回的 URL 字符串；`multiple: true` 时，字段值为 URL 数组的 JSON 字符串。H5、Vue 与 Element Plus 渲染器均提供 `upload` 组件；Element Plus 版本内部使用 `ElUpload`。
+
+```ts
+{
+  key: 'images',
+  name: '商品图片',
+  category: 'basic',
+  dataType: 'string',
+  component: 'upload',
+  componentProperties: {
+    accept: 'image/*',
+    multiple: true
+  }
+}
+```
+
+如需隔离某个表单的服务实现，可将 `EndpointManager` 通过 `endpointManager` 属性传入 `<form-easy>`。
 
 ## 本地开发 🛠️
 

@@ -24,6 +24,16 @@ export type DefaultBasicFieldComponentKey =
  */
 export type BasicFieldComponentKey = DefaultBasicFieldComponentKey | (string & {});
 
+/** 内置异步服务的固定端点键。 */
+export type DefaultEndpointKey = 'upload';
+
+/**
+ * 异步服务端点键。
+ *
+ * 内置键可获得代码补全，同时允许业务方使用任意自定义字符串。
+ */
+export type EndpointKey = DefaultEndpointKey | (string & {});
+
 /** 数据类型未显式配置 component 时使用的默认组件键映射。 */
 export const defaultBasicFieldComponentKeyByDataType: Readonly<Record<
   DataType,

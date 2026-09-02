@@ -1,11 +1,13 @@
 import {
+  ElButton,
   ElDatePicker,
   ElInput,
   ElInputNumber,
   ElOption,
   ElSelect,
   ElSwitch,
-  ElTimePicker
+  ElTimePicker,
+  ElUpload
 } from 'element-plus';
 import {
   createVueBasicFieldRenderer,
@@ -17,7 +19,8 @@ import {
   createElementInputNumberField,
   createElementSelectField,
   createElementSwitchField,
-  createElementTimePickerField
+  createElementTimePickerField,
+  createElementUploadField
 } from './element/element-plus-field-components';
 
 /**
@@ -46,6 +49,7 @@ export function createElementPlusBasicFieldRenderer(): VueBasicFieldRenderer {
     createElementTimePickerField(ElTimePicker)
   );
   renderer.registerFieldComponent('select', createElementSelectField(ElSelect, ElOption));
+  renderer.registerFieldComponent('upload', createElementUploadField(ElUpload, ElButton));
   return renderer;
 }
 

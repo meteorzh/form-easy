@@ -1,4 +1,5 @@
 import type { FormField } from '../types';
+import type { EndpointManager } from '../managers/endpoint-manager';
 
 /** 基础字段渲染器接收的运行时上下文。 */
 export interface BasicFieldRenderContext {
@@ -12,6 +13,10 @@ export interface BasicFieldRenderContext {
   disabled: boolean;
   /** 已准备完成并可供组件使用的数据。 */
   componentData: unknown;
+  /** 当前字段可调用异步服务的端点管理器。 */
+  endpointManager?: EndpointManager;
+  /** 当前所属表单键。 */
+  formKey: string;
   /** 将渲染器中的值变更同步回表单字段。 */
   onChange: (value: unknown) => void;
 }

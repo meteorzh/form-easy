@@ -8,6 +8,7 @@ import {
   type BasicFieldRenderer
 } from 'form-easy';
 import { VueSelect } from './basic/vue-select';
+import { VueUpload } from './basic/vue-upload';
 
 /** Vue 渲染器实例初始化时自动注册的常用字段组件。 */
 export const defaultVueFieldComponents: ReadonlyArray<{
@@ -15,7 +16,10 @@ export const defaultVueFieldComponents: ReadonlyArray<{
   name: BasicFieldComponentKey;
   /** 对应的 Vue 组件。 */
   component: Component;
-}> = [{ name: 'select', component: VueSelect }];
+}> = [
+  { name: 'select', component: VueSelect },
+  { name: 'upload', component: VueUpload }
+];
 
 /** 可按表单独立配置组件的 Vue 基础字段渲染器。 */
 export class VueBasicFieldRenderer implements BasicFieldRenderer {
@@ -97,6 +101,10 @@ export class VueBasicFieldRenderer implements BasicFieldRenderer {
       modelValue: context.value,
       componentData: context.componentData,
       disabled: context.disabled,
+      endpointManager: context.endpointManager,
+      field: context.field,
+      fieldId: context.fieldId,
+      formKey: context.formKey,
       'onUpdate:modelValue': onChange,
       onChange
     });

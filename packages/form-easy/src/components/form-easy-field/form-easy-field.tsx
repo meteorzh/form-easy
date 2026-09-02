@@ -1,5 +1,9 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
 import { getGlobalComponentDataResolver } from '../../managers/component-data-resolver';
+import {
+  getGlobalEndpointManager,
+  type EndpointManager
+} from '../../managers/endpoint-manager';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import {
   getGlobalBasicFieldRenderer,
@@ -37,6 +41,8 @@ export class FormEasyField implements HandleTarget {
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 当前表单覆盖全局配置的组件数据解析器。 */
   @Prop() componentDataResolver?: ComponentDataResolver;
+  /** 当前表单覆盖全局配置的异步服务端点管理器。 */
+  @Prop() endpointManager?: EndpointManager;
   /** 表单内所有字段共用的事件路由器。 */
   @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 向父级渲染器通知字段值变更。 */
@@ -386,6 +392,8 @@ export class FormEasyField implements HandleTarget {
       value: this.currentValue,
       disabled: this.disabled,
       componentData: this.componentData,
+      endpointManager: this.endpointManager ?? getGlobalEndpointManager(),
+      formKey: this.formKey,
       onChange: value => this.updateValue(value, 'onChange')
     });
   }
@@ -408,6 +416,7 @@ export class FormEasyField implements HandleTarget {
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
           componentDataResolver={this.componentDataResolver}
+          endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
           disabled={this.disabled}
@@ -424,6 +433,7 @@ export class FormEasyField implements HandleTarget {
           labelPosition={this.labelPosition}
           basicFieldRenderer={this.basicFieldRenderer}
           componentDataResolver={this.componentDataResolver}
+          endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
           disabled={this.disabled}

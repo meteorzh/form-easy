@@ -252,6 +252,56 @@ const schema = {
 
 ## Schema 指南 🗺️
 
+### Schema 静态校验
+
+在保存、下发或渲染动态表单之前，可以使用 `validateFormSchema()` 对未知 JSON 做完整的静态检查。该方法不会修改 schema，也不会因普通配置错误而抛出异常，而是一次返回全部问题：
+
+```ts
+import { validateFormSchema } from '@wenzhencn/form-easy';
+
+const result = validateFormSchema(schemaFromServer);
+
+if (!result.valid) {
+  result.errors.forEach(issue => {
+    console.error(`[${issue.code}] ${issue.path}: ${issue.message}`);
+  });
+}
+
+result.warnings.forEach(issue => {
+  console.warn(`[${issue.code}] ${issue.path}: ${issue.message}`);
+});
+```
+
+每一个 `issue` 都包含：
+
+| 属性 | 说明 |
+| --- | --- |
+| `level` | `error` 或 `warning`；只有 error 会令 `valid` 变为 `false`。 |
+| `code` | 适合程序分类处理的稳定问题代码。 |
+| `path` | 精确定位问题的 JSON 风格路径，例如 `$.fields[1].rules[0]`。 |
+| `message` | 面向开发者的中文错误说明。 |
+
+深度校验覆盖以下内容：
+
+- 表单 `key`、`name`、`fields` 等必需属性、属性类型、未知属性和 `labelPosition` 枚举。
+- 每一级字段的 `key`、`name`、`category`，同级重复 key，以及会破坏完整字段标识的 key 字符。
+- 对象字段、数组元素定义和嵌套结构，并提供循环引用保护。
+- `defaultValue` 与字段分类、`dataType`、对象 fields 和数组 element 的深度兼容性。
+- rules 类型兼容性、必需参数、参数格式、重复规则以及上下界关系。
+- binds、eventSubscriptions 的必需属性、枚举、重复配置、resolver 语法和当前表单内的源字段引用。
+- `componentData` / `componentDataKey`、`binds` / `eventSubscriptions` 等有覆盖优先级的冲突配置。
+
+字段分类的核心结构约束如下：
+
+| 字段分类 | 必须配置 | 不应配置 |
+| --- | --- | --- |
+| 基础字段 | `key`、`name`、`category`、`dataType` | `element`、`fields` |
+| 数组字段 | `key`、`name`、`category`、`element` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`fields` |
+| 对象字段 | `key`、`name`、`category`、`fields` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`element` |
+| 数组元素定义 | `category` 及对应分类必需属性 | `key`、`name` |
+
+同一表单中的绑定和事件源会检查字段定义是否存在；跨表单引用无法仅凭当前 schema 确认，因此只校验其配置格式，不会误报源字段不存在。
+
 ### 表单属性
 
 | 属性 | 说明 |

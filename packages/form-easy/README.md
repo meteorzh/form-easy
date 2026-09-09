@@ -24,6 +24,8 @@ defineCustomElements();
 
 字段可通过 `rules` 配置 `required`、`minLength`、`maxLength`、`min`、`max`、`pattern` 和 `enum` 同步校验；表单元素提供 `validate()` 与 `validateField(fieldId)` 方法。
 
+渲染服务端或其他外部来源的 JSON 前，可使用 `validateFormSchema(schema)` 深度校验表单、递归字段、分类专属属性、默认值、rules、binds 和事件订阅。返回结果包含 `valid`、`issues`、`errors` 与 `warnings`，每个问题都提供稳定 `code`、JSON 风格 `path` 和中文 `message`。
+
 完整使用文档、Vue 3 与 Element Plus 示例请参阅 [项目主页](https://github.com/meteorzh/form-easy#readme)。
 
 ## License

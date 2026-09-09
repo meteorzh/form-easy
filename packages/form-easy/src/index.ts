@@ -8,3 +8,4 @@ export * from './renderers/abstract-basic-field-renderer';
 export * from './renderers/h5-basic-field-renderer';
 export * from './types';
 export * from './validation/field-validator';
+export * from './validation/schema';

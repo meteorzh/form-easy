@@ -1,4 +1,5 @@
 export * from './components';
+export type { FormEasyCreatorChangeDetail } from './components/creator/types';
 export * from './managers/component-registry';
 export * from './managers/component-data-manager';
 export * from './managers/endpoint-manager';

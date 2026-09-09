@@ -13,6 +13,7 @@
 - 🔄 内置事件流循环检测，避免订阅配置意外形成无限循环。
 - 🎨 支持表单级渲染器，默认 H5、Vue 与 Element Plus 实例可同时存在。
 - 📐 支持 `left`、`top`、`right` 三种标签位置。
+- 🧰 内置由动态表单 JSON 驱动的可视化 schema 设计器。
 
 ## 包说明 📦
 
@@ -92,6 +93,60 @@ form.addEventListener('formChange', event => {
 ```html
 <form-easy></form-easy>
 ```
+
+## 可视化表单设计器 🧰
+
+核心包提供 `<form-easy-creator>`。设计器自身仍然是一个 `<form-easy>`：配置界面由独立的 `creator-schema.json` 驱动，编辑结果会实时转换为目标 `FormSchema`，并通过深度 schema 校验器显示错误和警告。
+
+注册 Web Components 后可以直接使用：
+
+```html
+<form-easy-creator></form-easy-creator>
+```
+
+在 Vue 3 中，可传入已有 schema 继续编辑，并监听实时输出。对象属性需要使用 `.prop` 传递：
+
+```vue
+<script setup lang="ts">
+import type {
+  FormEasyCreatorChangeDetail,
+  FormSchema
+} from '@wenzhencn/form-easy';
+
+const existingSchema: FormSchema = {
+  key: 'profile',
+  name: '个人资料',
+  fields: []
+};
+
+function handleSchemaChange(event: CustomEvent<FormEasyCreatorChangeDetail>) {
+  const { schema, validation } = event.detail;
+  console.log('当前 schema', schema);
+  console.log('是否可用', validation.valid);
+}
+</script>
+
+<template>
+  <form-easy-creator
+    :value.prop="existingSchema"
+    :basicFieldRenderer.prop="renderer"
+    @schemaChange="handleSchemaChange"
+  />
+</template>
+```
+
+也可以通过元素方法主动读取和校验：
+
+```ts
+const creator = document.querySelector('form-easy-creator');
+const schema = await creator.getSchema();
+const validation = await creator.getSchemaValidationResult();
+const valid = await creator.validate();
+```
+
+第一版支持表单基础信息、顶层字段、校验规则、绑定和事件订阅的可视化配置。由于 JSON schema 本身无法表达无限递归的自引用结构，数组字段的 `element` 和对象字段的 `fields` 暂由内置多行 JSON 编辑器配置；解析问题会与 schema 静态校验结果一起显示。
+
+设计器右侧可以在 `JSON Schema` 与“表单预览”之间切换。`basicFieldRenderer` 仅用于渲染预览表单；不传时使用默认 H5 渲染器，也可以传入 Vue 或 Element Plus 渲染器。设计器左侧配置区域固定使用隔离的内置 H5 渲染器，确保设计器专用 JSON 编辑组件不要求业务渲染器额外注册。
 
 ## Vue 3 使用方式 💚
 

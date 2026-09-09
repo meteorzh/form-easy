@@ -28,6 +28,8 @@ defineCustomElements();
 
 完整使用文档、Vue 3 与 Element Plus 示例请参阅 [项目主页](https://github.com/meteorzh/form-easy#readme)。
 
+核心包还提供由动态表单 JSON 驱动的 `<form-easy-creator>` 可视化设计器，可实时生成并校验表单 schema。
+
 ## License
 
 Apache-2.0

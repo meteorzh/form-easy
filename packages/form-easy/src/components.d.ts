@@ -10,11 +10,15 @@ import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
 import { EndpointManager } from "./managers/endpoint-manager";
+import { FormEasyCreatorChangeDetail } from "./components/creator/types";
+import { FormSchemaValidationResult } from "./validation/schema";
 export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
 export { EndpointManager } from "./managers/endpoint-manager";
+export { FormEasyCreatorChangeDetail } from "./components/creator/types";
+export { FormSchemaValidationResult } from "./validation/schema";
 export namespace Components {
     /**
      * 根据 JSON schema 渲染完整动态表单。
@@ -98,6 +102,54 @@ export namespace Components {
         "labelPosition": LabelPosition;
         /**
           * 当前数组值。
+         */
+        "value": unknown;
+    }
+    /**
+     * 使用 form-easy 自身能力可视化创建动态表单 schema。
+     */
+    interface FormEasyCreator {
+        /**
+          * 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 获取设计器当前生成的表单 schema。
+         */
+        "getSchema": () => Promise<FormSchema>;
+        /**
+          * 获取设计器当前 schema 的静态校验结果。
+         */
+        "getSchemaValidationResult": () => Promise<FormSchemaValidationResult>;
+        /**
+          * 校验设计器当前生成的 schema 是否可以安全使用。
+         */
+        "validate": () => Promise<boolean>;
+        /**
+          * 需要载入设计器继续编辑的现有表单 schema。
+         */
+        "value"?: FormSchema;
+    }
+    /**
+     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     */
+    interface FormEasyCreatorJsonEditor {
+        /**
+          * 当前编辑器是否禁用。
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * 输入占位提示。
+         */
+        "placeholder"?: string;
+        /**
+          * 文本编辑器默认显示行数。
+          * @default 4
+         */
+        "rows": number;
+        /**
+          * 当前文本值。
          */
         "value": unknown;
     }
@@ -277,6 +329,14 @@ export interface FormEasyArrayCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLFormEasyArrayElement;
 }
+export interface FormEasyCreatorCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLFormEasyCreatorElement;
+}
+export interface FormEasyCreatorJsonEditorCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLFormEasyCreatorJsonEditorElement;
+}
 export interface FormEasyFieldCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLFormEasyFieldElement;
@@ -333,6 +393,46 @@ declare global {
     var HTMLFormEasyArrayElement: {
         prototype: HTMLFormEasyArrayElement;
         new (): HTMLFormEasyArrayElement;
+    };
+    interface HTMLFormEasyCreatorElementEventMap {
+        "schemaChange": FormEasyCreatorChangeDetail;
+    }
+    /**
+     * 使用 form-easy 自身能力可视化创建动态表单 schema。
+     */
+    interface HTMLFormEasyCreatorElement extends Components.FormEasyCreator, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLFormEasyCreatorElementEventMap>(type: K, listener: (this: HTMLFormEasyCreatorElement, ev: FormEasyCreatorCustomEvent<HTMLFormEasyCreatorElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLFormEasyCreatorElementEventMap>(type: K, listener: (this: HTMLFormEasyCreatorElement, ev: FormEasyCreatorCustomEvent<HTMLFormEasyCreatorElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLFormEasyCreatorElement: {
+        prototype: HTMLFormEasyCreatorElement;
+        new (): HTMLFormEasyCreatorElement;
+    };
+    interface HTMLFormEasyCreatorJsonEditorElementEventMap {
+        "valueChange": string;
+    }
+    /**
+     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     */
+    interface HTMLFormEasyCreatorJsonEditorElement extends Components.FormEasyCreatorJsonEditor, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLFormEasyCreatorJsonEditorElementEventMap>(type: K, listener: (this: HTMLFormEasyCreatorJsonEditorElement, ev: FormEasyCreatorJsonEditorCustomEvent<HTMLFormEasyCreatorJsonEditorElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLFormEasyCreatorJsonEditorElementEventMap>(type: K, listener: (this: HTMLFormEasyCreatorJsonEditorElement, ev: FormEasyCreatorJsonEditorCustomEvent<HTMLFormEasyCreatorJsonEditorElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLFormEasyCreatorJsonEditorElement: {
+        prototype: HTMLFormEasyCreatorJsonEditorElement;
+        new (): HTMLFormEasyCreatorJsonEditorElement;
     };
     interface HTMLFormEasyFieldElementEventMap {
         "valueChange": unknown;
@@ -417,6 +517,8 @@ declare global {
     interface HTMLElementTagNameMap {
         "form-easy": HTMLFormEasyElement;
         "form-easy-array": HTMLFormEasyArrayElement;
+        "form-easy-creator": HTMLFormEasyCreatorElement;
+        "form-easy-creator-json-editor": HTMLFormEasyCreatorJsonEditorElement;
         "form-easy-field": HTMLFormEasyFieldElement;
         "form-easy-object": HTMLFormEasyObjectElement;
         "form-easy-select": HTMLFormEasySelectElement;
@@ -508,6 +610,50 @@ declare namespace LocalJSX {
         "onValueChange"?: (event: FormEasyArrayCustomEvent<unknown[]>) => void;
         /**
           * 当前数组值。
+         */
+        "value"?: unknown;
+    }
+    /**
+     * 使用 form-easy 自身能力可视化创建动态表单 schema。
+     */
+    interface FormEasyCreator {
+        /**
+          * 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 设计器生成的 schema 或校验结果变化时触发。
+         */
+        "onSchemaChange"?: (event: FormEasyCreatorCustomEvent<FormEasyCreatorChangeDetail>) => void;
+        /**
+          * 需要载入设计器继续编辑的现有表单 schema。
+         */
+        "value"?: FormSchema;
+    }
+    /**
+     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     */
+    interface FormEasyCreatorJsonEditor {
+        /**
+          * 当前编辑器是否禁用。
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * 文本变更时向动态表单回传新值。
+         */
+        "onValueChange"?: (event: FormEasyCreatorJsonEditorCustomEvent<string>) => void;
+        /**
+          * 输入占位提示。
+         */
+        "placeholder"?: string;
+        /**
+          * 文本编辑器默认显示行数。
+          * @default 4
+         */
+        "rows"?: number;
+        /**
+          * 当前文本值。
          */
         "value"?: unknown;
     }
@@ -693,6 +839,11 @@ declare namespace LocalJSX {
         "labelPosition": LabelPosition;
         "disabled": boolean;
     }
+    interface FormEasyCreatorJsonEditorAttributes {
+        "placeholder": string;
+        "rows": number;
+        "disabled": boolean;
+    }
     interface FormEasyFieldAttributes {
         "fieldId": string;
         "formKey": string;
@@ -720,6 +871,8 @@ declare namespace LocalJSX {
     interface IntrinsicElements {
         "form-easy": FormEasy;
         "form-easy-array": Omit<FormEasyArray, keyof FormEasyArrayAttributes> & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes]?: FormEasyArray[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `attr:${K}`]?: FormEasyArrayAttributes[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `prop:${K}`]?: FormEasyArray[K] } & OneOf<"fieldId", FormEasyArray["fieldId"], FormEasyArrayAttributes["fieldId"]> & OneOf<"formKey", FormEasyArray["formKey"], FormEasyArrayAttributes["formKey"]>;
+        "form-easy-creator": FormEasyCreator;
+        "form-easy-creator-json-editor": Omit<FormEasyCreatorJsonEditor, keyof FormEasyCreatorJsonEditorAttributes> & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes]?: FormEasyCreatorJsonEditor[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `attr:${K}`]?: FormEasyCreatorJsonEditorAttributes[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `prop:${K}`]?: FormEasyCreatorJsonEditor[K] };
         "form-easy-field": Omit<FormEasyField, keyof FormEasyFieldAttributes> & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes]?: FormEasyField[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `attr:${K}`]?: FormEasyFieldAttributes[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `prop:${K}`]?: FormEasyField[K] } & OneOf<"fieldId", FormEasyField["fieldId"], FormEasyFieldAttributes["fieldId"]> & OneOf<"formKey", FormEasyField["formKey"], FormEasyFieldAttributes["formKey"]>;
         "form-easy-object": Omit<FormEasyObject, keyof FormEasyObjectAttributes> & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes]?: FormEasyObject[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `attr:${K}`]?: FormEasyObjectAttributes[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `prop:${K}`]?: FormEasyObject[K] } & OneOf<"fieldId", FormEasyObject["fieldId"], FormEasyObjectAttributes["fieldId"]> & OneOf<"formKey", FormEasyObject["formKey"], FormEasyObjectAttributes["formKey"]>;
         "form-easy-select": Omit<FormEasySelect, keyof FormEasySelectAttributes> & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes]?: FormEasySelect[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `attr:${K}`]?: FormEasySelectAttributes[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `prop:${K}`]?: FormEasySelect[K] };
@@ -738,6 +891,14 @@ declare module "@stencil/core" {
              * 为数组字段提供添加和删除编辑功能。
              */
             "form-easy-array": LocalJSX.IntrinsicElements["form-easy-array"] & JSXBase.HTMLAttributes<HTMLFormEasyArrayElement>;
+            /**
+             * 使用 form-easy 自身能力可视化创建动态表单 schema。
+             */
+            "form-easy-creator": LocalJSX.IntrinsicElements["form-easy-creator"] & JSXBase.HTMLAttributes<HTMLFormEasyCreatorElement>;
+            /**
+             * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+             */
+            "form-easy-creator-json-editor": LocalJSX.IntrinsicElements["form-easy-creator-json-editor"] & JSXBase.HTMLAttributes<HTMLFormEasyCreatorJsonEditorElement>;
             /**
              * 渲染单个字段，并提供通用的 form-easy 组件操作。
              */

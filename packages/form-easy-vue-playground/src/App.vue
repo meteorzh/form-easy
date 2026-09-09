@@ -6,8 +6,16 @@ import { playgroundVueRenderer } from './playground-vue-renderer';
 /** 按需加载 README 阅读器，避免 Markdown 解析器增加示例首屏体积。 */
 const ReadmeDocument = defineAsyncComponent(() => import('./components/ReadmeDocument.vue'));
 
-/** 当前展示示例工作台还是 README 文档。 */
-const activeView = ref<'examples' | 'documentation'>('examples');
+/** 当前展示示例工作台、表单设计器还是 README 文档。 */
+const activeView = ref<'examples' | 'creator' | 'documentation'>('examples');
+
+/** 设计器表单预览当前使用的渲染器类型。 */
+const activeCreatorRenderer = ref<'h5' | 'elementPlus'>('h5');
+
+/** 将设计器渲染器选择转换为可传入组件的渲染器实例。 */
+const creatorRenderer = computed(() =>
+  activeCreatorRenderer.value === 'elementPlus' ? elementPlusRenderer : null
+);
 
 /** 演示基础、对象、数组和事件驱动字段。 */
 const schema = {
@@ -406,6 +414,14 @@ const rendererTitle = computed(() =>
         </button>
         <button
           type="button"
+          :class="{ active: activeView === 'creator' }"
+          :aria-pressed="activeView === 'creator'"
+          @click="activeView = 'creator'"
+        >
+          表单设计器
+        </button>
+        <button
+          type="button"
           :class="{ active: activeView === 'documentation' }"
           :aria-pressed="activeView === 'documentation'"
           @click="activeView = 'documentation'"
@@ -501,6 +517,33 @@ const rendererTitle = computed(() =>
         </div>
       </div>
     </section>
+    <section v-else-if="activeView === 'creator'" class="creator-page">
+      <div class="creator-example-toolbar">
+        <div>
+          <p>PREVIEW RENDERER</p>
+          <span>切换设计器右侧表单预览使用的基础字段渲染器。</span>
+        </div>
+        <div class="creator-renderer-switch" role="group" aria-label="设计器预览渲染器">
+          <button
+            type="button"
+            :class="{ active: activeCreatorRenderer === 'h5' }"
+            :aria-pressed="activeCreatorRenderer === 'h5'"
+            @click="activeCreatorRenderer = 'h5'"
+          >
+            H5
+          </button>
+          <button
+            type="button"
+            :class="{ active: activeCreatorRenderer === 'elementPlus' }"
+            :aria-pressed="activeCreatorRenderer === 'elementPlus'"
+            @click="activeCreatorRenderer = 'elementPlus'"
+          >
+            Element Plus
+          </button>
+        </div>
+      </div>
+      <form-easy-creator :basicFieldRenderer.prop="creatorRenderer" />
+    </section>
     <ReadmeDocument v-else />
   </main>
 </template>
@@ -592,6 +635,16 @@ body { margin: 0; }
 
 .workspace { width: min(1200px, calc(100% - 48px)); margin: 0 auto; padding: 72px 0; }
 
+.creator-page { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding: 60px 0 80px; }
+
+.creator-example-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #d9deea; }
+.creator-example-toolbar p { margin: 0 0 7px; color: #27354f; font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+.creator-example-toolbar span { color: #748096; font-size: 12px; }
+.creator-renderer-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid #d9deea; background: #fff; }
+.creator-renderer-switch button { padding: 8px 11px; border: 0; color: #68758a; background: transparent; cursor: pointer; font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transition: color .15s ease, background .15s ease; }
+.creator-renderer-switch button:hover { color: #101827; background: #f1f3f7; }
+.creator-renderer-switch button.active { color: #101827; background: #b9ff66; }
+
 .workspace-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 38px; }
 .workspace-actions { display: flex; align-items: end; flex-direction: column; gap: 14px; }
 
@@ -654,6 +707,8 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
 
 @media (max-width: 820px) {
   .workspace { width: min(100% - 32px, 640px); padding: 42px 0; }
+  .creator-page { width: min(100% - 32px, 760px); padding: 42px 0 60px; }
+  .creator-example-toolbar { align-items: flex-start; flex-direction: column; }
   .masthead { padding: 0 16px; }
   .masthead p { display: none; }
   .view-nav { gap: 18px; margin-left: auto; }

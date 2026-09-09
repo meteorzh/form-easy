@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 78px;
+  resize: vertical;
+  padding: 10px 12px;
+  color: #dce7f7;
+  background: #101827;
+  border: 1px solid #29364d;
+  border-radius: 6px;
+  outline: none;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+textarea::placeholder {
+  color: #7f8ba1;
+}
+
+textarea:focus {
+  border-color: #9fdc5a;
+  box-shadow: 0 0 0 3px rgb(185 255 102 / 14%);
+}
+
+textarea:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}

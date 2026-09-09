@@ -108,7 +108,7 @@ export type BindingTarget = 'visible' | 'enable' | 'value';
 export interface FieldBinding {
   /** 绑定源所属表单的键。 */
   sourceFormKey: string;
-  /** 绑定源字段的完整唯一标识。 */
+  /** 绑定源字段的完整唯一标识，或使用“./字段key”引用当前结构中的同级字段。 */
   sourceFieldId: string;
   /** 当前字段需要同步的目标属性。 */
   target: BindingTarget;

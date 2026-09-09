@@ -32,28 +32,52 @@ export class FormEasyArray {
   @Event() valueChange!: EventEmitter<unknown[]>;
   /** 本地维护的数组项。 */
   @State() private items: unknown[] = [];
+  /** 标记数组在本轮渲染完成后是否需要发布元素初始化事件。 */
+  private shouldPublishInitialItemValues = false;
 
   /** 初始化可编辑的数组项列表。 */
   componentWillLoad(): void {
     this.items = this.normalizeArrayValue(this.value);
   }
 
+  /** 全部初始数组元素挂载后发布当前值。 */
+  componentDidLoad(): void {
+    this.publishInitialItemValues();
+  }
+
+  /** 延迟到数组元素完成增删或外部同步后发布当前值。 */
+  componentDidRender(): void {
+    if (!this.shouldPublishInitialItemValues) return;
+    this.shouldPublishInitialItemValues = false;
+    this.publishInitialItemValues();
+  }
+
   /** 外部值变化后同步本地数组，确保预设值和绑定赋值能够刷新元素。 */
   @Watch('value')
   syncExternalValue(newValue: unknown): void {
     this.items = this.normalizeArrayValue(newValue);
+    this.shouldPublishInitialItemValues = true;
   }
 
   /** 添加一个空数组元素。 */
   private addItem = (): void => {
     this.items = [...this.items, this.defaultElementValue()];
+    this.shouldPublishInitialItemValues = true;
     this.valueChange.emit(this.items);
   };
   /** 根据索引删除一个数组元素。 */
   private removeItem = (index: number): void => {
     this.items = this.items.filter((_, itemIndex) => itemIndex !== index);
+    this.shouldPublishInitialItemValues = true;
     this.valueChange.emit(this.items);
   };
+
+  /** 为当前数组的直接元素发布 onChange 初始化事件。 */
+  private publishInitialItemValues(): void {
+    this.items.forEach((item, index) => {
+      this.eventCenter.publish(`${this.fieldId}[${index}]`, 'onChange', item);
+    });
+  }
   /** 嵌套渲染器变更后替换对应元素。 */
   private changeItem = (index: number, event: CustomEvent<unknown>): void => {
     event.stopPropagation();

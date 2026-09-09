@@ -167,7 +167,15 @@
               "placeholder": "例如：{ \"category\": \"basic\", \"dataType\": \"string\" }",
               "rows": 5
             },
-            "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。"
+            "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'array';"
+              }
+            ]
           },
           {
             "key": "fieldsJson",
@@ -179,7 +187,15 @@
               "placeholder": "例如：[{ \"key\": \"city\", \"name\": \"城市\", \"category\": \"basic\", \"dataType\": \"string\" }]",
               "rows": 6
             },
-            "hint": "仅 category 为 object 时生效。"
+            "hint": "仅 category 为 object 时生效。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'object';"
+              }
+            ]
           },
           {
             "key": "rules",

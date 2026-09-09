@@ -32,16 +32,31 @@ export class FormEasyObject {
   @Event() valueChange!: EventEmitter<Record<string, unknown>>;
   /** 本地维护的嵌套对象；null 表示对象尚未创建。 */
   @State() private objectValue: Record<string, unknown> | null = null;
+  /** 标记对象在本轮渲染完成后是否需要发布子字段初始化事件。 */
+  private shouldPublishInitialFieldValues = false;
 
   /** 初始化本地对象值。 */
   componentWillLoad(): void {
     this.objectValue = this.normalizeObjectValue(this.value);
   }
 
+  /** 全部初始子字段挂载后发布当前值，确保同级绑定完成首屏同步。 */
+  componentDidLoad(): void {
+    this.publishInitialFieldValues();
+  }
+
+  /** 延迟到新增子字段完成挂载后发布其初始化值。 */
+  componentDidRender(): void {
+    if (!this.shouldPublishInitialFieldValues) return;
+    this.shouldPublishInitialFieldValues = false;
+    this.publishInitialFieldValues();
+  }
+
   /** 外部值变化后同步本地对象；undefined 按 null 处理。 */
   @Watch('value')
   syncExternalValue(newValue: unknown): void {
     this.objectValue = this.normalizeObjectValue(newValue);
+    this.shouldPublishInitialFieldValues = this.objectValue !== null;
   }
 
   /** 点击占位按钮后，使用子字段默认值创建对象。 */
@@ -53,7 +68,21 @@ export class FormEasyObject {
         .map(field => [field.key!, this.createFieldInitialValue(field)])
     );
     this.objectValue = initialValue;
+    this.shouldPublishInitialFieldValues = true;
     this.valueChange.emit(initialValue);
+  }
+
+  /** 为当前对象的直接子字段发布 onChange 初始化事件。 */
+  private publishInitialFieldValues(): void {
+    if (!this.objectValue) return;
+    this.fields.forEach(field => {
+      if (!field.key) return;
+      this.eventCenter.publish(
+        `${this.fieldId}.${field.key}`,
+        'onChange',
+        this.objectValue?.[field.key] ?? null
+      );
+    });
   }
 
   /** 根据 schema 键更新嵌套子字段。 */

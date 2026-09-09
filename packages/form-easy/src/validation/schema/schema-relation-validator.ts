@@ -3,6 +3,10 @@ import type {
   ComponentHandle,
   FieldBinding
 } from '../../types';
+import {
+  isSiblingFieldReference,
+  readSiblingFieldKey
+} from '../../field-reference';
 import { SchemaValidationContext } from './schema-validation-context';
 import {
   hasOwn,
@@ -68,12 +72,24 @@ export function validateBindings(
     if (
       typeof bindingValue.sourceFormKey === 'string'
       && typeof bindingValue.sourceFieldId === 'string'
+      && isSiblingFieldReference(bindingValue.sourceFieldId)
+      && !readSiblingFieldKey(bindingValue.sourceFieldId)
+    ) {
+      context.addError(
+        'invalid-value',
+        propertyPath(bindingPath, 'sourceFieldId'),
+        '同级 sourceFieldId 必须使用“./字段key”格式，且不能继续包含点号或方括号。'
+      );
+    } else if (
+      typeof bindingValue.sourceFormKey === 'string'
+      && typeof bindingValue.sourceFieldId === 'string'
+      && !isSiblingFieldReference(bindingValue.sourceFieldId)
       && !bindingValue.sourceFieldId.startsWith(`${bindingValue.sourceFormKey}.`)
     ) {
       context.addError(
         'invalid-value',
         propertyPath(bindingPath, 'sourceFieldId'),
-        'sourceFieldId 必须是以 sourceFormKey 开头的完整字段唯一标识。'
+        'sourceFieldId 必须是以 sourceFormKey 开头的完整字段唯一标识，或使用“./字段key”引用同级字段。'
       );
     }
     if (!hasOwn(bindingValue, 'target')) {

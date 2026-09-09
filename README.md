@@ -494,6 +494,17 @@ const fieldValid = await form.validateField('profile.userName');
 
 `binds` 支持 `visible`、`enable`、`value` 三种目标。`visible` 与 `enable` 默认将 `null` / `undefined` / `0` / 空字符串视为 `false`，也可通过 `resolver` 提供只引用 `sourceFieldValue` 的 JavaScript 代码。
 
+数组对象或嵌套对象中的字段可以使用 `./字段key` 引用当前结构的同级字段。运行时会保留当前数组下标，例如目标字段 `order.items[2].detail` 中的 `./type` 会解析为 `order.items[2].type`：
+
+```ts
+{
+  sourceFormKey: 'order',
+  sourceFieldId: './type',
+  target: 'visible',
+  resolver: "return sourceFieldValue === 'custom';"
+}
+```
+
 ### 事件中心
 
 表单默认使用全局共享的 `globalEventCenter`，相同表单键的字段可跨表单订阅事件。如需隔离一组表单，可自行创建并传入 `EventCenter`：

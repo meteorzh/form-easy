@@ -1,3 +1,8 @@
+import {
+  isSiblingFieldReference,
+  readSiblingFieldKey,
+  resolveSiblingFieldId
+} from '../../field-reference';
 import { SchemaValidationContext } from './schema-validation-context';
 import { indexPath, isPlainRecord, propertyPath } from './schema-validation-utils';
 
@@ -11,11 +16,13 @@ export function validateLocalFieldReferences(
   const declaredFieldIds = new Set<string>();
   fields.forEach(field => collectFieldIds(field, formKey, declaredFieldIds, new WeakSet<object>()));
   fields.forEach((field, index) => {
+    const fieldId = createFieldId(field, formKey);
     validateFieldReferences(
       field,
       indexPath(path, index),
       formKey,
       declaredFieldIds,
+      fieldId,
       new WeakSet<object>(),
       context
     );
@@ -53,6 +60,7 @@ function validateFieldReferences(
   path: string,
   formKey: string,
   fieldIds: ReadonlySet<string>,
+  currentFieldId: string | undefined,
   visited: WeakSet<object>,
   context: SchemaValidationContext
 ): void {
@@ -61,10 +69,30 @@ function validateFieldReferences(
 
   if (Array.isArray(value.binds)) {
     value.binds.forEach((binding, index) => {
-      if (!isPlainRecord(binding) || binding.sourceFormKey !== formKey) return;
+      if (!isPlainRecord(binding)) return;
+      const sourceFieldPath = propertyPath(
+        indexPath(propertyPath(path, 'binds'), index),
+        'sourceFieldId'
+      );
+      if (
+        typeof binding.sourceFieldId === 'string'
+        && isSiblingFieldReference(binding.sourceFieldId)
+      ) {
+        validateSiblingSourceFieldId(
+          binding.sourceFormKey,
+          binding.sourceFieldId,
+          sourceFieldPath,
+          formKey,
+          currentFieldId,
+          fieldIds,
+          context
+        );
+        return;
+      }
+      if (binding.sourceFormKey !== formKey) return;
       validateLocalSourceFieldId(
         binding.sourceFieldId,
-        propertyPath(indexPath(propertyPath(path, 'binds'), index), 'sourceFieldId'),
+        sourceFieldPath,
         fieldIds,
         context
       );
@@ -83,24 +111,68 @@ function validateFieldReferences(
   }
   if (value.category === 'object' && Array.isArray(value.fields)) {
     value.fields.forEach((field, index) => {
+      const childFieldId = currentFieldId
+        ? createFieldId(field, currentFieldId)
+        : undefined;
       validateFieldReferences(
         field,
         indexPath(propertyPath(path, 'fields'), index),
         formKey,
         fieldIds,
+        childFieldId,
         visited,
         context
       );
     });
   }
   if (value.category === 'array' && isPlainRecord(value.element)) {
+    const elementFieldId = currentFieldId ? `${currentFieldId}[]` : undefined;
     validateFieldReferences(
       value.element,
       propertyPath(path, 'element'),
       formKey,
       fieldIds,
+      elementFieldId,
       visited,
       context
+    );
+  }
+}
+
+/** 根据父级标识和字段 key 创建当前字段的声明标识。 */
+function createFieldId(value: unknown, parentFieldId: string): string | undefined {
+  return isPlainRecord(value) && typeof value.key === 'string' && value.key.trim()
+    ? `${parentFieldId}.${value.key}`
+    : undefined;
+}
+
+/** 校验同级字段引用能否在当前字段所在结构中解析。 */
+function validateSiblingSourceFieldId(
+  sourceFormKey: unknown,
+  sourceFieldReference: string,
+  path: string,
+  formKey: string,
+  currentFieldId: string | undefined,
+  fieldIds: ReadonlySet<string>,
+  context: SchemaValidationContext
+): void {
+  if (!readSiblingFieldKey(sourceFieldReference)) return;
+  if (sourceFormKey !== formKey) {
+    context.addError(
+      'invalid-value',
+      path,
+      '同级字段引用只能引用当前字段所属表单。'
+    );
+    return;
+  }
+  const sourceFieldId = currentFieldId
+    ? resolveSiblingFieldId(currentFieldId, sourceFieldReference)
+    : undefined;
+  if (!sourceFieldId || !fieldIds.has(sourceFieldId)) {
+    context.addError(
+      'unknown-source-field',
+      path,
+      `当前字段所在结构中不存在同级源字段“${sourceFieldReference}”。`
     );
   }
 }

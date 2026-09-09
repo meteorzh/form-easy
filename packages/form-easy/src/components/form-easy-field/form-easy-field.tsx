@@ -1,5 +1,9 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
 import {
+  isSiblingFieldReference,
+  resolveSiblingFieldId
+} from '../../field-reference';
+import {
   getGlobalComponentDataManager,
   type ComponentDataManager
 } from '../../managers/component-data-manager';
@@ -234,10 +238,8 @@ export class FormEasyField implements HandleTarget {
 
   /** 为一个绑定目标注册对应的源事件监听。 */
   private registerBinding(binding: FieldBinding): Array<() => void> {
-    const sourceFieldId = this.normalizeSourceFieldId(
-      binding.sourceFormKey,
-      binding.sourceFieldId
-    );
+    const sourceFieldId = this.resolveBindingSourceFieldId(binding);
+    if (!sourceFieldId) return [];
     if (binding.target === 'value') {
       return [
         this.eventCenter.subscribe(sourceFieldId, 'onChange', this, 'change')
@@ -256,6 +258,26 @@ export class FormEasyField implements HandleTarget {
         'change'
       )
     ];
+  }
+
+  /** 将绑定配置中的完整或同级引用解析为运行时字段标识。 */
+  private resolveBindingSourceFieldId(binding: FieldBinding): string | undefined {
+    if (!isSiblingFieldReference(binding.sourceFieldId)) {
+      return this.normalizeSourceFieldId(binding.sourceFormKey, binding.sourceFieldId);
+    }
+    if (binding.sourceFormKey !== this.formKey) {
+      console.error(
+        `字段“${this.fieldId}”的同级绑定只能引用当前表单“${this.formKey}”。`
+      );
+      return undefined;
+    }
+    const sourceFieldId = resolveSiblingFieldId(this.fieldId, binding.sourceFieldId);
+    if (!sourceFieldId) {
+      console.error(
+        `字段“${this.fieldId}”的同级绑定源“${binding.sourceFieldId}”格式无效。`
+      );
+    }
+    return sourceFieldId;
   }
 
   /** 根据绑定源值更新当前字段的可见或启用状态。 */

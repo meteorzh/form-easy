@@ -110,7 +110,7 @@ export class FormEasy {
   /** 写入完整表单数据，并为每一个字段发布 onChange 初始化事件。 */
   private applyFormData(formData: Record<string, unknown>): void {
     this.formData = formData;
-    this.publishFieldChanges(this.schema.fields, this.schema.key, formData);
+    this.publishInitialFieldValues(this.schema.fields, this.schema.key, formData);
   }
 
   /** 根据字段定义构造默认表单数据；无默认值的基础和数组字段为 null。 */
@@ -195,8 +195,8 @@ export class FormEasy {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
 
-  /** 递归发布字段的 onChange 事件，使初始化绑定立即生效。 */
-  private publishFieldChanges(
+  /** 发布顶层字段的 onChange 事件；嵌套值由对应对象和数组容器继续发布。 */
+  private publishInitialFieldValues(
     fields: FormSchema['fields'],
     parentFieldId: string,
     data: Record<string, unknown>
@@ -207,31 +207,6 @@ export class FormEasy {
       const fieldId = `${parentFieldId}.${field.key}`;
       const fieldValue = data[field.key] ?? null;
       this.activeEventCenter.publish(fieldId, 'onChange', fieldValue);
-
-      if (field.category === 'object' && this.isRecord(fieldValue)) {
-        this.publishFieldChanges(field.fields ?? [], fieldId, fieldValue);
-      }
-      if (field.category === 'array' && Array.isArray(fieldValue)) {
-        this.publishArrayElementChanges(field, fieldId, fieldValue);
-      }
-    });
-  }
-
-  /** 递归发布数组元素及其对象子字段的 onChange 事件。 */
-  private publishArrayElementChanges(
-    field: FormSchema['fields'][number],
-    fieldId: string,
-    items: unknown[]
-  ): void {
-    const element = field.element;
-    if (!element) return;
-
-    items.forEach((item, index) => {
-      const elementId = `${fieldId}[${index}]`;
-      this.activeEventCenter.publish(elementId, 'onChange', item);
-      if (element.category === 'object' && this.isRecord(item)) {
-        this.publishFieldChanges(element.fields ?? [], elementId, item);
-      }
     });
   }
 

@@ -1,4 +1,4 @@
-import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
+import { Component, Element, Event, EventEmitter, h, Method, Prop, State } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
@@ -15,6 +15,8 @@ import type {
   styleUrl: 'form-easy.css'
 })
 export class FormEasy {
+  /** 当前 form-easy 自定义元素。 */
+  @Element() hostElement!: HTMLElement;
   /** 描述表单及其字段的 JSON schema。 */
   @Prop() schema!: FormSchema;
   /** 初始化完成后加载的表单预设值。 */
@@ -59,6 +61,36 @@ export class FormEasy {
       ? this.createDefaultFormData(this.schema.fields)
       : this.createPresetFormData(this.schema.fields, this.value);
     this.applyFormData(initialData);
+  }
+
+  /** 校验表单中当前挂载的全部字段，并返回是否全部通过。 */
+  @Method()
+  async validate(): Promise<boolean> {
+    const fields = this.getRenderedFieldElements();
+    const results = await Promise.all(fields.map(field => field.validate()));
+    return results.every(Boolean);
+  }
+
+  /** 根据完整字段标识校验一个当前已挂载的字段。 */
+  @Method()
+  async validateField(fieldId: string): Promise<boolean> {
+    const field = this.getRenderedFieldElements()
+      .find(fieldElement => fieldElement.fieldId === fieldId);
+    if (!field) throw new Error(`未找到字段“${fieldId}”。`);
+    return field.validate();
+  }
+
+  /** 获取当前表单中包含嵌套结构的全部字段元素。 */
+  private getRenderedFieldElements(): Array<HTMLElement & {
+    /** 字段完整唯一标识。 */
+    fieldId: string;
+    /** 执行字段同步规则校验。 */
+    validate(): Promise<boolean>;
+  }> {
+    return Array.from(this.hostElement.querySelectorAll('form-easy-field')) as Array<HTMLElement & {
+      fieldId: string;
+      validate(): Promise<boolean>;
+    }>;
   }
   /** 顶层字段触发新值后更新该字段。 */
   private changeField = (
@@ -136,13 +168,10 @@ export class FormEasy {
     return presetValue === undefined ? null : this.cloneValue(presetValue);
   }
 
-  /** 根据字段分类与 defaultValue 配置构造字段默认值。 */
+  /** 根据 defaultValue 配置构造字段默认值；未配置时统一返回 null。 */
   private createDefaultFieldValue(field: FormSchema['fields'][number]): unknown {
     if (Object.prototype.hasOwnProperty.call(field, 'defaultValue')) {
       return this.cloneValue(field.defaultValue);
-    }
-    if (field.category === 'object') {
-      return this.createDefaultFormData(field.fields ?? []);
     }
     return null;
   }

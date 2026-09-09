@@ -9,9 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "element-plus": "^2.14.5",
     "@wenzhencn/form-easy": "file:../form-easy",
     "@wenzhencn/form-easy-vue": "file:../form-easy-vue",
+    "element-plus": "^2.14.5",
+    "marked": "^18.0.12",
     "vue": "^3.5.0"
   },
   "devDependencies": {

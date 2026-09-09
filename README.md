@@ -278,6 +278,51 @@ const schema = {
 
 `dataType` 可取：`string`、`number`、`boolean`、`date`、`datetime`、`time`。
 
+### Rules 同步校验 ✅
+
+字段可通过 `rules` 配置按顺序执行的同步校验。第一阶段支持 `required`、`minLength`、`maxLength`、`min`、`max`、`pattern` 与 `enum`；校验遇到第一个错误后停止，并在字段编辑器下方展示错误信息。
+
+```ts
+{
+  key: 'userName',
+  name: '用户名',
+  category: 'basic',
+  dataType: 'string',
+  required: true,
+  rules: [
+    { type: 'minLength', value: 3, message: '用户名至少需要 3 个字符。' },
+    { type: 'maxLength', value: 20 },
+    { type: 'pattern', value: '^[a-zA-Z0-9]+$', message: '只能包含字母和数字。' }
+  ]
+}
+```
+
+`required: true` 会自动生成必填校验；若 `rules` 已配置 `required`，则使用显式规则及其错误文案。空值会跳过必填以外的其他规则。对象字段只有 `null` 和 `undefined` 属于必填空值，已经创建的空对象 `{}` 可以通过 `required`。`min` / `max` 支持数字、日期、日期时间和 `HH:mm` 时间值，`enum` 的 `value` 应为允许值数组。
+
+不同字段类型支持的规则如下：
+
+| 字段类型 | 支持的规则 |
+| --- | --- |
+| `string` | `required`、`minLength`、`maxLength`、`pattern`、`enum` |
+| `number` | `required`、`min`、`max`、`enum` |
+| `boolean` | `required`、`enum` |
+| `date` / `datetime` / `time` | `required`、`min`、`max`、`enum` |
+| 数组字段 | `required`、`minLength`、`maxLength` |
+| 对象字段 | `required` |
+
+规则执行前会先校验 schema 配置。若数字字段错误配置了 `pattern`，或者 `enum.value` 不是数组，校验结果的 `errorType` 为 `configuration`；字段会展示明确的配置错误、在控制台输出一次错误，并使 `validate()` 返回 `false`。正常的用户输入错误对应 `errorType: 'value'`。
+
+表单元素提供以下方法：
+
+```ts
+const form = document.querySelector('form-easy');
+
+const formValid = await form.validate();
+const fieldValid = await form.validateField('profile.userName');
+```
+
+初始化和首次输入只计算校验结果，不立即展示普通值错误；字段失焦或调用 `validate()` / `validateField()` 后开始展示，之后输入时会实时更新。schema 配置错误仍会立即展示并输出到控制台。隐藏或禁用的字段会跳过校验，禁用状态会向嵌套字段传递；对象和数组内部当前已挂载的字段会被递归校验。
+
 未配置 `component` 时，基础字段会依次按 `string → input`、`number → input-number`、`boolean → bool`、`date → date`、`datetime → datetime`、`time → time` 查询当前渲染器的组件注册中心；未注册时才回退到原生 H5 输入控件。`select` 是可显式配置的通用组件键。除这些内置键外，`component` 和组件注册 API 也支持任意业务自定义字符串。
 
 ### 默认基础组件

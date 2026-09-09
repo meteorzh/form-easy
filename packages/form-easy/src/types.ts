@@ -37,6 +37,41 @@ export type EndpointKey = DefaultEndpointKey | (string & {});
 /** 组件数据加载器的注册键，允许业务方使用任意字符串。 */
 export type ComponentDataKey = string & {};
 
+/** 第一阶段字段校验支持的规则类型。 */
+export type FieldValidationRuleType =
+  | 'required'
+  | 'minLength'
+  | 'maxLength'
+  | 'min'
+  | 'max'
+  | 'pattern'
+  | 'enum';
+
+/** 字段校验错误的来源类型。 */
+export type FieldValidationErrorType = 'value' | 'configuration';
+
+/** 描述一个可序列化的同步字段校验规则。 */
+export interface FieldValidationRule {
+  /** 当前校验规则的类型。 */
+  type: FieldValidationRuleType;
+  /** 规则比较值；required 规则不需要配置。 */
+  value?: unknown;
+  /** 校验失败时展示的自定义错误信息。 */
+  message?: string;
+}
+
+/** 单个字段执行同步校验后的结果。 */
+export interface FieldValidationResult {
+  /** 当前字段值是否通过全部规则。 */
+  valid: boolean;
+  /** 校验失败来源于字段值还是 schema 配置。 */
+  errorType?: FieldValidationErrorType;
+  /** 首个未通过的规则类型。 */
+  ruleType?: FieldValidationRuleType;
+  /** 首个未通过规则对应的错误信息。 */
+  message?: string;
+}
+
 /** 数据类型未显式配置 component 时使用的默认组件键映射。 */
 export const defaultBasicFieldComponentKeyByDataType: Readonly<Record<
   DataType,
@@ -106,6 +141,8 @@ export interface FormField {
   category: FieldCategory;
   /** 当前字段是否必填。 */
   required?: boolean;
+  /** 当前字段按顺序执行的同步校验规则。 */
+  rules?: FieldValidationRule[];
   /** 未提供运行时数据时使用的默认值。 */
   defaultValue?: unknown;
   /** 展示在字段名称旁的提示文本。 */

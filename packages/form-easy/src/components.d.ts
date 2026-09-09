@@ -41,6 +41,14 @@ export namespace Components {
          */
         "schema": FormSchema;
         /**
+          * 校验表单中当前挂载的全部字段，并返回是否全部通过。
+         */
+        "validate": () => Promise<boolean>;
+        /**
+          * 根据完整字段标识校验一个当前已挂载的字段。
+         */
+        "validateField": (fieldId: string) => Promise<boolean>;
+        /**
           * 初始化完成后加载的表单预设值。
          */
         "value"?: Record<string, unknown>;
@@ -135,6 +143,15 @@ export namespace Components {
           * @default 'left'
          */
         "labelPosition": LabelPosition;
+        /**
+          * 父级对象或数组字段是否处于禁用状态。
+          * @default false
+         */
+        "parentDisabled": boolean;
+        /**
+          * 执行当前字段的同步规则校验，并更新错误展示状态。
+         */
+        "validate": () => Promise<boolean>;
         /**
           * 当前字段值。
          */
@@ -537,6 +554,11 @@ declare namespace LocalJSX {
          */
         "onValueChange"?: (event: FormEasyFieldCustomEvent<unknown>) => void;
         /**
+          * 父级对象或数组字段是否处于禁用状态。
+          * @default false
+         */
+        "parentDisabled"?: boolean;
+        /**
           * 当前字段值。
          */
         "value"?: unknown;
@@ -675,6 +697,7 @@ declare namespace LocalJSX {
         "fieldId": string;
         "formKey": string;
         "labelPosition": LabelPosition;
+        "parentDisabled": boolean;
     }
     interface FormEasyObjectAttributes {
         "fieldId": string;

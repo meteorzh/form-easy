@@ -1,4 +1,4 @@
-import { Component, Event, EventEmitter, h, Prop, State } from '@stencil/core';
+import { Component, Event, EventEmitter, h, Prop, State, Watch } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
@@ -35,7 +35,13 @@ export class FormEasyArray {
 
   /** 初始化可编辑的数组项列表。 */
   componentWillLoad(): void {
-    this.items = Array.isArray(this.value) ? [...this.value] : [];
+    this.items = this.normalizeArrayValue(this.value);
+  }
+
+  /** 外部值变化后同步本地数组，确保预设值和绑定赋值能够刷新元素。 */
+  @Watch('value')
+  syncExternalValue(newValue: unknown): void {
+    this.items = this.normalizeArrayValue(newValue);
   }
 
   /** 添加一个空数组元素。 */
@@ -56,6 +62,12 @@ export class FormEasyArray {
     );
     this.valueChange.emit(this.items);
   };
+
+  /** 将传入值规范化为独立的数组实例；非数组值按空数组处理。 */
+  private normalizeArrayValue(value: unknown): unknown[] {
+    return Array.isArray(value) ? [...value] : [];
+  }
+
   /** 返回适合元素分类的空值。 */
   private defaultElementValue(): unknown {
     if (this.field.element?.category === 'array') return [];
@@ -82,6 +94,7 @@ export class FormEasyArray {
               endpointManager={this.endpointManager}
               value={item}
               eventCenter={this.eventCenter}
+              parentDisabled={this.disabled}
               onValueChange={(event: CustomEvent<unknown>) => this.changeItem(index, event)}
             />
             <button type="button" disabled={this.disabled} onClick={() => this.removeItem(index)}>

@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, defineAsyncComponent, ref } from 'vue';
 import { elementPlusRenderer } from './element-plus-renderer';
 import { playgroundVueRenderer } from './playground-vue-renderer';
+
+/** 按需加载 README 阅读器，避免 Markdown 解析器增加示例首屏体积。 */
+const ReadmeDocument = defineAsyncComponent(() => import('./components/ReadmeDocument.vue'));
+
+/** 当前展示示例工作台还是 README 文档。 */
+const activeView = ref<'examples' | 'documentation'>('examples');
 
 /** 演示基础、对象、数组和事件驱动字段。 */
 const schema = {
@@ -30,6 +36,43 @@ const schema = {
         max: 9999
       },
       defaultValue: 100
+    },
+    {
+      key: 'rulesTextField',
+      name: 'Rules 校验：必填、长度与正则示例',
+      category: 'basic',
+      dataType: 'string',
+      required: true,
+      defaultValue: 'ab',
+      rules: [
+        { type: 'minLength', value: 3, message: '用户名至少需要 3 个字符。' },
+        { type: 'maxLength', value: 12 },
+        { type: 'pattern', value: '^[a-zA-Z0-9]+$', message: '用户名只能包含字母和数字。' }
+      ],
+      hint: '初始值长度不足会显示错误；输入 3～12 位字母或数字后通过校验。'
+    },
+    {
+      key: 'rulesNumberField',
+      name: 'Rules 校验：数字范围示例',
+      category: 'basic',
+      dataType: 'number',
+      defaultValue: 120,
+      rules: [
+        { type: 'min', value: 1 },
+        { type: 'max', value: 100, message: '数量不能超过 100。' }
+      ],
+      hint: '输入值必须处于 1～100。'
+    },
+    {
+      key: 'invalidRuleConfigurationField',
+      name: 'Rules 校验：不兼容规则配置错误示例',
+      category: 'basic',
+      dataType: 'number',
+      defaultValue: 18,
+      rules: [
+        { type: 'pattern', value: '^\\d+$' }
+      ],
+      hint: 'number 字段不支持 pattern，框架会显示 schema 配置错误并输出控制台错误。'
     },
     {
       key: 'booleanField',
@@ -151,6 +194,28 @@ const schema = {
               defaultValue: '成都'
             }
           ]
+        }
+      ]
+    },
+    {
+      key: 'emptyObjectField',
+      name: '对象字段：空值延迟初始化示例',
+      category: 'object',
+      hint: '初始值为 null，仅显示编辑按钮；点击后才创建对象并渲染子表单。',
+      fields: [
+        {
+          key: 'title',
+          name: '延迟初始化对象子字段：标题默认值示例',
+          category: 'basic',
+          dataType: 'string',
+          defaultValue: '新建对象'
+        },
+        {
+          key: 'description',
+          name: '延迟初始化对象子字段：空值示例',
+          category: 'basic',
+          dataType: 'string',
+          hint: '对象创建时未配置默认值的子字段初始化为 null。'
         }
       ]
     },
@@ -330,10 +395,28 @@ const rendererTitle = computed(() =>
         <span class="brand-mark">fe</span>
         <span>form-easy</span>
       </div>
+      <nav class="view-nav" aria-label="页面内容">
+        <button
+          type="button"
+          :class="{ active: activeView === 'examples' }"
+          :aria-pressed="activeView === 'examples'"
+          @click="activeView = 'examples'"
+        >
+          交互示例
+        </button>
+        <button
+          type="button"
+          :class="{ active: activeView === 'documentation' }"
+          :aria-pressed="activeView === 'documentation'"
+          @click="activeView = 'documentation'"
+        >
+          README 文档
+        </button>
+      </nav>
       <p>动态表单组件工作台</p>
     </header>
 
-    <section class="workspace" aria-labelledby="page-title">
+    <section v-if="activeView === 'examples'" class="workspace" aria-labelledby="page-title">
       <div class="workspace-heading">
         <div>
           <p class="eyebrow">PLAYGROUND / VUE</p>
@@ -418,6 +501,7 @@ const rendererTitle = computed(() =>
         </div>
       </div>
     </section>
+    <ReadmeDocument v-else />
   </main>
 </template>
 
@@ -445,6 +529,52 @@ body { margin: 0; }
 }
 
 .masthead p { margin: 0; color: #a7b1c3; font-size: 13px; }
+
+.view-nav {
+  display: flex;
+  align-self: stretch;
+  gap: 28px;
+}
+
+.view-nav button {
+  position: relative;
+  padding: 0;
+  color: #8f9aaf;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  transition: color .16s ease;
+}
+
+.view-nav button::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: #b9ff66;
+  transform: scaleX(0);
+  transition: transform .2s ease;
+}
+
+.view-nav button:hover,
+.view-nav button.active {
+  color: #f9fafb;
+}
+
+.view-nav button:focus-visible {
+  outline: 2px solid #b9ff66;
+  outline-offset: 4px;
+}
+
+.view-nav button.active::after {
+  transform: scaleX(1);
+}
 
 .brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 720; letter-spacing: -0.02em; }
 
@@ -526,6 +656,7 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
   .workspace { width: min(100% - 32px, 640px); padding: 42px 0; }
   .masthead { padding: 0 16px; }
   .masthead p { display: none; }
+  .view-nav { gap: 18px; margin-left: auto; }
   .workspace-heading, .panel-heading { align-items: flex-start; flex-direction: column; }
   .workspace-actions { align-items: flex-start; }
   .panel-heading p { text-align: left; }

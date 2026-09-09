@@ -18,6 +18,8 @@ small { color: #64748b; }
 .component-data-status { margin: 0; color: #64748b; font-size: 14px; }
 .component-data-status--error { color: #dc2626; }
 .form-easy-renderer-error { margin: 0; color: #dc2626; font-size: 14px; }
+.validation-error { margin: 6px 0 0; color: #dc2626; font-size: 13px; }
+.validation-error--configuration { color: #b45309; }
 
 @media (max-width: 540px) {
   .field--left,

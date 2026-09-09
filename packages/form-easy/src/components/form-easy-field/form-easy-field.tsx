@@ -13,11 +13,13 @@ import {
   type BasicFieldRenderer
 } from '../../renderers/basic-field-renderer';
 import { defaultH5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
+import { validateFieldValue } from '../../validation/field-validator';
 import type {
   ComponentEventName,
   ComponentHandle,
   EventFlowHistory,
   FieldBinding,
+  FieldValidationErrorType,
   FormField,
   HandleTarget,
   LabelPosition
@@ -36,6 +38,8 @@ export class FormEasyField implements HandleTarget {
   @Prop() formKey!: string;
   /** 字段标签相对于编辑器的位置。 */
   @Prop() labelPosition: LabelPosition = 'left';
+  /** 父级对象或数组字段是否处于禁用状态。 */
+  @Prop() parentDisabled = false;
   /**
    * 当前字段所属表单指定的基础字段渲染器。
    * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
@@ -62,6 +66,14 @@ export class FormEasyField implements HandleTarget {
   @State() private componentDataLoading = false;
   /** 组件数据加载失败时保留的错误。 */
   @State() private componentDataError?: Error;
+  /** 当前字段首个未通过规则的错误信息。 */
+  @State() private validationError?: string;
+  /** 当前字段校验错误来自用户值还是 schema 配置。 */
+  @State() private validationErrorType?: FieldValidationErrorType;
+  /** 最近一次已经输出到控制台的规则配置错误。 */
+  private lastLoggedValidationConfigurationError?: string;
+  /** 是否已经允许向用户展示普通字段值校验错误。 */
+  private validationFeedbackActive = false;
   /** 已注册事件订阅的清理回调。 */
   private unsubscribe: Array<() => void> = [];
   /** 供框架渲染适配器挂载视图的稳定宿主元素。 */
@@ -74,6 +86,7 @@ export class FormEasyField implements HandleTarget {
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
     this.currentValue = this.value ?? null;
+    this.validateCurrentValue();
     this.registerSubscriptions();
     void this.prepareComponentData();
   }
@@ -82,12 +95,20 @@ export class FormEasyField implements HandleTarget {
   @Watch('value')
   syncExternalValue(newValue: unknown): void {
     this.currentValue = newValue ?? null;
+    this.validateCurrentValue();
   }
 
   /** 字段配置更新后重新解析组件数据。 */
   @Watch('field')
   reloadComponentData(): void {
+    this.validateCurrentValue();
     void this.prepareComponentData();
+  }
+
+  /** 父级禁用状态变化后重新计算当前字段的校验结果。 */
+  @Watch('parentDisabled')
+  validateParentDisabledState(): void {
+    this.validateCurrentValue();
   }
 
   /** 表单级组件数据管理器更新后重新加载组件数据。 */
@@ -143,7 +164,21 @@ export class FormEasyField implements HandleTarget {
     if (handle === 'change' && value !== this.currentValue) {
       this.updateValue(value, 'onChange', history);
     }
+    this.validateCurrentValue();
   }
+
+  /** 执行当前字段的同步规则校验，并更新错误展示状态。 */
+  @Method()
+  async validate(): Promise<boolean> {
+    this.validationFeedbackActive = true;
+    return this.validateCurrentValue();
+  }
+
+  /** 字段失焦后开始展示普通值校验错误。 */
+  private activateValidationFeedback = (): void => {
+    this.validationFeedbackActive = true;
+    this.validateCurrentValue();
+  };
 
   /** 处理嵌套对象或数组字段触发的值。 */
   private onNestedValueChange = (event: CustomEvent<unknown>): void => {
@@ -158,6 +193,7 @@ export class FormEasyField implements HandleTarget {
     history: EventFlowHistory = []
   ): void {
     this.currentValue = value;
+    this.validateCurrentValue();
     this.valueChange.emit(value);
     this.publish(eventName, value, history);
   }
@@ -281,7 +317,7 @@ export class FormEasyField implements HandleTarget {
       return this.cloneDefaultValue(this.field.defaultValue);
     }
     if (this.field.category === 'array') return [];
-    if (this.field.category === 'object') return {};
+    if (this.field.category === 'object') return null;
     return this.field.dataType === 'boolean' ? false : '';
   }
 
@@ -299,6 +335,38 @@ export class FormEasyField implements HandleTarget {
       );
     }
     return value;
+  }
+
+  /** 返回当前字段及其父级合并后的实际禁用状态。 */
+  private get effectiveDisabled(): boolean {
+    return this.disabled || this.parentDisabled;
+  }
+
+  /** 校验当前字段值；配置错误立即展示，值错误按交互状态展示。 */
+  private validateCurrentValue(): boolean {
+    if (!this.visible || this.effectiveDisabled) {
+      this.validationError = undefined;
+      this.validationErrorType = undefined;
+      this.lastLoggedValidationConfigurationError = undefined;
+      return true;
+    }
+    const result = validateFieldValue(this.field, this.currentValue);
+    const shouldDisplayError = result.errorType === 'configuration'
+      || this.validationFeedbackActive;
+    this.validationError = shouldDisplayError ? result.message : undefined;
+    this.validationErrorType = result.errorType;
+    if (
+      result.errorType === 'configuration'
+      && result.message
+      && result.message !== this.lastLoggedValidationConfigurationError
+    ) {
+      console.error(new Error(result.message));
+      this.lastLoggedValidationConfigurationError = result.message;
+    }
+    if (result.errorType !== 'configuration') {
+      this.lastLoggedValidationConfigurationError = undefined;
+    }
+    return result.valid;
   }
 
   /** 当前字段是否声明了需要准备的组件数据。 */
@@ -391,7 +459,7 @@ export class FormEasyField implements HandleTarget {
       field: this.field,
       fieldId: this.fieldId,
       value: this.currentValue,
-      disabled: this.disabled,
+      disabled: this.effectiveDisabled,
       componentData: this.componentData,
       endpointManager: this.endpointManager ?? getGlobalEndpointManager(),
       formKey: this.formKey,
@@ -420,7 +488,7 @@ export class FormEasyField implements HandleTarget {
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
-          disabled={this.disabled}
+          disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />
       );
@@ -437,7 +505,7 @@ export class FormEasyField implements HandleTarget {
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
-          disabled={this.disabled}
+          disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />
       );
@@ -455,7 +523,20 @@ export class FormEasyField implements HandleTarget {
           {this.field.required && <span class="required"> *</span>}
         </label>
         {this.field.hint && <small>{this.field.hint}</small>}
-        <div class="editor">{this.renderEditor()}</div>
+        <div class="editor" onFocusout={this.activateValidationFeedback}>
+          {this.renderEditor()}
+          {this.validationError && (
+            <p
+              class={{
+                'validation-error': true,
+                'validation-error--configuration': this.validationErrorType === 'configuration'
+              }}
+              role="alert"
+            >
+              {this.validationError}
+            </p>
+          )}
+        </div>
       </section>
     );
   }

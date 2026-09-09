@@ -14,8 +14,14 @@ export function validateFieldValue(
   field: FormField,
   value: unknown
 ): FieldValidationResult {
-  const rules = createEffectiveRules(field);
-  for (const rule of rules) {
+  if (field.required && isEmptyValue(value)) {
+    return {
+      valid: false,
+      errorType: 'value',
+      message: `${getFieldName(field)}不能为空。`
+    };
+  }
+  for (const rule of field.rules ?? []) {
     const configurationResult = validateFieldRuleConfiguration(field, rule);
     if (!configurationResult.valid) return configurationResult;
     const result = validateRule(field, value, rule);
@@ -24,26 +30,12 @@ export function validateFieldValue(
   return { valid: true };
 }
 
-/** 合并 required 快捷配置和显式规则，避免重复校验。 */
-function createEffectiveRules(field: FormField): FieldValidationRule[] {
-  const rules = field.rules ?? [];
-  if (!field.required || rules.some(rule => rule.type === 'required')) return rules;
-  return [{ type: 'required' }, ...rules];
-}
-
 /** 执行单条同步校验规则。 */
 function validateRule(
   field: FormField,
   value: unknown,
   rule: FieldValidationRule
 ): FieldValidationResult {
-  if (rule.type === 'required') {
-    return createResult(
-      !isEmptyValue(value),
-      rule,
-      `${getFieldName(field)}不能为空。`
-    );
-  }
   if (isEmptyValue(value)) return { valid: true };
 
   if (rule.type === 'minLength' || rule.type === 'maxLength') {

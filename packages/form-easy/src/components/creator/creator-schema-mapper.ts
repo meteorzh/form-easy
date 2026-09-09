@@ -180,7 +180,8 @@ function mapRules(
   return value.map((item, index) => {
     const ruleDraft = isRecord(item) ? item : {};
     const rule: FieldValidationRule = {
-      type: readString(ruleDraft.type) as FieldValidationRule['type']
+      type: readString(ruleDraft.type) as FieldValidationRule['type'],
+      value: undefined
     };
     assignOptionalString(rule, 'message', ruleDraft.message);
     assignOptionalJson(rule, 'value', ruleDraft.valueJson, `${path}[${index}].valueJson`, issues);

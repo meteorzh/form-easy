@@ -211,7 +211,6 @@
                   "dataType": "string",
                   "component": "select",
                   "componentData": [
-                    { "label": "required", "value": "required" },
                     { "label": "minLength", "value": "minLength" },
                     { "label": "maxLength", "value": "maxLength" },
                     { "label": "min", "value": "min" },
@@ -226,7 +225,7 @@
                   "name": "规则值 JSON",
                   "category": "basic",
                   "dataType": "string",
-                  "hint": "required 留空；字符串和正则需要使用 JSON 双引号。"
+                  "hint": "字符串和正则需要使用 JSON 双引号。"
                 },
                 {
                   "key": "message",

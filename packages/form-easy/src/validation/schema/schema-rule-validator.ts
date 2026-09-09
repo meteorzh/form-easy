@@ -20,7 +20,6 @@ import {
 const validationRuleProperties = new Set(['type', 'value', 'message']);
 /** 支持的同步校验规则类型。 */
 const validationRuleTypes = new Set<FieldValidationRuleType>([
-  'required',
   'minLength',
   'maxLength',
   'min',
@@ -64,9 +63,6 @@ export function validateSchemaRules(
     }
 
     const rule = ruleValue as unknown as FieldValidationRule;
-    if (rule.type === 'required' && hasOwn(ruleValue, 'value') && rule.value === undefined) {
-      context.addError('forbidden-property', propertyPath(rulePath, 'value'), 'required 规则不应配置 value。');
-    }
     const previousIndex = seenRuleTypes.get(rule.type);
     if (previousIndex !== undefined) {
       context.addError(

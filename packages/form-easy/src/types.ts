@@ -39,7 +39,6 @@ export type ComponentDataKey = string & {};
 
 /** 第一阶段字段校验支持的规则类型。 */
 export type FieldValidationRuleType =
-  | 'required'
   | 'minLength'
   | 'maxLength'
   | 'min'
@@ -54,8 +53,8 @@ export type FieldValidationErrorType = 'value' | 'configuration';
 export interface FieldValidationRule {
   /** 当前校验规则的类型。 */
   type: FieldValidationRuleType;
-  /** 规则比较值；required 规则不需要配置。 */
-  value?: unknown;
+  /** 当前规则使用的比较值。 */
+  value: unknown;
   /** 校验失败时展示的自定义错误信息。 */
   message?: string;
 }

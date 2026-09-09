@@ -10,14 +10,14 @@ export const supportedRulesByFieldType: Readonly<Record<
   string,
   ReadonlySet<FieldValidationRuleType>
 >> = {
-  string: new Set(['required', 'minLength', 'maxLength', 'pattern', 'enum']),
-  number: new Set(['required', 'min', 'max', 'enum']),
-  boolean: new Set(['required', 'enum']),
-  date: new Set(['required', 'min', 'max', 'enum']),
-  datetime: new Set(['required', 'min', 'max', 'enum']),
-  time: new Set(['required', 'min', 'max', 'enum']),
-  array: new Set(['required', 'minLength', 'maxLength']),
-  object: new Set(['required'])
+  string: new Set(['minLength', 'maxLength', 'pattern', 'enum']),
+  number: new Set(['min', 'max', 'enum']),
+  boolean: new Set(['enum']),
+  date: new Set(['min', 'max', 'enum']),
+  datetime: new Set(['min', 'max', 'enum']),
+  time: new Set(['min', 'max', 'enum']),
+  array: new Set(['minLength', 'maxLength']),
+  object: new Set()
 };
 
 /** 获取规则兼容性判断使用的字段类型名称。 */
@@ -41,11 +41,6 @@ export function validateFieldRuleConfiguration(
     );
   }
 
-  if (rule.type === 'required') {
-    return rule.value === undefined
-      ? { valid: true }
-      : createConfigurationError(rule.type, `${getFieldName(field)}的 required 规则不应配置 value。`);
-  }
   if (rule.value === undefined) {
     return createConfigurationError(rule.type, `${getFieldName(field)}的 ${rule.type} 规则缺少 value。`);
   }

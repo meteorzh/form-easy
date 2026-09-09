@@ -385,7 +385,7 @@ result.warnings.forEach(issue => {
 
 ### Rules 同步校验 ✅
 
-字段可通过 `rules` 配置按顺序执行的同步校验。第一阶段支持 `required`、`minLength`、`maxLength`、`min`、`max`、`pattern` 与 `enum`；校验遇到第一个错误后停止，并在字段编辑器下方展示错误信息。
+字段通过 `required: true` 声明必填，通过 `rules` 配置按顺序执行的其他同步校验。第一阶段支持 `minLength`、`maxLength`、`min`、`max`、`pattern` 与 `enum`；校验遇到第一个错误后停止，并在字段编辑器下方展示错误信息。
 
 ```ts
 {
@@ -402,18 +402,18 @@ result.warnings.forEach(issue => {
 }
 ```
 
-`required: true` 会自动生成必填校验；若 `rules` 已配置 `required`，则使用显式规则及其错误文案。空值会跳过必填以外的其他规则。对象字段只有 `null` 和 `undefined` 属于必填空值，已经创建的空对象 `{}` 可以通过 `required`。`min` / `max` 支持数字、日期、日期时间和 `HH:mm` 时间值，`enum` 的 `value` 应为允许值数组。
+`required` 是字段基础配置，不属于 `rules`。必填失败时会使用字段名生成“某某不能为空”的统一提示。空值会跳过其他规则；对象字段只有 `null` 和 `undefined` 属于必填空值，已经创建的空对象 `{}` 可以通过必填校验。`min` / `max` 支持数字、日期、日期时间和 `HH:mm` 时间值，`enum` 的 `value` 应为允许值数组。
 
 不同字段类型支持的规则如下：
 
 | 字段类型 | 支持的规则 |
 | --- | --- |
-| `string` | `required`、`minLength`、`maxLength`、`pattern`、`enum` |
-| `number` | `required`、`min`、`max`、`enum` |
-| `boolean` | `required`、`enum` |
-| `date` / `datetime` / `time` | `required`、`min`、`max`、`enum` |
-| 数组字段 | `required`、`minLength`、`maxLength` |
-| 对象字段 | `required` |
+| `string` | `minLength`、`maxLength`、`pattern`、`enum` |
+| `number` | `min`、`max`、`enum` |
+| `boolean` | `enum` |
+| `date` / `datetime` / `time` | `min`、`max`、`enum` |
+| 数组字段 | `minLength`、`maxLength` |
+| 对象字段 | 暂不支持额外 rules；可使用字段级 `required` |
 
 规则执行前会先校验 schema 配置。若数字字段错误配置了 `pattern`，或者 `enum.value` 不是数组，校验结果的 `errorType` 为 `configuration`；字段会展示明确的配置错误、在控制台输出一次错误，并使 `validate()` 返回 `false`。正常的用户输入错误对应 `errorType: 'value'`。
 

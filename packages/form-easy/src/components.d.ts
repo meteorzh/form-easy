@@ -10,6 +10,7 @@ import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
 import { EndpointManager } from "./managers/endpoint-manager";
+import { FormValueStore } from "./managers/form-value-store";
 import { FormEasyCreatorChangeDetail } from "./components/creator/types";
 import { FormSchemaValidationResult } from "./validation/schema";
 export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
@@ -17,6 +18,7 @@ export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
 export { EndpointManager } from "./managers/endpoint-manager";
+export { FormValueStore } from "./managers/form-value-store";
 export { FormEasyCreatorChangeDetail } from "./components/creator/types";
 export { FormSchemaValidationResult } from "./validation/schema";
 export namespace Components {
@@ -40,6 +42,10 @@ export namespace Components {
           * 当前表单使用的事件中心。 未传入时使用全局共享事件中心；传入后可与其他表单隔离。
          */
         "eventCenter"?: EventCenter;
+        /**
+          * 当前表单使用的字段值存储；未传入时为当前表单创建独立实例。
+         */
+        "formValueStore"?: FormValueStore;
         /**
           * 描述表单及其字段的 JSON schema。
          */
@@ -95,6 +101,10 @@ export namespace Components {
           * 所属表单的键。
          */
         "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
         /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'
@@ -191,6 +201,10 @@ export namespace Components {
          */
         "formKey": string;
         /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
+        /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'
          */
@@ -248,6 +262,10 @@ export namespace Components {
           * 所属表单的键。
          */
         "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
         /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'
@@ -549,6 +567,10 @@ declare namespace LocalJSX {
          */
         "eventCenter"?: EventCenter;
         /**
+          * 当前表单使用的字段值存储；未传入时为当前表单创建独立实例。
+         */
+        "formValueStore"?: FormValueStore;
+        /**
           * 每次值变更时触发字段和完整表单上下文。
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
@@ -599,6 +621,10 @@ declare namespace LocalJSX {
           * 所属表单的键。
          */
         "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
         /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'
@@ -691,6 +717,10 @@ declare namespace LocalJSX {
          */
         "formKey": string;
         /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
+        /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'
          */
@@ -748,6 +778,10 @@ declare namespace LocalJSX {
           * 所属表单的键。
          */
         "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
         /**
           * 字段标签相对于编辑器的位置。
           * @default 'left'

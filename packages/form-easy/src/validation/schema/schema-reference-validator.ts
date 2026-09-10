@@ -1,8 +1,12 @@
 import {
+  isRelativeFieldReference,
   isSiblingFieldReference,
+  parseRelativeFieldReference,
   readSiblingFieldKey,
+  resolveRelativeFieldId,
   resolveSiblingFieldId
 } from '../../field-reference';
+import { parseComponentDataExpression } from '../../component-data-expression';
 import { SchemaValidationContext } from './schema-validation-context';
 import { indexPath, isPlainRecord, propertyPath } from './schema-validation-utils';
 
@@ -39,6 +43,7 @@ function collectFieldIds(
 ): void {
   if (!isPlainRecord(value) || visited.has(value)) return;
   visited.add(value);
+
   const fieldId = anonymousFieldId
     ?? (typeof value.key === 'string' && value.key.trim()
       ? `${parentFieldId}.${value.key}`
@@ -54,6 +59,45 @@ function collectFieldIds(
   }
 }
 
+/** 校验组件数据调用表达式中的字段参数引用是否存在。 */
+function validateComponentDataParameterReferences(
+  value: unknown,
+  path: string,
+  formKey: string,
+  currentFieldId: string | undefined,
+  fieldIds: ReadonlySet<string>,
+  context: SchemaValidationContext
+): void {
+  if (typeof value !== 'string' || !value.trim()) return;
+  let expression;
+  try {
+    expression = parseComponentDataExpression(value);
+  } catch {
+    return;
+  }
+
+  expression.parameters.forEach(parameter => {
+    const reference = parameter.fieldReference;
+    if (isRelativeFieldReference(reference)) {
+      if (!parseRelativeFieldReference(reference)) return;
+      const sourceFieldId = currentFieldId
+        ? resolveRelativeFieldId(currentFieldId, reference)
+        : undefined;
+      if (!sourceFieldId || !fieldIds.has(sourceFieldId)) {
+        context.addError(
+          'unknown-source-field',
+          path,
+          `组件数据参数“${parameter.name}”引用的字段“${reference}”不存在。`
+        );
+      }
+      return;
+    }
+
+    if (!reference.startsWith(`${formKey}.`)) return;
+    validateLocalSourceFieldId(reference, path, fieldIds, context);
+  });
+}
+
 /** 递归校验字段绑定和事件订阅中的当前表单字段引用。 */
 function validateFieldReferences(
   value: unknown,
@@ -66,6 +110,15 @@ function validateFieldReferences(
 ): void {
   if (!isPlainRecord(value) || visited.has(value)) return;
   visited.add(value);
+
+  validateComponentDataParameterReferences(
+    value.componentDataKey,
+    propertyPath(path, 'componentDataKey'),
+    formKey,
+    currentFieldId,
+    fieldIds,
+    context
+  );
 
   if (Array.isArray(value.binds)) {
     value.binds.forEach((binding, index) => {

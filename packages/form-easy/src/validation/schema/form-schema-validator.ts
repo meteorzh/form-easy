@@ -4,6 +4,11 @@ import type {
   FormField,
   LabelPosition
 } from '../../types';
+import { parseComponentDataExpression } from '../../component-data-expression';
+import {
+  isRelativeFieldReference,
+  parseRelativeFieldReference
+} from '../../field-reference';
 import { SchemaValidationContext } from './schema-validation-context';
 import { validateDefaultValue } from './schema-default-value-validator';
 import { validateLocalFieldReferences } from './schema-reference-validator';
@@ -216,6 +221,7 @@ function validateOptionalPropertyTypes(
   validateOptionalType(field, 'hint', 'string', path, context);
   validateOptionalType(field, 'component', 'string', path, context, true);
   validateOptionalType(field, 'componentDataKey', 'string', path, context, true);
+  validateComponentDataKeyExpression(field.componentDataKey, path, context);
 
   if (hasOwn(field, 'componentProperties') && !isPlainRecord(field.componentProperties)) {
     context.addError(
@@ -223,6 +229,36 @@ function validateOptionalPropertyTypes(
       propertyPath(path, 'componentProperties'),
       'componentProperties 必须是普通对象。'
     );
+  }
+}
+
+/** 校验 componentDataKey 调用表达式及参数引用的基础格式。 */
+function validateComponentDataKeyExpression(
+  value: unknown,
+  fieldPath: string,
+  context: SchemaValidationContext
+): void {
+  if (typeof value !== 'string' || !value.trim()) return;
+  const path = propertyPath(fieldPath, 'componentDataKey');
+  try {
+    const expression = parseComponentDataExpression(value);
+    expression.parameters.forEach(parameter => {
+      const reference = parameter.fieldReference;
+      const valid = isRelativeFieldReference(reference)
+        ? Boolean(parseRelativeFieldReference(reference))
+        : reference.includes('.');
+      if (!valid) {
+        context.addError(
+          'invalid-value',
+          path,
+          `组件数据参数“${parameter.name}”的字段引用“${reference}”`
+          + '格式无效。'
+        );
+      }
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    context.addError('invalid-value', path, `componentDataKey 表达式无效：${reason}`);
   }
 }
 

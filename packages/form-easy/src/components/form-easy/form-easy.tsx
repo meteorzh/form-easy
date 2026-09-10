@@ -2,6 +2,10 @@ import { Component, Element, Event, EventEmitter, h, Method, Prop, State } from 
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
+import {
+  FormValueStore,
+  synchronizeFormFieldValue
+} from '../../managers/form-value-store';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   FormChangeDetail,
@@ -35,10 +39,14 @@ export class FormEasy {
   @Prop() componentDataManager?: ComponentDataManager;
   /** 当前表单覆盖全局配置的异步服务端点管理器。 */
   @Prop() endpointManager?: EndpointManager;
+  /** 当前表单使用的字段值存储；未传入时为当前表单创建独立实例。 */
+  @Prop() formValueStore?: FormValueStore;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
   /** 当前完整表单数据。 */
   @State() private formData: Record<string, unknown> = {};
+  /** 当前表单未传入外部字段值存储时使用的内部实例。 */
+  private readonly internalFormValueStore = new FormValueStore();
 
   /** 当前表单生效的字段标签位置。 */
   private get labelPosition(): LabelPosition {
@@ -48,6 +56,11 @@ export class FormEasy {
   /** 获取当前表单实际使用的事件中心。 */
   private get activeEventCenter(): EventCenter {
     return this.eventCenter ?? globalEventCenter;
+  }
+
+  /** 获取当前表单实际使用的字段值存储。 */
+  private get activeFormValueStore(): FormValueStore {
+    return this.formValueStore ?? this.internalFormValueStore;
   }
 
   /** 初始化第一阶段：挂载控件时先提供空表单数据。 */
@@ -110,6 +123,15 @@ export class FormEasy {
   /** 写入完整表单数据，并为每一个字段发布 onChange 初始化事件。 */
   private applyFormData(formData: Record<string, unknown>): void {
     this.formData = formData;
+    this.schema.fields.forEach(field => {
+      if (!field.key) return;
+      synchronizeFormFieldValue(
+        this.activeFormValueStore,
+        field,
+        `${this.schema.key}.${field.key}`,
+        formData[field.key]
+      );
+    });
     this.publishInitialFieldValues(this.schema.fields, this.schema.key, formData);
   }
 
@@ -229,6 +251,7 @@ export class FormEasy {
             endpointManager={this.endpointManager}
             value={this.formData[field.key]}
             eventCenter={this.activeEventCenter}
+            formValueStore={this.activeFormValueStore}
             onValueChange={(event: CustomEvent<unknown>) =>
               this.changeField(field.key!, `${schema.key}.${field.key}`, event)
             }

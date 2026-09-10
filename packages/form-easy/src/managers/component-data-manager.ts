@@ -1,7 +1,8 @@
 import type {
   ComponentDataKey,
   ComponentDataResolver,
-  ComponentDataResolverContext
+  ComponentDataResolverContext,
+  ComponentDataResolverParams
 } from '../types';
 
 /** 按组件数据键管理异步数据加载函数的注册中心。 */
@@ -22,11 +23,12 @@ export class ComponentDataManager {
   /** 加载指定组件数据键的数据，未注册时抛出明确错误。 */
   async resolve(
     componentDataKey: ComponentDataKey,
-    context: Omit<ComponentDataResolverContext, 'componentDataKey'>
+    context: Omit<ComponentDataResolverContext, 'componentDataKey'>,
+    params: ComponentDataResolverParams = {}
   ): Promise<unknown> {
     const resolver = this.resolvers.get(componentDataKey);
     if (!resolver) throw new Error(`未找到组件数据键“${componentDataKey}”的加载函数。`);
-    return resolver({ ...context, componentDataKey });
+    return resolver({ ...context, componentDataKey }, params);
   }
 }
 

@@ -551,6 +551,91 @@ const schema = {
 };
 ```
 
+`ComponentDataResolver` 的第二个参数为只读的 `params` 对象。除了在业务代码中通过 `resolve()` 的第三个参数直接传入查询条件，也可以在 schema 的 `componentDataKey` 中声明响应式字段参数：
+
+```ts
+componentDataManager.register(
+  'city-options',
+  async ({ signal }, params) => {
+    const provinceCode = String(params.provinceCode ?? '');
+    const response = await fetch(`/api/cities?provinceCode=${provinceCode}`, { signal });
+    return response.json();
+  }
+);
+
+const cityOptions = await componentDataManager.resolve(
+  'city-options',
+  {
+    field,
+    fieldId: 'address.city',
+    formKey: 'address',
+    signal: abortController.signal
+  },
+  {
+    provinceCode: '510000'
+  }
+);
+```
+
+```ts
+componentDataManager.register(
+  'city-options',
+  async ({ signal }, params) => {
+    const provinceCode = String(params.provinceCode ?? '');
+    const response = await fetch(`/api/cities?provinceCode=${provinceCode}`, {
+      signal
+    });
+    return response.json();
+  }
+);
+
+const schema = {
+  key: 'address',
+  name: '地址',
+  fields: [
+    {
+      key: 'provinceCode',
+      name: '省份',
+      category: 'basic',
+      dataType: 'string',
+      component: 'select',
+      componentDataKey: 'province-options'
+    },
+    {
+      key: 'cityCode',
+      name: '城市',
+      category: 'basic',
+      dataType: 'string',
+      component: 'select',
+      componentDataKey: 'city-options(provinceCode:./provinceCode)'
+    }
+  ]
+};
+```
+
+表达式格式为 `key(参数名:字段引用, ...)`。普通的 `componentDataKey: 'status-options'` 保持兼容。参数引用支持以下形式：
+
+- `./fieldKey`：当前字段的同级字段。
+- `../fieldKey`、`../../fieldKey`：从当前字段所在容器逐级向上查找。例如数组规则项内的 `../../dataType` 可以引用外层字段定义的 `dataType`。
+- `formKey.fieldKey...`：字段的完整唯一标识，可用于引用其他表单。
+
+每个 `<form-easy>` 都拥有独立的 `FormValueStore`。框架从该存储同步读取参数源字段的当前值并订阅后续变化，不依赖事件中心保存历史事件。所有参数都至少获得一次值后才调用解析器；任一参数变化时，框架会取消尚未完成的旧请求，并使用最新参数重新加载组件数据。
+
+也可以显式创建并传入字段值存储，以便表单外部代码读取字段当前值：
+
+```ts
+import { FormValueStore } from '@wenzhencn/form-easy';
+
+const formValueStore = new FormValueStore();
+formElement.formValueStore = formValueStore;
+
+const currentProvinceCode = formValueStore.getValue(
+  'address.provinceCode'
+);
+```
+
+参数当前只接受字段引用，不解析字面量或任意 JavaScript；表达式语法及当前表单内引用可由 `validateFormSchema()` 提前检查。`EventCenter` 只负责传播组件行为事件，不再保存字段当前值。
+
 `componentData` 优先于 `componentDataKey`；两者同时出现时会输出警告并使用前者。`ComponentDataManager` 按数据键注册加载函数，加载函数接收字段、字段标识、表单键及 `AbortSignal`；字段卸载或配置变更时会自动取消旧请求。数据最终作为 `componentData` 属性传给自定义组件。可通过 `componentDataManager` 属性将独立管理器传入单个 `<form-easy>` 实例。
 
 ### 异步端点与文件上传

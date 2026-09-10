@@ -1,6 +1,12 @@
 import { Component, Event, EventEmitter, h, Method, Prop, State, Watch } from '@stencil/core';
 import {
+  parseComponentDataExpression,
+  type ComponentDataExpression
+} from '../../component-data-expression';
+import {
+  isRelativeFieldReference,
   isSiblingFieldReference,
+  resolveRelativeFieldId,
   resolveSiblingFieldId
 } from '../../field-reference';
 import {
@@ -13,12 +19,17 @@ import {
 } from '../../managers/endpoint-manager';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import {
+  synchronizeFormFieldValue,
+  type FormValueStore
+} from '../../managers/form-value-store';
+import {
   getGlobalBasicFieldRenderer,
   type BasicFieldRenderer
 } from '../../renderers/basic-field-renderer';
 import { defaultH5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
 import { validateFieldValue } from '../../validation/field-validator';
 import type {
+  ComponentDataResolverParams,
   ComponentEventName,
   ComponentHandle,
   EventFlowHistory,
@@ -55,6 +66,8 @@ export class FormEasyField implements HandleTarget {
   @Prop() endpointManager?: EndpointManager;
   /** 表单内所有字段共用的事件路由器。 */
   @Prop() eventCenter: EventCenter = globalEventCenter;
+  /** 当前表单共享的字段值存储。 */
+  @Prop() formValueStore?: FormValueStore;
   /** 向父级渲染器通知字段值变更。 */
   @Event() valueChange!: EventEmitter<unknown>;
 
@@ -86,19 +99,28 @@ export class FormEasyField implements HandleTarget {
   private activeRenderer?: BasicFieldRenderer;
   /** 用于取消已过期组件数据请求的控制器。 */
   private componentDataAbortController?: AbortController;
+  /** 当前 componentDataKey 解析后的调用表达式。 */
+  private componentDataExpression?: ComponentDataExpression;
+  /** 已从参数源事件中收集的组件数据解析参数。 */
+  private componentDataResolverParams: ComponentDataResolverParams = {};
+  /** 已经收到初始化值的动态参数名。 */
+  private readonly readyComponentDataParameterNames = new Set<string>();
+  /** 组件数据动态参数事件订阅的清理函数。 */
+  private componentDataParameterUnsubscribe: Array<() => void> = [];
 
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
     this.currentValue = this.value ?? null;
     this.validateCurrentValue();
     this.registerSubscriptions();
-    void this.prepareComponentData();
+    this.configureComponentData();
   }
 
   /** 将根表单传入的新字段值同步到当前字段。 */
   @Watch('value')
   syncExternalValue(newValue: unknown): void {
     this.currentValue = newValue ?? null;
+    this.synchronizeStoredValue(this.currentValue);
     this.validateCurrentValue();
   }
 
@@ -106,7 +128,7 @@ export class FormEasyField implements HandleTarget {
   @Watch('field')
   reloadComponentData(): void {
     this.validateCurrentValue();
-    void this.prepareComponentData();
+    this.configureComponentData();
   }
 
   /** 父级禁用状态变化后重新计算当前字段的校验结果。 */
@@ -121,11 +143,31 @@ export class FormEasyField implements HandleTarget {
     void this.prepareComponentData();
   }
 
+  /** 表单字段值存储变化后迁移当前值并重新建立参数订阅。 */
+  @Watch('formValueStore')
+  reloadFormValueStore(
+    newStore?: FormValueStore,
+    oldStore?: FormValueStore
+  ): void {
+    oldStore?.deleteBranch(this.fieldId);
+    if (newStore) {
+      synchronizeFormFieldValue(
+        newStore,
+        this.field,
+        this.fieldId,
+        this.currentValue
+      );
+    }
+    this.configureComponentData();
+  }
+
   /** 当前字段被移除时释放事件订阅。 */
   disconnectedCallback(): void {
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
+    this.clearComponentDataParameterSubscriptions();
     this.componentDataAbortController?.abort();
+    this.formValueStore?.deleteBranch(this.fieldId);
     if (this.rendererHost) this.activeRenderer?.unmount(this.rendererHost);
   }
 
@@ -197,6 +239,7 @@ export class FormEasyField implements HandleTarget {
     history: EventFlowHistory = []
   ): void {
     this.currentValue = value;
+    this.synchronizeStoredValue(value);
     this.validateCurrentValue();
     this.valueChange.emit(value);
     this.publish(eventName, value, history);
@@ -209,6 +252,17 @@ export class FormEasyField implements HandleTarget {
     history: EventFlowHistory = []
   ): void {
     this.eventCenter.publish(this.fieldId, eventName, value, history);
+  }
+
+  /** 将当前字段及其嵌套后代值同步到表单字段值存储。 */
+  private synchronizeStoredValue(value: unknown): void {
+    if (!this.formValueStore) return;
+    synchronizeFormFieldValue(
+      this.formValueStore,
+      this.field,
+      this.fieldId,
+      value
+    );
   }
 
   /** 注册当前字段声明的所有事件订阅。 */
@@ -397,10 +451,126 @@ export class FormEasyField implements HandleTarget {
       || Boolean(this.field.componentDataKey);
   }
 
+  /** 解析组件数据调用表达式，并为每一个动态参数注册值订阅。 */
+  private configureComponentData(): void {
+    this.clearComponentDataParameterSubscriptions();
+    this.componentDataAbortController?.abort();
+    this.componentDataExpression = undefined;
+    this.componentDataResolverParams = {};
+    this.readyComponentDataParameterNames.clear();
+
+    if (
+      this.field.category !== 'basic'
+      || !this.field.componentDataKey
+      || Object.prototype.hasOwnProperty.call(this.field, 'componentData')
+    ) {
+      void this.prepareComponentData();
+      return;
+    }
+
+    try {
+      this.componentDataExpression = parseComponentDataExpression(
+        this.field.componentDataKey
+      );
+    } catch (error) {
+      this.setComponentDataConfigurationError(error);
+      return;
+    }
+
+    const parameters = this.componentDataExpression.parameters;
+    if (parameters.length === 0) {
+      void this.prepareComponentData();
+      return;
+    }
+
+    this.componentData = undefined;
+    this.componentDataLoading = true;
+    this.componentDataError = undefined;
+    for (const parameter of parameters) {
+      const sourceFieldId = this.resolveComponentDataParameterFieldId(
+        parameter.fieldReference
+      );
+      if (!sourceFieldId) {
+        this.clearComponentDataParameterSubscriptions();
+        this.setComponentDataConfigurationError(
+          new Error(
+            `参数“${parameter.name}”的字段引用“${parameter.fieldReference}”无效。`
+          )
+        );
+        return;
+      }
+      if (!this.formValueStore) {
+        this.clearComponentDataParameterSubscriptions();
+        this.setComponentDataConfigurationError(
+          new Error('当前字段未连接到表单字段值存储。')
+        );
+        return;
+      }
+      this.componentDataParameterUnsubscribe.push(
+        this.formValueStore.subscribe(
+          sourceFieldId,
+          value => this.updateComponentDataParameter(parameter.name, value),
+          true
+        )
+      );
+    }
+  }
+
+  /** 将动态参数字段引用转换为实际运行时字段标识。 */
+  private resolveComponentDataParameterFieldId(fieldReference: string): string | undefined {
+    if (isRelativeFieldReference(fieldReference)) {
+      return resolveRelativeFieldId(this.fieldId, fieldReference);
+    }
+    return fieldReference.includes('.') ? fieldReference : undefined;
+  }
+
+  /** 接收参数源最新值，并在全部参数就绪后重新加载组件数据。 */
+  private updateComponentDataParameter(name: string, value: unknown): void {
+    this.componentDataResolverParams = {
+      ...this.componentDataResolverParams,
+      [name]: value
+    };
+    this.readyComponentDataParameterNames.add(name);
+    if (
+      this.readyComponentDataParameterNames.size
+      === this.componentDataExpression?.parameters.length
+    ) {
+      void this.prepareComponentData();
+    }
+  }
+
+  /** 记录组件数据表达式配置错误并停止实际组件渲染。 */
+  private setComponentDataConfigurationError(error: unknown): void {
+    this.componentDataAbortController?.abort();
+    this.componentData = undefined;
+    this.componentDataLoading = false;
+    this.componentDataError = error instanceof Error ? error : new Error(String(error));
+    console.error(
+      `字段“${this.fieldId}”的 componentDataKey 配置无效：`,
+      this.componentDataError
+    );
+  }
+
+  /** 清理当前字段的全部组件数据参数订阅。 */
+  private clearComponentDataParameterSubscriptions(): void {
+    this.componentDataParameterUnsubscribe.forEach(cleanup => cleanup());
+    this.componentDataParameterUnsubscribe = [];
+  }
+
   /** 按字段显式数据、表单级管理器、全局管理器的优先级准备组件数据。 */
   private async prepareComponentData(): Promise<void> {
     this.componentDataAbortController?.abort();
     this.componentDataError = undefined;
+
+    if (
+      this.componentDataExpression
+      && this.readyComponentDataParameterNames.size
+        < this.componentDataExpression.parameters.length
+    ) {
+      this.componentData = undefined;
+      this.componentDataLoading = true;
+      return;
+    }
 
     if (this.field.category !== 'basic' || !this.hasComponentDataConfiguration()) {
       this.componentData = undefined;
@@ -409,7 +579,10 @@ export class FormEasyField implements HandleTarget {
     }
     if (Object.prototype.hasOwnProperty.call(this.field, 'componentData')) {
       if (this.field.componentDataKey) {
-        console.warn(`字段“${this.fieldId}”同时配置了 componentData 和 componentDataKey；将使用 componentData。`);
+        console.warn(
+          `字段“${this.fieldId}”同时配置了 componentData 和 componentDataKey；`
+          + '将使用 componentData。'
+        );
       }
       this.componentData = this.field.componentData;
       this.componentDataLoading = false;
@@ -417,10 +590,13 @@ export class FormEasyField implements HandleTarget {
     }
 
     const componentDataManager = this.componentDataManager ?? getGlobalComponentDataManager();
-    if (!componentDataManager || !this.field.componentDataKey) {
+    const componentDataKey = this.componentDataExpression?.key;
+    if (!componentDataManager || !componentDataKey) {
       this.componentData = undefined;
       this.componentDataLoading = false;
-      this.componentDataError = new Error(`字段“${this.fieldId}”未找到 componentDataKey 对应的组件数据管理器。`);
+      this.componentDataError = new Error(
+        `字段“${this.fieldId}”未找到 componentDataKey 对应的组件数据管理器。`
+      );
       console.error(this.componentDataError);
       return;
     }
@@ -429,13 +605,14 @@ export class FormEasyField implements HandleTarget {
     this.componentDataAbortController = abortController;
     this.componentDataLoading = true;
     try {
-      const componentData = await componentDataManager.resolve(this.field.componentDataKey, {
+      const componentData = await componentDataManager.resolve(componentDataKey, {
         field: this.field,
         fieldId: this.fieldId,
         formKey: this.formKey,
         signal: abortController.signal
-      });
+      }, this.componentDataResolverParams);
       if (abortController.signal.aborted) return;
+      this.synchronizeCurrentValueFromStore();
       this.componentData = componentData;
       this.componentDataError = undefined;
     } catch (error) {
@@ -448,6 +625,13 @@ export class FormEasyField implements HandleTarget {
     } finally {
       if (!abortController.signal.aborted) this.componentDataLoading = false;
     }
+  }
+
+  /** 在组件数据就绪后读取字段存储，确保渲染器接收最新字段值。 */
+  private synchronizeCurrentValueFromStore(): void {
+    if (!this.formValueStore?.hasValue(this.fieldId)) return;
+    this.currentValue = this.formValueStore.getValue(this.fieldId);
+    this.validateCurrentValue();
   }
 
   /** 保存适配器宿主元素的引用。 */
@@ -510,6 +694,7 @@ export class FormEasyField implements HandleTarget {
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
+          formValueStore={this.formValueStore}
           disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />
@@ -527,6 +712,7 @@ export class FormEasyField implements HandleTarget {
           endpointManager={this.endpointManager}
           value={this.currentValue}
           eventCenter={this.eventCenter}
+          formValueStore={this.formValueStore}
           disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />

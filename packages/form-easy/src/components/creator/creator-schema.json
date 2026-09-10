@@ -210,14 +210,7 @@
                   "category": "basic",
                   "dataType": "string",
                   "component": "select",
-                  "componentData": [
-                    { "label": "minLength", "value": "minLength" },
-                    { "label": "maxLength", "value": "maxLength" },
-                    { "label": "min", "value": "min" },
-                    { "label": "max", "value": "max" },
-                    { "label": "pattern", "value": "pattern" },
-                    { "label": "enum", "value": "enum" }
-                  ],
+                  "componentDataKey": "validation-rule-types(category:../../category, dataType:../../dataType)",
                   "required": true
                 },
                 {

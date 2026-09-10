@@ -1,10 +1,12 @@
 export * from './components';
+export * from './component-data-expression';
 export * from './field-reference';
 export type { FormEasyCreatorChangeDetail } from './components/creator/types';
 export * from './managers/component-registry';
 export * from './managers/component-data-manager';
 export * from './managers/endpoint-manager';
 export * from './managers/event-center';
+export * from './managers/form-value-store';
 export * from './renderers/basic-field-renderer';
 export * from './renderers/abstract-basic-field-renderer';
 export * from './renderers/h5-basic-field-renderer';

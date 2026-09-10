@@ -19,7 +19,12 @@ export class EventCenter {
   private readonly subscriptions = new Map<string, Set<SubscriptionRecord>>();
 
   /** 添加事件订阅并返回清理函数。 */
-  subscribe(sourceFieldId: string, eventName: ComponentEventName, target: HandleTarget, handle: ComponentHandle): () => void {
+  subscribe(
+    sourceFieldId: string,
+    eventName: ComponentEventName,
+    target: HandleTarget,
+    handle: ComponentHandle
+  ): () => void {
     const key = this.createKey(sourceFieldId, eventName);
     const record: SubscriptionRecord = { target, handle };
     const records = this.subscriptions.get(key) ?? new Set<SubscriptionRecord>();

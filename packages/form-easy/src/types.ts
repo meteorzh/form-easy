@@ -158,7 +158,7 @@ export interface FormField {
   componentProperties?: Record<string, unknown>;
   /** 直接提供给组件的数据，优先于 componentDataKey。 */
   componentData?: unknown;
-  /** 用于通过组件数据解析器加载数据的业务键。 */
+  /** 用于通过组件数据解析器加载数据的业务键或带字段参数的调用表达式。 */
   componentDataKey?: ComponentDataKey;
   /** 当前字段拥有的事件订阅配置。 */
   eventSubscriptions?: EventSubscription[];
@@ -180,9 +180,13 @@ export interface ComponentDataResolverContext {
   signal: AbortSignal;
 }
 
+/** 调用组件数据解析器时传入的命名参数。 */
+export type ComponentDataResolverParams = Readonly<Record<string, unknown>>;
+
 /** 根据字段配置加载组件数据的函数。 */
 export type ComponentDataResolver = (
-  context: ComponentDataResolverContext
+  context: ComponentDataResolverContext,
+  params: ComponentDataResolverParams
 ) => unknown | Promise<unknown>;
 
 /** 描述完整的动态表单。 */

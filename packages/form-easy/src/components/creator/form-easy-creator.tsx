@@ -8,10 +8,14 @@ import {
   State,
   Watch
 } from '@stencil/core';
+import { ComponentDataManager } from '../../managers/component-data-manager';
 import { EventCenter } from '../../managers/event-center';
 import { H5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormChangeDetail, FormSchema } from '../../types';
+import {
+  supportedRulesByFieldType
+} from '../../validation/rule-configuration-validator';
 import {
   validateFormSchema,
   type FormSchemaValidationResult
@@ -38,6 +42,29 @@ function createCreatorRenderer(): H5BasicFieldRenderer {
     tagName: 'form-easy-creator-json-editor'
   });
   return renderer;
+}
+
+/** 创建仅供设计器规则类型选项使用的组件数据管理器。 */
+function createCreatorComponentDataManager(): ComponentDataManager {
+  const manager = new ComponentDataManager();
+  manager.register('validation-rule-types', (_context, params) => {
+    const category = typeof params.category === 'string'
+      ? params.category
+      : undefined;
+    const dataType = typeof params.dataType === 'string'
+      ? params.dataType
+      : undefined;
+    const fieldType = category === 'basic' ? dataType : category;
+    const supportedRules = fieldType
+      ? supportedRulesByFieldType[fieldType]
+      : undefined;
+
+    return Array.from(supportedRules ?? []).map(ruleType => ({
+      label: ruleType,
+      value: ruleType
+    }));
+  });
+  return manager;
 }
 
 /** 使用 form-easy 自身能力可视化创建动态表单 schema。 */
@@ -75,6 +102,8 @@ export class FormEasyCreator {
   private readonly creatorEventCenter = new EventCenter();
   /** 隔离设计器组件注册，确保始终采用核心包内置 H5 控件。 */
   private readonly creatorRenderer = createCreatorRenderer();
+  /** 隔离设计器内部规则选项的数据解析器。 */
+  private readonly creatorComponentDataManager = createCreatorComponentDataManager();
   /** 隔离预览字段事件，避免预览表单和业务表单相互影响。 */
   private readonly previewEventCenter = new EventCenter();
   /** 清除复制反馈所使用的计时器。 */
@@ -265,6 +294,7 @@ export class FormEasyCreator {
               schema={creatorSchema}
               value={this.creatorFormValue}
               basicFieldRenderer={this.creatorRenderer}
+              componentDataManager={this.creatorComponentDataManager}
               eventCenter={this.creatorEventCenter}
               onFormChange={this.handleCreatorFormChange}
             />

@@ -2,6 +2,7 @@ import { Component, Event, EventEmitter, h, Prop, State, Watch } from '@stencil/
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
+import type { FormValueStore } from '../../managers/form-value-store';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
@@ -26,6 +27,8 @@ export class FormEasyObject {
   @Prop() value: unknown;
   /** 共享事件路由器。 */
   @Prop() eventCenter: EventCenter = globalEventCenter;
+  /** 当前表单共享的字段值存储。 */
+  @Prop() formValueStore?: FormValueStore;
   /** 是否禁用嵌套字段编辑。 */
   @Prop() disabled = false;
   /** 子字段变更后触发完整的嵌套对象。 */
@@ -158,6 +161,7 @@ export class FormEasyObject {
             endpointManager={this.endpointManager}
             value={objectValue[field.key]}
             eventCenter={this.eventCenter}
+            formValueStore={this.formValueStore}
             parentDisabled={this.disabled}
             onValueChange={(event: CustomEvent<unknown>) => this.changeField(field.key!, event)}
           />

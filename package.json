@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "lerna run build",
-    "dev": "npm run dev --workspace=form-easy-vue-playground",
+    "dev": "npm run build && npm run dev --workspace=form-easy-vue-playground",
     "test": "lerna run test --if-present",
     "lint": "lerna run lint --if-present",
     "clean": "lerna clean --yes",

@@ -1,10 +1,69 @@
 :host {
   display: block;
+  min-width: 0;
 }
 
 .object {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
   border-left: 3px solid #e2e8f0;
-  padding-left: 14px;
+  padding-left: 11px;
+}
+
+.object-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.object-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.object-toggle:hover {
+  background: #f1f5f9;
+}
+
+.object-toggle:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 20%);
+  outline-offset: 1px;
+}
+
+.object-toggle-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 160ms ease;
+}
+
+.object-toggle-icon.is-expanded {
+  transform: rotate(90deg);
+}
+
+.object-content {
+  min-width: 0;
+}
+
+.object-content[hidden] {
+  display: none;
 }
 
 .object-placeholder {
@@ -46,4 +105,10 @@
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .object-toggle-icon {
+    transition: none;
+  }
 }

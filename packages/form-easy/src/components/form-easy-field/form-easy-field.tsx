@@ -724,13 +724,26 @@ export class FormEasyField implements HandleTarget {
   /** 渲染字段名称和编辑器。 */
   render() {
     if (!this.visible) return null;
+    const hasName = typeof this.field.name === 'string'
+      && this.field.name.trim().length > 0;
+    const hasHint = typeof this.field.hint === 'string'
+      && this.field.hint.trim().length > 0;
+    const metadataClass = hasName || hasHint
+      ? ''
+      : ' field--editor-only';
+
     return (
-      <section class={`field field--${this.labelPosition}`} part="field">
-        <label>
-          {this.field.name}
-          {this.field.required && <span class="required"> *</span>}
-        </label>
-        {this.field.hint && <small>{this.field.hint}</small>}
+      <section
+        class={`field field--${this.labelPosition}${metadataClass}`}
+        part="field"
+      >
+        {hasName && (
+          <label>
+            {this.field.name}
+            {this.field.required && <span class="required"> *</span>}
+          </label>
+        )}
+        {hasHint && <small>{this.field.hint}</small>}
         <div class="editor" onFocusout={this.activateValidationFeedback}>
           {this.renderEditor()}
           {this.validationError && (

@@ -35,6 +35,8 @@ export class FormEasyObject {
   @Event() valueChange!: EventEmitter<Record<string, unknown>>;
   /** 本地维护的嵌套对象；null 表示对象尚未创建。 */
   @State() private objectValue: Record<string, unknown> | null = null;
+  /** 对象内容是否处于展开状态。 */
+  @State() private expanded = true;
   /** 标记对象在本轮渲染完成后是否需要发布子字段初始化事件。 */
   private shouldPublishInitialFieldValues = false;
 
@@ -65,6 +67,7 @@ export class FormEasyObject {
   /** 点击占位按钮后，使用子字段默认值创建对象。 */
   private initializeObject = (): void => {
     if (this.disabled) return;
+    this.expanded = true;
     const initialValue = Object.fromEntries(
       this.fields
         .filter(field => field.key)
@@ -74,6 +77,11 @@ export class FormEasyObject {
     this.shouldPublishInitialFieldValues = true;
     this.valueChange.emit(initialValue);
   }
+
+  /** 切换对象内容的展开状态。 */
+  private toggleExpanded = (): void => {
+    this.expanded = !this.expanded;
+  };
 
   /** 为当前对象的直接子字段发布 onChange 初始化事件。 */
   private publishInitialFieldValues(): void {
@@ -150,22 +158,47 @@ export class FormEasyObject {
 
     return (
       <div class="object" part="object">
-        {this.fields.map(field => field.key ? (
-          <form-easy-field
-            field={field}
-            fieldId={`${this.fieldId}.${field.key}`}
-            formKey={this.formKey}
-            labelPosition={this.labelPosition}
-            basicFieldRenderer={this.basicFieldRenderer}
-            componentDataManager={this.componentDataManager}
-            endpointManager={this.endpointManager}
-            value={objectValue[field.key]}
-            eventCenter={this.eventCenter}
-            formValueStore={this.formValueStore}
-            parentDisabled={this.disabled}
-            onValueChange={(event: CustomEvent<unknown>) => this.changeField(field.key!, event)}
-          />
-        ) : null)}
+        <div class="object-toolbar">
+          <button
+            class="object-toggle"
+            type="button"
+            aria-expanded={String(this.expanded)}
+            aria-label={this.expanded ? '收起对象内容' : '展开对象内容'}
+            title={this.expanded ? '收起对象内容' : '展开对象内容'}
+            onClick={this.toggleExpanded}
+          >
+            <svg
+              class={{ 'object-toggle-icon': true, 'is-expanded': this.expanded }}
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+            >
+              <path d="m7 5 5 5-5 5" />
+            </svg>
+            <span>共 {this.fields.length} 个字段</span>
+          </button>
+        </div>
+        <div class="object-content" hidden={!this.expanded}>
+          {this.fields.map(field =>
+            field.key ? (
+              <form-easy-field
+                field={field}
+                fieldId={`${this.fieldId}.${field.key}`}
+                formKey={this.formKey}
+                labelPosition={this.labelPosition}
+                basicFieldRenderer={this.basicFieldRenderer}
+                componentDataManager={this.componentDataManager}
+                endpointManager={this.endpointManager}
+                value={objectValue[field.key]}
+                eventCenter={this.eventCenter}
+                formValueStore={this.formValueStore}
+                parentDisabled={this.disabled}
+                onValueChange={(event: CustomEvent<unknown>) =>
+                  this.changeField(field.key!, event)
+                }
+              />
+            ) : null
+          )}
+        </div>
       </div>
     );
   }

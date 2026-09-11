@@ -108,20 +108,15 @@
               { "label": "日期时间", "value": "datetime" },
               { "label": "时间", "value": "time" }
             ],
-            "hint": "仅 category 为 basic 时生效。"
-          },
-          {
-            "key": "component",
-            "name": "自定义组件 key",
-            "category": "basic",
-            "dataType": "string",
-            "hint": "留空时按照 dataType 使用渲染器默认组件。"
-          },
-          {
-            "key": "componentDataKey",
-            "name": "组件数据 key",
-            "category": "basic",
-            "dataType": "string"
+            "hint": "仅 category 为 basic 时生效。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'basic';"
+              }
+            ]
           },
           {
             "key": "defaultValueJson",
@@ -131,8 +126,58 @@
             "component": "creator-json-editor",
             "componentProperties": {
               "placeholder": "例如：\"默认文本\"、18、true 或 null",
-              "rows": 3
+              "rows": 1
             }
+          },
+          {
+            "key": "componentDataKey",
+            "name": "组件数据 key",
+            "category": "basic",
+            "dataType": "string",
+            "hint": "仅 category 为 basic 时生效。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'basic';"
+              }
+            ]
+          },
+          {
+            "key": "componentDataJson",
+            "name": "组件静态数据 JSON",
+            "category": "basic",
+            "dataType": "string",
+            "component": "creator-json-editor",
+            "componentProperties": {
+              "placeholder": "例如：[{ \"label\": \"启用\", \"value\": \"enabled\" }]",
+              "rows": 4
+            },
+            "hint": "仅 category 为 basic 时生效。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'basic';"
+              }
+            ]
+          },
+          {
+            "key": "component",
+            "name": "自定义组件 key",
+            "category": "basic",
+            "dataType": "string",
+            "hint": "留空时按照 dataType 使用渲染器默认组件。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'basic';"
+              }
+            ]
           },
           {
             "key": "componentPropertiesJson",
@@ -144,18 +189,15 @@
               "placeholder": "例如：{ \"placeholder\": \"请输入\" }",
               "rows": 4
             },
-            "hint": "仅基础字段生效，内容必须是 JSON 对象。"
-          },
-          {
-            "key": "componentDataJson",
-            "name": "组件静态数据 JSON",
-            "category": "basic",
-            "dataType": "string",
-            "component": "creator-json-editor",
-            "componentProperties": {
-              "placeholder": "例如：[{ \"label\": \"启用\", \"value\": \"enabled\" }]",
-              "rows": 4
-            }
+            "hint": "仅基础字段生效，内容必须是 JSON 对象。",
+            "binds": [
+              {
+                "sourceFormKey": "formEasyCreator",
+                "sourceFieldId": "./category",
+                "target": "visible",
+                "resolver": "return sourceFieldValue === 'basic';"
+              }
+            ]
           },
           {
             "key": "elementJson",

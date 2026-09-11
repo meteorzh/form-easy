@@ -5,7 +5,6 @@
 textarea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 78px;
   resize: vertical;
   padding: 10px 12px;
   color: #dce7f7;

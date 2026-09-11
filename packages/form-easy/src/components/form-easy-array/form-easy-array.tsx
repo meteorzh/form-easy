@@ -35,6 +35,8 @@ export class FormEasyArray {
   @Event() valueChange!: EventEmitter<unknown[]>;
   /** 本地维护的数组项。 */
   @State() private items: unknown[] = [];
+  /** 数组内容是否处于展开状态。 */
+  @State() private expanded = true;
   /** 标记数组在本轮渲染完成后是否需要发布元素初始化事件。 */
   private shouldPublishInitialItemValues = false;
 
@@ -64,10 +66,17 @@ export class FormEasyArray {
 
   /** 添加一个空数组元素。 */
   private addItem = (): void => {
+    this.expanded = true;
     this.items = [...this.items, this.defaultElementValue()];
     this.shouldPublishInitialItemValues = true;
     this.valueChange.emit(this.items);
   };
+
+  /** 切换数组内容的展开状态。 */
+  private toggleExpanded = (): void => {
+    this.expanded = !this.expanded;
+  };
+
   /** 根据索引删除一个数组元素。 */
   private removeItem = (index: number): void => {
     this.items = this.items.filter((_, itemIndex) => itemIndex !== index);
@@ -109,30 +118,97 @@ export class FormEasyArray {
 
     return (
       <div class="array" part="array">
-        {this.items.map((item, index) => (
-          <div class="item">
-            <form-easy-field
-              field={element}
-              fieldId={`${this.fieldId}[${index}]`}
-              formKey={this.formKey}
-              labelPosition={this.labelPosition}
-              basicFieldRenderer={this.basicFieldRenderer}
-              componentDataManager={this.componentDataManager}
-              endpointManager={this.endpointManager}
-              value={item}
-              eventCenter={this.eventCenter}
-              formValueStore={this.formValueStore}
-              parentDisabled={this.disabled}
-              onValueChange={(event: CustomEvent<unknown>) => this.changeItem(index, event)}
-            />
-            <button type="button" disabled={this.disabled} onClick={() => this.removeItem(index)}>
-              删除
-            </button>
+        <div class="array-toolbar">
+          <button
+            class="array-toggle"
+            type="button"
+            aria-expanded={String(this.expanded)}
+            aria-label={this.expanded ? '收起数组内容' : '展开数组内容'}
+            title={this.expanded ? '收起数组内容' : '展开数组内容'}
+            onClick={this.toggleExpanded}
+          >
+            <svg
+              class={{ 'array-toggle-icon': true, 'is-expanded': this.expanded }}
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+            >
+              <path d="m7 5 5 5-5 5" />
+            </svg>
+            <span class="array-count">共 {this.items.length} 项</span>
+          </button>
+          <button
+            class="array-action array-action--add"
+            type="button"
+            disabled={this.disabled}
+            onClick={this.addItem}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <path d="M10 4v12M4 10h12" />
+            </svg>
+            添加一项
+          </button>
+        </div>
+
+        <div class="array-content" hidden={!this.expanded}>
+          {this.items.length === 0 && (
+            <div class="array-empty">
+              <button
+                class="array-empty-action"
+                type="button"
+                disabled={this.disabled}
+                aria-label="添加第一项"
+                title="添加第一项"
+                onClick={this.addItem}
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20">
+                  <path d="M10 4v12M4 10h12" />
+                </svg>
+              </button>
+              <p>暂无内容，点击加号添加第一项。</p>
+            </div>
+          )}
+
+          <div class="array-items">
+            {this.items.map((item, index) => (
+              <section class="array-item" key={`${this.fieldId}[${index}]`}>
+                <header class="array-item-header">
+                  <span>第 {index + 1} 项</span>
+                  <button
+                    class="array-action array-action--remove"
+                    type="button"
+                    disabled={this.disabled}
+                    aria-label={`删除第 ${index + 1} 项`}
+                    title={`删除第 ${index + 1} 项`}
+                    onClick={() => this.removeItem(index)}
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 20 20">
+                      <path d="M4 6h12M8 6V4h4v2m-6 0 1 10h6l1-10M8.5 9v4M11.5 9v4" />
+                    </svg>
+                    <span>删除</span>
+                  </button>
+                </header>
+                <div class="array-item-content">
+                  <form-easy-field
+                    field={element}
+                    fieldId={`${this.fieldId}[${index}]`}
+                    formKey={this.formKey}
+                    labelPosition={this.labelPosition}
+                    basicFieldRenderer={this.basicFieldRenderer}
+                    componentDataManager={this.componentDataManager}
+                    endpointManager={this.endpointManager}
+                    value={item}
+                    eventCenter={this.eventCenter}
+                    formValueStore={this.formValueStore}
+                    parentDisabled={this.disabled}
+                    onValueChange={(event: CustomEvent<unknown>) =>
+                      this.changeItem(index, event)
+                    }
+                  />
+                </div>
+              </section>
+            ))}
           </div>
-        ))}
-        <button type="button" disabled={this.disabled} onClick={this.addItem}>
-          添加
-        </button>
+        </div>
       </div>
     );
   }

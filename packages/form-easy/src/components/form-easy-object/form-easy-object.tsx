@@ -107,9 +107,15 @@ export class FormEasyObject {
   }
 
   /** 根据 schema 键更新嵌套子字段。 */
-  private changeField = (key: string, event: CustomEvent<unknown>): void => {
+  private changeField = (
+    field: FormField,
+    event: CustomEvent<unknown>
+  ): void => {
     event.stopPropagation();
-    this.objectValue = { ...(this.objectValue ?? {}), [key]: event.detail };
+    this.objectValue = {
+      ...(this.objectValue ?? {}),
+      [field.key!]: event.detail
+    };
     this.valueChange.emit(this.objectValue);
   };
 
@@ -215,7 +221,7 @@ export class FormEasyObject {
                 maxRenderDepth={this.maxRenderDepth}
                 parentDisabled={this.disabled}
                 onValueChange={(event: CustomEvent<unknown>) =>
-                  this.changeField(field.key!, event)
+                  this.changeField(field, event)
                 }
               />
             ) : null

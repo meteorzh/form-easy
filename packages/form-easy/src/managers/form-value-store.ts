@@ -172,6 +172,25 @@ function collectFormFieldValues(
     return;
   }
 
+  if (field.category === 'record') {
+    if (!isValueRecord(normalizedValue) || !field.kvDef) return;
+    const valueField = resolveFormFieldNode(field.kvDef.value, definitions);
+    if (!valueField) return;
+    Object.entries(normalizedValue).forEach(([key, item], index) => {
+      values.set(`${fieldId}[${index}].key`, key);
+      collectFormFieldValues(
+        valueField,
+        `${fieldId}[${index}].value`,
+        item,
+        values,
+        definitions,
+        maxDepth,
+        depth + 1
+      );
+    });
+    return;
+  }
+
   if (
     field.category !== 'array'
     || !Array.isArray(normalizedValue)

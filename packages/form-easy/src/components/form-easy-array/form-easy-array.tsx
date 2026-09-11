@@ -123,6 +123,7 @@ export class FormEasyArray {
     );
     if (element?.category === 'array') return [];
     if (element?.category === 'object') return {};
+    if (element?.category === 'record') return null;
     return element?.dataType === 'boolean' ? false : '';
   }
 

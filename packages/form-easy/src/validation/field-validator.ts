@@ -96,9 +96,11 @@ function isEmptyValue(value: unknown): boolean {
 
 /** 获取字符串或数组的长度。 */
 function getValueLength(value: unknown): number | undefined {
-  return typeof value === 'string' || Array.isArray(value)
-    ? value.length
-    : undefined;
+  if (typeof value === 'string' || Array.isArray(value)) return value.length;
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>).length;
+  }
+  return undefined;
 }
 
 /** 比较数字、日期、日期时间或时间值。 */

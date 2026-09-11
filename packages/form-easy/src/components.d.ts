@@ -5,7 +5,7 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+import { ComponentHandle, EventFlowHistory, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
@@ -14,7 +14,7 @@ import { FormValueStore } from "./managers/form-value-store";
 import { FormFieldDefinitions } from "./form-field-definition-resolver";
 import { FormEasyCreatorChangeDetail } from "./components/creator/types";
 import { FormSchemaValidationResult } from "./validation/schema";
-export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+export { ComponentHandle, EventFlowHistory, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
@@ -329,9 +329,85 @@ export namespace Components {
         "value": unknown;
     }
     /**
+     * 编辑键由用户输入、值结构由 kvDef 统一声明的动态 record 字段。
+     */
+    interface FormEasyRecord {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据管理器。
+         */
+        "componentDataManager"?: ComponentDataManager;
+        /**
+          * 是否禁止修改 record 条目。
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
+        /**
+          * 当前表单共享的事件中心。
+          * @default globalEventCenter
+         */
+        "eventCenter": EventCenter;
+        /**
+          * record 字段定义。
+         */
+        "field": FormField;
+        /**
+          * 当前表单可通过 $ref 使用的字段定义。
+          * @default {}
+         */
+        "fieldDefinitions": FormFieldDefinitions;
+        /**
+          * record 字段的完整唯一标识。
+         */
+        "fieldId": string;
+        /**
+          * 所属表单的键。
+         */
+        "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
+        /**
+          * 字段标签相对于编辑器的位置。
+          * @default 'left'
+         */
+        "labelPosition": LabelPosition;
+        /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth": number;
+        /**
+          * 当前 record 字段所在的渲染深度。
+          * @default 0
+         */
+        "renderDepth": number;
+        /**
+          * 校验所有动态 key 是否非空、唯一且安全。
+         */
+        "validateEntries": () => Promise<boolean>;
+        /**
+          * 当前 record 值。
+         */
+        "value": unknown;
+    }
+    /**
      * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
      */
     interface FormEasySelect {
+        /**
+          * 是否允许通过占位选项将当前值清空为 null。
+          * @default false
+         */
+        "clearable": boolean;
         /**
           * 由字段组件数据加载机制提供的下拉选项。
          */
@@ -414,6 +490,10 @@ export interface FormEasyFieldCustomEvent<T> extends CustomEvent<T> {
 export interface FormEasyObjectCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLFormEasyObjectElement;
+}
+export interface FormEasyRecordCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLFormEasyRecordElement;
 }
 export interface FormEasySelectCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -506,6 +586,7 @@ declare global {
     };
     interface HTMLFormEasyFieldElementEventMap {
         "valueChange": unknown;
+        "fieldVisibilityChange": FieldVisibilityChangeDetail;
     }
     /**
      * 渲染单个字段，并提供通用的 form-easy 组件操作。
@@ -544,8 +625,28 @@ declare global {
         prototype: HTMLFormEasyObjectElement;
         new (): HTMLFormEasyObjectElement;
     };
+    interface HTMLFormEasyRecordElementEventMap {
+        "valueChange": Record<string, unknown>;
+    }
+    /**
+     * 编辑键由用户输入、值结构由 kvDef 统一声明的动态 record 字段。
+     */
+    interface HTMLFormEasyRecordElement extends Components.FormEasyRecord, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLFormEasyRecordElementEventMap>(type: K, listener: (this: HTMLFormEasyRecordElement, ev: FormEasyRecordCustomEvent<HTMLFormEasyRecordElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLFormEasyRecordElementEventMap>(type: K, listener: (this: HTMLFormEasyRecordElement, ev: FormEasyRecordCustomEvent<HTMLFormEasyRecordElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLFormEasyRecordElement: {
+        prototype: HTMLFormEasyRecordElement;
+        new (): HTMLFormEasyRecordElement;
+    };
     interface HTMLFormEasySelectElementEventMap {
-        "valueChange": string | number;
+        "valueChange": string | number | null;
     }
     /**
      * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
@@ -591,6 +692,7 @@ declare global {
         "form-easy-creator-json-editor": HTMLFormEasyCreatorJsonEditorElement;
         "form-easy-field": HTMLFormEasyFieldElement;
         "form-easy-object": HTMLFormEasyObjectElement;
+        "form-easy-record": HTMLFormEasyRecordElement;
         "form-easy-select": HTMLFormEasySelectElement;
         "form-easy-upload": HTMLFormEasyUploadElement;
     }
@@ -808,6 +910,10 @@ declare namespace LocalJSX {
          */
         "maxRenderDepth"?: number;
         /**
+          * 向根表单通知当前字段的可见状态发生变化。
+         */
+        "onFieldVisibilityChange"?: (event: FormEasyFieldCustomEvent<FieldVisibilityChangeDetail>) => void;
+        /**
           * 向父级渲染器通知字段值变更。
          */
         "onValueChange"?: (event: FormEasyFieldCustomEvent<unknown>) => void;
@@ -899,9 +1005,85 @@ declare namespace LocalJSX {
         "value"?: unknown;
     }
     /**
+     * 编辑键由用户输入、值结构由 kvDef 统一声明的动态 record 字段。
+     */
+    interface FormEasyRecord {
+        /**
+          * 当前表单指定的基础字段渲染器。
+         */
+        "basicFieldRenderer"?: BasicFieldRenderer | null;
+        /**
+          * 当前表单覆盖全局配置的组件数据管理器。
+         */
+        "componentDataManager"?: ComponentDataManager;
+        /**
+          * 是否禁止修改 record 条目。
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * 当前表单覆盖全局配置的异步服务端点管理器。
+         */
+        "endpointManager"?: EndpointManager;
+        /**
+          * 当前表单共享的事件中心。
+          * @default globalEventCenter
+         */
+        "eventCenter"?: EventCenter;
+        /**
+          * record 字段定义。
+         */
+        "field": FormField;
+        /**
+          * 当前表单可通过 $ref 使用的字段定义。
+          * @default {}
+         */
+        "fieldDefinitions"?: FormFieldDefinitions;
+        /**
+          * record 字段的完整唯一标识。
+         */
+        "fieldId": string;
+        /**
+          * 所属表单的键。
+         */
+        "formKey": string;
+        /**
+          * 当前表单共享的字段值存储。
+         */
+        "formValueStore"?: FormValueStore;
+        /**
+          * 字段标签相对于编辑器的位置。
+          * @default 'left'
+         */
+        "labelPosition"?: LabelPosition;
+        /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth"?: number;
+        /**
+          * record 产生合法对象值后向父级发送变化。
+         */
+        "onValueChange"?: (event: FormEasyRecordCustomEvent<Record<string, unknown>>) => void;
+        /**
+          * 当前 record 字段所在的渲染深度。
+          * @default 0
+         */
+        "renderDepth"?: number;
+        /**
+          * 当前 record 值。
+         */
+        "value"?: unknown;
+    }
+    /**
      * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
      */
     interface FormEasySelect {
+        /**
+          * 是否允许通过占位选项将当前值清空为 null。
+          * @default false
+         */
+        "clearable"?: boolean;
         /**
           * 由字段组件数据加载机制提供的下拉选项。
          */
@@ -914,7 +1096,7 @@ declare namespace LocalJSX {
         /**
           * 值变更时通知 form-easy 字段。
          */
-        "onValueChange"?: (event: FormEasySelectCustomEvent<string | number>) => void;
+        "onValueChange"?: (event: FormEasySelectCustomEvent<string | number | null>) => void;
         /**
           * 未选择值时展示的占位选项文本。
           * @default '请选择'
@@ -1001,9 +1183,18 @@ declare namespace LocalJSX {
         "maxRenderDepth": number;
         "disabled": boolean;
     }
+    interface FormEasyRecordAttributes {
+        "fieldId": string;
+        "formKey": string;
+        "labelPosition": LabelPosition;
+        "renderDepth": number;
+        "maxRenderDepth": number;
+        "disabled": boolean;
+    }
     interface FormEasySelectAttributes {
         "disabled": boolean;
         "placeholder": string;
+        "clearable": boolean;
     }
     interface FormEasyUploadAttributes {
         "multiple": boolean;
@@ -1020,6 +1211,7 @@ declare namespace LocalJSX {
         "form-easy-creator-json-editor": Omit<FormEasyCreatorJsonEditor, keyof FormEasyCreatorJsonEditorAttributes> & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes]?: FormEasyCreatorJsonEditor[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `attr:${K}`]?: FormEasyCreatorJsonEditorAttributes[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `prop:${K}`]?: FormEasyCreatorJsonEditor[K] };
         "form-easy-field": Omit<FormEasyField, keyof FormEasyFieldAttributes> & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes]?: FormEasyField[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `attr:${K}`]?: FormEasyFieldAttributes[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `prop:${K}`]?: FormEasyField[K] } & OneOf<"fieldId", FormEasyField["fieldId"], FormEasyFieldAttributes["fieldId"]> & OneOf<"formKey", FormEasyField["formKey"], FormEasyFieldAttributes["formKey"]>;
         "form-easy-object": Omit<FormEasyObject, keyof FormEasyObjectAttributes> & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes]?: FormEasyObject[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `attr:${K}`]?: FormEasyObjectAttributes[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `prop:${K}`]?: FormEasyObject[K] } & OneOf<"fieldId", FormEasyObject["fieldId"], FormEasyObjectAttributes["fieldId"]> & OneOf<"formKey", FormEasyObject["formKey"], FormEasyObjectAttributes["formKey"]>;
+        "form-easy-record": Omit<FormEasyRecord, keyof FormEasyRecordAttributes> & { [K in keyof FormEasyRecord & keyof FormEasyRecordAttributes]?: FormEasyRecord[K] } & { [K in keyof FormEasyRecord & keyof FormEasyRecordAttributes as `attr:${K}`]?: FormEasyRecordAttributes[K] } & { [K in keyof FormEasyRecord & keyof FormEasyRecordAttributes as `prop:${K}`]?: FormEasyRecord[K] } & OneOf<"fieldId", FormEasyRecord["fieldId"], FormEasyRecordAttributes["fieldId"]> & OneOf<"formKey", FormEasyRecord["formKey"], FormEasyRecordAttributes["formKey"]>;
         "form-easy-select": Omit<FormEasySelect, keyof FormEasySelectAttributes> & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes]?: FormEasySelect[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `attr:${K}`]?: FormEasySelectAttributes[K] } & { [K in keyof FormEasySelect & keyof FormEasySelectAttributes as `prop:${K}`]?: FormEasySelect[K] };
         "form-easy-upload": Omit<FormEasyUpload, keyof FormEasyUploadAttributes> & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes]?: FormEasyUpload[K] } & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes as `attr:${K}`]?: FormEasyUploadAttributes[K] } & { [K in keyof FormEasyUpload & keyof FormEasyUploadAttributes as `prop:${K}`]?: FormEasyUpload[K] } & OneOf<"fieldId", FormEasyUpload["fieldId"], FormEasyUploadAttributes["fieldId"]> & OneOf<"formKey", FormEasyUpload["formKey"], FormEasyUploadAttributes["formKey"]>;
     }
@@ -1052,6 +1244,10 @@ declare module "@stencil/core" {
              * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
              */
             "form-easy-object": LocalJSX.IntrinsicElements["form-easy-object"] & JSXBase.HTMLAttributes<HTMLFormEasyObjectElement>;
+            /**
+             * 编辑键由用户输入、值结构由 kvDef 统一声明的动态 record 字段。
+             */
+            "form-easy-record": LocalJSX.IntrinsicElements["form-easy-record"] & JSXBase.HTMLAttributes<HTMLFormEasyRecordElement>;
             /**
              * 使用 componentData 作为选项来源的默认 H5 下拉字段组件。
              */

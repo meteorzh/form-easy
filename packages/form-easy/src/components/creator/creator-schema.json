@@ -40,10 +40,15 @@
     {
       "key": "schemaDefinitions",
       "name": "可复用字段定义",
-      "category": "array",
-      "element": {
-        "category": "object",
-        "fields": []
+      "category": "record",
+      "kvDef": {
+        "key": {
+          "name": "定义名称"
+        },
+        "value": {
+          "category": "object",
+          "fields": []
+        }
       },
       "hint": "定义可以被顶层字段、对象子字段或数组元素引用，并允许形成递归结构。"
     },
@@ -88,7 +93,8 @@
             "componentData": [
               { "label": "基础字段", "value": "basic" },
               { "label": "数组字段", "value": "array" },
-              { "label": "对象字段", "value": "object" }
+              { "label": "对象字段", "value": "object" },
+              { "label": "Record 字段", "value": "record" }
             ],
             "required": true
           },
@@ -97,6 +103,20 @@
             "name": "是否必填",
             "category": "basic",
             "dataType": "boolean"
+          },
+          {
+            "key": "omitNull",
+            "name": "空值不输出",
+            "category": "basic",
+            "dataType": "boolean",
+            "hint": "启用后，null 或 undefined 仍参与内部状态、事件和校验，但不会出现在父级输出对象中。"
+          },
+          {
+            "key": "omitWhenHidden",
+            "name": "隐藏时不输出",
+            "category": "basic",
+            "dataType": "boolean",
+            "hint": "启用后，字段隐藏时保留内部值，但不会出现在父级输出对象中。"
           },
           {
             "key": "hint",
@@ -311,6 +331,7 @@
                   "name": "布尔值 resolver",
                   "category": "basic",
                   "dataType": "string",
+                  "omitNull": true,
                   "component": "creator-json-editor",
                   "componentProperties": {
                     "placeholder": "例如：return sourceFieldValue === 'enabled';",

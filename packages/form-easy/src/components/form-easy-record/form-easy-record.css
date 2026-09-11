@@ -1,0 +1,189 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.record {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.record-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.record-toggle,
+.record-add,
+.record-empty,
+.record-remove {
+  font: inherit;
+  cursor: pointer;
+}
+
+.record-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: 6px;
+  color: #64748b;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.record-toggle:hover {
+  background: #f1f5f9;
+}
+
+.record-toggle-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 160ms ease;
+}
+
+.record-toggle-icon.is-expanded {
+  transform: rotate(90deg);
+}
+
+.record-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.record-add:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.record-add svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.record-content[hidden] {
+  display: none;
+}
+
+.record-empty {
+  width: 100%;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 12px;
+}
+
+.record-entries {
+  display: grid;
+  gap: 8px;
+}
+
+.record-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 10px 2px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.record-entry-fields {
+  display: grid;
+  grid-template-columns: minmax(150px, .7fr) minmax(180px, 1.3fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.record-entry-key,
+.record-entry-value {
+  min-width: 0;
+}
+
+.record-entry form-easy-field::part(field) {
+  margin-bottom: 8px;
+}
+
+.record-key-error {
+  margin: -4px 0 8px;
+  color: #dc2626;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.record-remove {
+  min-height: 26px;
+  margin-top: 22px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #64748b;
+  background: transparent;
+  font-size: 12px;
+}
+
+.record-remove:hover:not(:disabled) {
+  border-color: #fecaca;
+  color: #dc2626;
+  background: #fff1f2;
+}
+
+.record button:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 20%);
+  outline-offset: 2px;
+}
+
+.record button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.record-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .record-entry-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .record-remove {
+    margin-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-toggle-icon {
+    transition: none;
+  }
+}

@@ -1,5 +1,5 @@
 /** 表单结构支持的字段分类。 */
-export type FieldCategory = 'basic' | 'array' | 'object';
+export type FieldCategory = 'basic' | 'array' | 'object' | 'record';
 
 /** 表单字段标签相对于编辑器的显示位置。 */
 export type LabelPosition = 'left' | 'top' | 'right';
@@ -140,6 +140,10 @@ export interface FormField {
   category: FieldCategory;
   /** 当前字段是否必填。 */
   required?: boolean;
+  /** 值为 null 或 undefined 时是否从父级输出对象中省略当前命名字段。 */
+  omitNull?: boolean;
+  /** 字段隐藏时是否从父级输出对象中省略当前命名字段。 */
+  omitWhenHidden?: boolean;
   /** 当前字段按顺序执行的同步校验规则。 */
   rules?: FieldValidationRule[];
   /** 未提供运行时数据时使用的默认值。 */
@@ -154,6 +158,8 @@ export interface FormField {
   element?: FormArrayElementNode;
   /** 对象字段包含的子字段或可复用字段定义引用。 */
   fields?: FormFieldNode[];
+  /** record 字段的动态键和值定义。 */
+  kvDef?: FormRecordKeyValueDefinition;
   /** 透传给已注册自定义组件的属性。 */
   componentProperties?: Record<string, unknown>;
   /** 直接提供给组件的数据，优先于 componentDataKey。 */
@@ -172,6 +178,8 @@ export type FormFieldReferenceOverrides = Partial<Pick<
   | 'key'
   | 'name'
   | 'required'
+  | 'omitNull'
+  | 'omitWhenHidden'
   | 'rules'
   | 'defaultValue'
   | 'hint'
@@ -194,6 +202,27 @@ export type FormFieldNode = FormField | FormFieldReference;
 /** 数组元素允许使用的匿名字段配置或字段定义引用。 */
 export type FormArrayElementNode = Omit<FormField, 'key' | 'name'>
   | FormFieldReference;
+
+/** record 字段中固定为字符串类型的动态 key 编辑定义。 */
+export type FormRecordKeyDefinition = Partial<Pick<
+  FormField,
+  | 'name'
+  | 'hint'
+  | 'rules'
+  | 'defaultValue'
+  | 'component'
+  | 'componentProperties'
+  | 'componentData'
+  | 'componentDataKey'
+>>;
+
+/** record 字段中动态 key 和统一 value 的配置。 */
+export interface FormRecordKeyValueDefinition {
+  /** 动态属性名定义；数据类型固定为 string。 */
+  key: FormRecordKeyDefinition;
+  /** 每个动态属性值使用的匿名字段定义或 definitions 引用。 */
+  value: FormArrayElementNode;
+}
 
 /** definitions 中不携带实例字段标识的可复用字段模板。 */
 export type FormFieldDefinition = Omit<FormField, 'key' | 'name'>;
@@ -243,6 +272,18 @@ export interface FormChangeDetail {
   value: unknown;
   /** 变更后的完整表单数据。 */
   formData: Record<string, unknown>;
+}
+
+/** 字段可见状态变化时触发的内部事件载荷。 */
+export interface FieldVisibilityChangeDetail {
+  /** 字段完整唯一标识。 */
+  fieldId: string;
+  /** 字段当前是否可见。 */
+  visible: boolean;
+  /** 字段当前是否仍挂载在表单中。 */
+  connected: boolean;
+  /** 当前可见状态是否会影响字段的对外输出。 */
+  affectsOutput: boolean;
 }
 
 /** 可渲染字段控件需要实现的约定。 */

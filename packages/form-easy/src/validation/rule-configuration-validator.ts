@@ -17,7 +17,8 @@ export const supportedRulesByFieldType: Readonly<Record<
   datetime: new Set(['min', 'max', 'enum']),
   time: new Set(['min', 'max', 'enum']),
   array: new Set(['minLength', 'maxLength']),
-  object: new Set()
+  object: new Set(),
+  record: new Set(['minLength', 'maxLength'])
 };
 
 /** 获取规则兼容性判断使用的字段类型名称。 */

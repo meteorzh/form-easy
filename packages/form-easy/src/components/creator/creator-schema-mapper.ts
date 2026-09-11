@@ -5,6 +5,7 @@ import type {
   FormFieldDefinition,
   FormFieldNode,
   FormFieldReference,
+  FormRecordKeyDefinition,
   FormSchema,
   LabelPosition
 } from '../../types';
@@ -24,9 +25,6 @@ export interface CreatorSchemaMappingResult {
   /** JSON 文本解析阶段发现的问题。 */
   issues: FormSchemaValidationIssue[];
 }
-
-/** 设计器字段节点支持的声明方式。 */
-type CreatorFieldMode = 'inline' | 'reference';
 
 /** creator 在未传入待编辑 schema 时使用的初始表单。 */
 const defaultCreatedSchema: FormSchema = {
@@ -53,11 +51,11 @@ export function createCreatorFormValue(schema: FormSchema = defaultCreatedSchema
     formKey: schema.key,
     formName: schema.name,
     labelPosition: schema.labelPosition ?? 'left',
-    schemaDefinitions: Object.entries(schema.definitions ?? {}).map(
-      ([name, definition]) => ({
+    schemaDefinitions: Object.fromEntries(
+      Object.entries(schema.definitions ?? {}).map(([name, definition]) => [
         name,
-        definition: createInlineFieldDraft(definition)
-      })
+        createInlineFieldDraft(definition)
+      ])
     ),
     fieldDefinitions: schema.fields.map(fieldNode =>
       createFieldNodeDraft(fieldNode, true)
@@ -75,8 +73,8 @@ function createFieldNodeDraft(
   }
   return {
     ...(requiresIdentity ? createIdentityDraft(fieldNode) : {}),
-    mode: 'inline' satisfies CreatorFieldMode,
-    definition: createInlineFieldDraft(fieldNode)
+    $ref: null,
+    ...createInlineFieldDraft(fieldNode)
   };
 }
 
@@ -119,40 +117,34 @@ export function mergeCreatorValidationResults(
   };
 }
 
-/** 将 definitions 数组草稿转换为以名称为键的字段定义对象。 */
+/** 将 definitions record 草稿转换为以动态名称为键的字段定义对象。 */
 function mapDefinitionDrafts(
   value: unknown,
   issues: FormSchemaValidationIssue[]
 ): Record<string, FormFieldDefinition> {
-  const definitions: Record<string, FormFieldDefinition> = {};
-  const nameIndexes = new Map<string, number>();
-  if (!Array.isArray(value)) return definitions;
-
-  value.forEach((item, index) => {
-    const draft = isRecord(item) ? item : {};
-    const name = readString(draft.name);
-    const namePath = `$.schemaDefinitions[${index}].name`;
+  if (!isRecord(value)) return {};
+  const definitions: Array<[string, FormFieldDefinition]> = [];
+  Object.entries(value).forEach(([rawName, definition]) => {
+    const name = rawName.trim();
+    const definitionPath = `$.schemaDefinitions[${JSON.stringify(rawName)}]`;
     if (!name) {
-      addMappingIssue(issues, namePath, '字段定义名称不能为空。');
+      addMappingIssue(issues, definitionPath, '字段定义名称不能为空。');
       return;
     }
-    const previousIndex = nameIndexes.get(name);
-    if (previousIndex !== undefined) {
+    if (name !== rawName) {
       addMappingIssue(
         issues,
-        namePath,
-        `字段定义名称“${name}”与 $.schemaDefinitions[${previousIndex}] 重复。`
+        definitionPath,
+        '字段定义名称的首尾不能包含空白。'
       );
       return;
     }
-    nameIndexes.set(name, index);
-    definitions[name] = mapInlineFieldDraft(
-      draft.definition,
-      `$.schemaDefinitions[${index}].definition`,
-      issues
-    );
+    definitions.push([
+      name,
+      mapInlineFieldDraft(definition, definitionPath, issues)
+    ]);
   });
-  return definitions;
+  return Object.fromEntries(definitions);
 }
 
 /** 将普通字段转换为不包含实例标识的内联定义草稿。 */
@@ -166,6 +158,8 @@ function createInlineFieldDraft(field: FormField): CreatorFormValue {
   return {
     category: field.category,
     required: field.required ?? false,
+    omitNull: field.omitNull ?? false,
+    omitWhenHidden: field.omitWhenHidden ?? false,
     hint: field.hint ?? null,
     dataType: field.dataType ?? null,
     component: field.component ?? null,
@@ -176,6 +170,12 @@ function createInlineFieldDraft(field: FormField): CreatorFormValue {
       : null,
     componentDataJson: hasOwn(field, 'componentData')
       ? stringifyJson(field.componentData)
+      : null,
+    kvDef: field.kvDef
+      ? {
+        key: createRecordKeyDraft(field.kvDef.key),
+        value: createFieldNodeDraft(field.kvDef.value, false)
+      }
       : null,
     elementDefinition: elementDefinition ?? null,
     fields,
@@ -194,25 +194,26 @@ function createReferenceFieldDraft(
 ): CreatorFormValue {
   return {
     ...(requiresIdentity ? createIdentityDraft(reference) : {}),
-    mode: 'reference' satisfies CreatorFieldMode,
-    referenceName: reference.$ref,
+    $ref: reference.$ref,
     requiredOverride: hasOwn(reference, 'required')
       ? String(reference.required)
       : 'inherit',
-    hint: reference.hint ?? null,
-    componentDataKey: reference.componentDataKey ?? null,
-    defaultValueJson: hasOwn(reference, 'defaultValue')
+    referenceOverride_omitNull: reference.omitNull ?? false,
+    referenceOverride_omitWhenHidden: reference.omitWhenHidden ?? false,
+    referenceOverride_hint: reference.hint ?? null,
+    referenceOverride_componentDataKey: reference.componentDataKey ?? null,
+    referenceOverride_defaultValueJson: hasOwn(reference, 'defaultValue')
       ? stringifyJson(reference.defaultValue)
       : null,
-    componentPropertiesJson: reference.componentProperties
+    referenceOverride_componentPropertiesJson: reference.componentProperties
       ? stringifyJson(reference.componentProperties)
       : null,
-    componentDataJson: hasOwn(reference, 'componentData')
+    referenceOverride_componentDataJson: hasOwn(reference, 'componentData')
       ? stringifyJson(reference.componentData)
       : null,
-    rules: createRulesDraft(reference.rules),
-    binds: (reference.binds ?? []).map(binding => ({ ...binding })),
-    eventSubscriptions: (reference.eventSubscriptions ?? []).map(
+    referenceOverride_rules: createRulesDraft(reference.rules),
+    referenceOverride_binds: (reference.binds ?? []).map(binding => ({ ...binding })),
+    referenceOverride_eventSubscriptions: (reference.eventSubscriptions ?? []).map(
       subscription => ({ ...subscription })
     )
   };
@@ -243,15 +244,11 @@ function mapFieldNodeDraft(
   requiresIdentity: boolean
 ): FormFieldNode {
   const draft = isRecord(value) ? value : {};
-  const mode = readString(draft.mode) as CreatorFieldMode;
-  if (mode === 'reference') {
+  const referenceName = readOptionalString(draft.$ref);
+  if (referenceName) {
     return mapReferenceFieldDraft(draft, path, issues, requiresIdentity);
   }
-  const field = mapInlineFieldDraft(
-    draft.definition,
-    `${path}.definition`,
-    issues
-  );
+  const field = mapInlineFieldDraft(draft, path, issues);
   if (requiresIdentity) {
     return {
       ...field,
@@ -272,6 +269,8 @@ function mapInlineFieldDraft(
   const category = readString(draft.category) as FormField['category'];
   const field: FormFieldDefinition = { category };
   if (draft.required === true) field.required = true;
+  if (draft.omitNull === true) field.omitNull = true;
+  if (draft.omitWhenHidden === true) field.omitWhenHidden = true;
   assignOptionalString(field, 'hint', draft.hint);
   assignOptionalJson(field, 'defaultValue', draft.defaultValueJson, `${path}.defaultValueJson`, issues);
 
@@ -322,7 +321,86 @@ function mapInlineFieldDraft(
       true
     ));
   }
+  if (category === 'record' && isRecord(draft.kvDef)) {
+    field.kvDef = {
+      key: mapRecordKeyDraft(
+        draft.kvDef.key,
+        `${path}.kvDef.key`,
+        issues
+      ),
+      value: mapFieldNodeDraft(
+        draft.kvDef.value,
+        `${path}.kvDef.value`,
+        issues,
+        false
+      )
+    };
+  }
   return field;
+}
+
+/** 将 record 动态字符串 key 定义转换为设计器草稿。 */
+function createRecordKeyDraft(
+  keyDefinition: FormRecordKeyDefinition
+): CreatorFormValue {
+  return {
+    name: keyDefinition.name ?? null,
+    hint: keyDefinition.hint ?? null,
+    component: keyDefinition.component ?? null,
+    componentDataKey: keyDefinition.componentDataKey ?? null,
+    defaultValueJson: hasOwn(keyDefinition, 'defaultValue')
+      ? stringifyJson(keyDefinition.defaultValue)
+      : null,
+    componentPropertiesJson: keyDefinition.componentProperties
+      ? stringifyJson(keyDefinition.componentProperties)
+      : null,
+    componentDataJson: hasOwn(keyDefinition, 'componentData')
+      ? stringifyJson(keyDefinition.componentData)
+      : null,
+    rules: createRulesDraft(keyDefinition.rules)
+  };
+}
+
+/** 将设计器草稿转换为固定 string 类型的 record key 定义。 */
+function mapRecordKeyDraft(
+  value: unknown,
+  path: string,
+  issues: FormSchemaValidationIssue[]
+): FormRecordKeyDefinition {
+  const draft = isRecord(value) ? value : {};
+  const keyDefinition: FormRecordKeyDefinition = {};
+  assignOptionalString(keyDefinition, 'name', draft.name);
+  assignOptionalString(keyDefinition, 'hint', draft.hint);
+  assignOptionalString(keyDefinition, 'component', draft.component);
+  assignOptionalString(
+    keyDefinition,
+    'componentDataKey',
+    draft.componentDataKey
+  );
+  assignOptionalJson(
+    keyDefinition,
+    'defaultValue',
+    draft.defaultValueJson,
+    `${path}.defaultValueJson`,
+    issues
+  );
+  assignOptionalJson(
+    keyDefinition,
+    'componentProperties',
+    draft.componentPropertiesJson,
+    `${path}.componentPropertiesJson`,
+    issues
+  );
+  assignOptionalJson(
+    keyDefinition,
+    'componentData',
+    draft.componentDataJson,
+    `${path}.componentDataJson`,
+    issues
+  );
+  const rules = mapRules(draft.rules, `${path}.rules`, issues);
+  if (rules.length > 0) keyDefinition.rules = rules;
+  return keyDefinition;
 }
 
 /** 将引用草稿转换为 $ref 节点及其可选实例覆盖。 */
@@ -333,7 +411,7 @@ function mapReferenceFieldDraft(
   requiresIdentity: boolean
 ): FormFieldReference {
   const reference: FormFieldReference = {
-    $ref: readString(draft.referenceName)
+    $ref: readString(draft.$ref)
   };
   if (requiresIdentity) {
     reference.key = readString(draft.key);
@@ -341,34 +419,50 @@ function mapReferenceFieldDraft(
   }
   if (draft.requiredOverride === 'true') reference.required = true;
   if (draft.requiredOverride === 'false') reference.required = false;
-  assignOptionalString(reference, 'hint', draft.hint);
-  assignOptionalString(reference, 'componentDataKey', draft.componentDataKey);
+  if (draft.referenceOverride_omitNull === true) reference.omitNull = true;
+  if (draft.referenceOverride_omitWhenHidden === true) {
+    reference.omitWhenHidden = true;
+  }
+  assignOptionalString(reference, 'hint', draft.referenceOverride_hint);
+  assignOptionalString(
+    reference,
+    'componentDataKey',
+    draft.referenceOverride_componentDataKey
+  );
   assignOptionalJson(
     reference,
     'defaultValue',
-    draft.defaultValueJson,
-    `${path}.defaultValueJson`,
+    draft.referenceOverride_defaultValueJson,
+    `${path}.referenceOverride_defaultValueJson`,
     issues
   );
   assignOptionalJson(
     reference,
     'componentProperties',
-    draft.componentPropertiesJson,
-    `${path}.componentPropertiesJson`,
+    draft.referenceOverride_componentPropertiesJson,
+    `${path}.referenceOverride_componentPropertiesJson`,
     issues
   );
   assignOptionalJson(
     reference,
     'componentData',
-    draft.componentDataJson,
-    `${path}.componentDataJson`,
+    draft.referenceOverride_componentDataJson,
+    `${path}.referenceOverride_componentDataJson`,
     issues
   );
-  const rules = mapRules(draft.rules, `${path}.rules`, issues);
+  const rules = mapRules(
+    draft.referenceOverride_rules,
+    `${path}.referenceOverride_rules`,
+    issues
+  );
   if (rules.length > 0) reference.rules = rules;
-  const binds = mapRecordArray(draft.binds) as unknown as FieldBinding[];
+  const binds = mapRecordArray(
+    draft.referenceOverride_binds
+  ) as unknown as FieldBinding[];
   if (binds.length > 0) reference.binds = binds;
-  const subscriptions = mapRecordArray(draft.eventSubscriptions);
+  const subscriptions = mapRecordArray(
+    draft.referenceOverride_eventSubscriptions
+  );
   if (subscriptions.length > 0) {
     reference.eventSubscriptions = subscriptions as unknown as FormField['eventSubscriptions'];
   }

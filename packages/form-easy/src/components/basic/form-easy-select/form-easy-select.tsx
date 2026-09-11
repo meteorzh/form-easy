@@ -21,8 +21,10 @@ export class FormEasySelect {
   @Prop() disabled = false;
   /** 未选择值时展示的占位选项文本。 */
   @Prop() placeholder = '请选择';
+  /** 是否允许通过占位选项将当前值清空为 null。 */
+  @Prop() clearable = false;
   /** 值变更时通知 form-easy 字段。 */
-  @Event() valueChange!: EventEmitter<string | number>;
+  @Event() valueChange!: EventEmitter<string | number | null>;
   /** componentData 解析失败时的提示信息。 */
   @State() private errorMessage?: string;
 
@@ -65,6 +67,10 @@ export class FormEasySelect {
   /** 将用户选择的值回传给 form-easy。 */
   private handleChange = (event: Event): void => {
     const value = (event.target as HTMLSelectElement).value;
+    if (value === '' && this.clearable) {
+      this.valueChange.emit(null);
+      return;
+    }
     const matchedOption = this.options.find(option => String(option.value) === value);
     if (matchedOption) this.valueChange.emit(matchedOption.value);
   };
@@ -79,7 +85,11 @@ export class FormEasySelect {
     if (this.errorMessage) return <p class="error">{this.errorMessage}</p>;
     return (
       <select disabled={this.disabled} onChange={this.handleChange}>
-        <option value="" disabled selected={!this.options.some(option => this.isSelected(option))}>
+        <option
+          value=""
+          disabled={!this.clearable}
+          selected={!this.options.some(option => this.isSelected(option))}
+        >
           {this.placeholder}
         </option>
         {this.options.map(option => (

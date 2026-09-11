@@ -22,7 +22,9 @@ export const VueSelect = defineComponent({
   props: {
     ...formEasyFieldPropOptions,
     /** 未选择值时展示的占位文本。 */
-    placeholder: { type: String, default: '请选择' }
+    placeholder: { type: String, default: '请选择' },
+    /** 是否允许通过占位选项将当前值清空为 null。 */
+    clearable: { type: Boolean, default: false }
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
@@ -49,6 +51,10 @@ export const VueSelect = defineComponent({
     /** 将选择的字符串值映射回原始选项值类型。 */
     const handleChange = (event: Event): void => {
       const selectedValue = (event.target as HTMLSelectElement).value;
+      if (selectedValue === '' && props.clearable) {
+        updateValue(null);
+        return;
+      }
       const selectedOption = getOptions().find(option => String(option.value) === selectedValue);
       if (selectedOption) updateValue(selectedOption.value);
     };
@@ -58,7 +64,11 @@ export const VueSelect = defineComponent({
       const currentValue = String(value.value ?? '');
       const hasSelectedValue = options.some(option => String(option.value) === currentValue);
       return h('select', { disabled: disabled.value, onChange: handleChange }, [
-        h('option', { value: '', disabled: true, selected: !hasSelectedValue }, props.placeholder),
+        h('option', {
+          value: '',
+          disabled: !props.clearable,
+          selected: !hasSelectedValue
+        }, props.placeholder),
         ...options.map(option => h('option', {
           value: String(option.value),
           disabled: option.disabled,

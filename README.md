@@ -187,7 +187,7 @@ const valid = await creator.validate();
 
 设计器支持表单基础信息、`definitions`、任意层级字段、校验规则、绑定和事件订阅的可视化配置。数组字段的 `element` 与对象字段的 `fields` 也使用动态表单递归编辑，不需要手写整段 JSON；默认值、组件属性和组件静态数据等任意 JSON 值仍使用专用多行编辑器输入。
 
-字段节点可以选择“内联配置”或“引用 definitions”。引用模式只保存 `$ref` 和实例覆盖，不会在设计器中展开目标定义，因此可以安全表达自引用树结构。引用 definitions 的普通字段仍需填写实例 `key` 和 `name`，数组元素引用则不需要。设计器会动态列出当前已声明的 definition，并在定义被删除、改名、重名或引用不存在时通过结构检查给出错误。
+字段节点直接通过同级 `$ref` 选择器决定声明方式：不选择时编辑同级内联配置，选择 definition 后只输出 `$ref` 和实例覆盖，不会展开目标定义，因此可以安全表达自引用树结构。清空 `$ref` 会恢复此前保留的内联配置。引用 definitions 的普通字段仍需填写实例 `key` 和 `name`，数组元素引用则不需要。设计器会动态列出当前已声明的 definition，并在定义被删除、改名、重名或引用不存在时通过结构检查给出错误。
 
 设计器右侧可以在 `JSON Schema` 与“表单预览”之间切换。`basicFieldRenderer` 仅用于渲染预览表单；不传时使用默认 H5 渲染器，也可以传入 Vue 或 Element Plus 渲染器。设计器左侧配置区域固定使用隔离的内置 H5 渲染器，确保设计器专用 JSON 编辑组件不要求业务渲染器额外注册。
 
@@ -384,8 +384,8 @@ result.warnings.forEach(issue => {
 - 表单 `key`、`name`、`fields` 等必需属性、属性类型、未知属性和 `labelPosition` 枚举。
 - `definitions` 字段模板、`$ref` 引用及不存在的定义名称。
 - 每一级字段的 `key`、`name`、`category`，同级重复 key，以及会破坏完整字段标识的 key 字符。
-- 对象字段、数组元素定义和嵌套结构，并提供循环引用保护。
-- `defaultValue` 与字段分类、`dataType`、对象 fields 和数组 element 的深度兼容性。
+- 对象字段、数组元素定义、Record 键值定义和嵌套结构，并提供循环引用保护。
+- `defaultValue` 与字段分类、`dataType`、对象 fields、数组 element 和 Record value 定义的深度兼容性。
 - rules 类型兼容性、必需参数、参数格式、重复规则以及上下界关系。
 - binds、eventSubscriptions 的必需属性、枚举、重复配置、resolver 语法和当前表单内的源字段引用。
 - `componentData` / `componentDataKey`、`binds` / `eventSubscriptions` 等有覆盖优先级的冲突配置。
@@ -394,10 +394,11 @@ result.warnings.forEach(issue => {
 
 | 字段分类 | 必须配置 | 不应配置 |
 | --- | --- | --- |
-| 基础字段 | `key`、`name`、`category`、`dataType` | `element`、`fields` |
-| 数组字段 | `key`、`name`、`category`、`element` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`fields` |
-| 对象字段 | `key`、`name`、`category`、`fields` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`element` |
-| 数组元素定义 | `category` 及对应分类必需属性 | `key`、`name` |
+| 基础字段 | `key`、`name`、`category`、`dataType` | `element`、`fields`、`kvDef` |
+| 数组字段 | `key`、`name`、`category`、`element` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`fields`、`kvDef` |
+| 对象字段 | `key`、`name`、`category`、`fields` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`element`、`kvDef` |
+| Record 字段 | `key`、`name`、`category`、`kvDef.key`、`kvDef.value` | `dataType`、`component`、`componentData`、`componentDataKey`、`componentProperties`、`element`、`fields` |
+| 匿名字段定义 | `category` 及对应分类必需属性 | `key`、`name` |
 
 同一表单中的绑定和事件源会检查字段定义是否存在；跨表单引用无法仅凭当前 schema 确认，因此只校验其配置格式，不会误报源字段不存在。
 
@@ -459,6 +460,7 @@ result.warnings.forEach(issue => {
 | `boolean` | `enum` |
 | `date` / `datetime` / `time` | `min`、`max`、`enum` |
 | 数组字段 | `minLength`、`maxLength` |
+| Record 字段 | `minLength`、`maxLength`（动态属性数量） |
 | 对象字段 | 暂不支持额外 rules；可使用字段级 `required` |
 
 规则执行前会先校验 schema 配置。若数字字段错误配置了 `pattern`，或者 `enum.value` 不是数组，校验结果的 `errorType` 为 `configuration`；字段会展示明确的配置错误、在控制台输出一次错误，并使 `validate()` 返回 `false`。正常的用户输入错误对应 `errorType: 'value'`。
@@ -509,7 +511,7 @@ const fieldValid = await form.validateField('profile.userName');
 
 ![Element Plus Select 与数据加载失败效果](./docs/images/playground-element-plus-select.png)
 
-### 对象与数组字段
+### 对象、数组与 Record 字段
 
 ```ts
 {
@@ -530,11 +532,68 @@ const fieldValid = await form.validateField('profile.userName');
 }
 ```
 
+`object` 用于 key 在 schema 中预先确定的结构；`record` 用于由用户在运行时输入 key、所有 value 共用一种字段定义的动态对象：
+
+```ts
+{
+  key: 'metadata',
+  name: '扩展属性',
+  category: 'record',
+  defaultValue: {
+    environment: 'production',
+    owner: 'form-easy'
+  },
+  rules: [{ type: 'minLength', value: 1 }],
+  kvDef: {
+    key: {
+      name: '属性名',
+      rules: [
+        { type: 'pattern', value: '^[A-Za-z][A-Za-z0-9_-]*$' }
+      ]
+    },
+    value: {
+      category: 'basic',
+      dataType: 'string'
+    }
+  }
+}
+```
+
+`kvDef.key` 的字段分类和数据类型固定为 `basic/string`，并且始终必填；可以配置字符串规则、组件、组件数据和组件属性，但不需要重复声明 `category`、`dataType` 或 `required`。`kvDef.value` 与数组 `element` 一样，是不含 `key`、`name` 的匿名字段定义，也可以通过 `{ $ref: '定义名' }` 复用或递归引用 `definitions`。
+
+Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部使用稳定条目标识，因此连续修改 key 不会造成输入框失焦；空 key、重复 key 以及 `__proto__`、`constructor`、`prototype` 等危险属性名会阻止值提交并显示错误。动态条目的内部字段标识采用 `form.record[0].key` 和 `form.record[0].value` 形式，删除条目后索引会按当前顺序重新编号。Record 的 `required` 与对象字段一致：只有 `null` / `undefined` 不通过，已经创建的 `{}` 可以通过；如需限制动态属性数量，请使用 `minLength` / `maxLength`。
+
 ## 默认值、预设值与联动 🔄
 
 - 未传 `value` 时：字段按 `defaultValue` 初始化，没有默认值则为 `null`。
 - 传入 `value` 时：只按预设值初始化，未提供的字段为 `null`。
 - 每次初始化赋值都会发布 `onChange`，因此绑定状态在首屏即可正确生效。
+
+拥有 `key` 的顶层字段或对象子字段可以配置 `omitNull: true`。字段值为 `null` 或 `undefined` 时，它仍会进入组件内部状态和 `FormValueStore`，并正常触发初始化事件、绑定与校验，但不会出现在父级对外输出对象中。`false`、`0`、空字符串、空数组和空对象不会被省略：
+
+```ts
+{
+  key: 'optionalDescription',
+  name: '可选说明',
+  category: 'basic',
+  dataType: 'string',
+  omitNull: true
+}
+```
+
+第一阶段仅支持命名字段使用 `omitNull`；definitions 模板、数组匿名元素以及 Record 的匿名 value 定义中配置它会被 Schema 校验器报告为错误。definitions 被普通命名字段引用时，可以在引用位置通过 `omitNull: true` 覆盖配置。
+
+命名字段还可以配置 `omitWhenHidden: true`。字段通过 `hide` 或 `visible` 绑定进入隐藏状态后，其值仍保留在组件内部和 `FormValueStore` 中，但会从对外 `formData` 中省略；字段重新显示后，原值会再次进入输出。该配置与 `omitNull` 一样，仅支持顶层字段、对象子字段等拥有 `key` 的命名位置：
+
+```ts
+{
+  key: 'advancedOptions',
+  name: '高级选项',
+  category: 'basic',
+  dataType: 'string',
+  omitWhenHidden: true
+}
+```
 
 字段事件支持 `onShow`、`onHide`、`onDisabled`、`onEnabled`、`onClear`、`onChange`；可调用的 handle 为 `show`、`hide`、`disable`、`enable`、`clear`、`change`。
 

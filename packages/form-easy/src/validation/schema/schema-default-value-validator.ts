@@ -48,6 +48,10 @@ export function validateDefaultValue(
     context.activeDefaultValues.delete(value);
     return;
   }
+  if (field.category === 'record') {
+    validateRecordDefaultValue(field, value, path, context, definitions);
+    return;
+  }
   if (!isPlainRecord(value)) {
     context.addError('invalid-default-value', path, '对象字段的 defaultValue 必须是普通对象或 null。');
     return;
@@ -60,6 +64,40 @@ export function validateDefaultValue(
     context,
     definitions
   );
+  context.activeDefaultValues.delete(value);
+}
+
+/** 校验 record 默认值的对象结构以及每一个动态属性值。 */
+function validateRecordDefaultValue(
+  field: FormField,
+  value: unknown,
+  path: string,
+  context: SchemaValidationContext,
+  definitions: FormFieldDefinitions
+): void {
+  if (!isPlainRecord(value)) {
+    context.addError(
+      'invalid-default-value',
+      path,
+      'record 字段的 defaultValue 必须是普通对象或 null。'
+    );
+    return;
+  }
+  if (!enterDefaultValue(value, path, context)) return;
+  const valueField = field.kvDef
+    ? resolveFormFieldNode(field.kvDef.value, definitions)
+    : undefined;
+  if (valueField) {
+    Object.entries(value).forEach(([key, item]) => {
+      validateDefaultValue(
+        valueField,
+        item,
+        propertyPath(path, key),
+        context,
+        definitions
+      );
+    });
+  }
   context.activeDefaultValues.delete(value);
 }
 

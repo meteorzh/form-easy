@@ -95,6 +95,18 @@ function collectFieldIds(
       `${fieldId}[]`
     );
   }
+  if (field.category === 'record' && isPlainRecord(field.kvDef?.value)) {
+    fieldIds.add(`${fieldId}[].key`);
+    collectFieldIds(
+      field.kvDef.value,
+      fieldId,
+      fieldIds,
+      visited,
+      definitions,
+      childActiveDefinitionNames,
+      `${fieldId}[].value`
+    );
+  }
 }
 
 /** 校验组件数据调用表达式中的字段参数引用是否存在。 */
@@ -235,6 +247,36 @@ function validateFieldReferences(
       formKey,
       fieldIds,
       elementFieldId,
+      visited,
+      definitions,
+      childActiveDefinitionNames,
+      context
+    );
+  }
+  if (field.category === 'record' && isPlainRecord(field.kvDef?.value)) {
+    const keyFieldId = currentFieldId
+      ? `${currentFieldId}[].key`
+      : undefined;
+    validateComponentDataParameterReferences(
+      field.kvDef.key.componentDataKey,
+      propertyPath(
+        propertyPath(propertyPath(path, 'kvDef'), 'key'),
+        'componentDataKey'
+      ),
+      formKey,
+      keyFieldId,
+      fieldIds,
+      context
+    );
+    const valueFieldId = currentFieldId
+      ? `${currentFieldId}[].value`
+      : undefined;
+    validateFieldReferences(
+      field.kvDef.value,
+      propertyPath(propertyPath(path, 'kvDef'), 'value'),
+      formKey,
+      fieldIds,
+      valueFieldId,
       visited,
       definitions,
       childActiveDefinitionNames,

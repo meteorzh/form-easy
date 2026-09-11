@@ -1,4 +1,14 @@
-import { Component, Element, Event, EventEmitter, h, Method, Prop, State } from '@stencil/core';
+import {
+  Component,
+  Element,
+  Event,
+  EventEmitter,
+  h,
+  Listen,
+  Method,
+  Prop,
+  State
+} from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
@@ -11,7 +21,11 @@ import {
   type FormFieldDefinitions
 } from '../../form-field-definition-resolver';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
+import {
+  createFormOutputData
+} from '../../form-field-output';
 import type {
+  FieldVisibilityChangeDetail,
   FormChangeDetail,
   FormField,
   FormFieldNode,
@@ -55,6 +69,10 @@ export class FormEasy {
   @State() private formData: Record<string, unknown> = {};
   /** 当前表单未传入外部字段值存储时使用的内部实例。 */
   private readonly internalFormValueStore = new FormValueStore();
+  /** 按字段完整唯一标识保存当前可见状态。 */
+  private readonly fieldVisibility = new Map<string, boolean>();
+  /** 标记初始表单数据是否已经完成加载。 */
+  private initialized = false;
 
   /** 当前表单生效的字段标签位置。 */
   private get labelPosition(): LabelPosition {
@@ -120,18 +138,52 @@ export class FormEasy {
   }
   /** 顶层字段触发新值后更新该字段。 */
   private changeField = (
-    key: string,
+    field: FormField,
     fieldId: string,
     event: CustomEvent<unknown>
   ): void => {
     event.stopPropagation();
-    this.formData = { ...this.formData, [key]: event.detail };
+    this.formData = { ...this.formData, [field.key!]: event.detail };
+    this.emitFormChange(fieldId, event.detail);
+  };
+
+  /** 字段显示或隐藏后更新运行时可见状态并重新生成表单输出。 */
+  @Listen('fieldVisibilityChange')
+  handleFieldVisibilityChange(
+    event: CustomEvent<FieldVisibilityChangeDetail>
+  ): void {
+    event.stopPropagation();
+    const detail = event.detail;
+    if (detail.connected) {
+      this.fieldVisibility.set(detail.fieldId, detail.visible);
+    } else {
+      this.fieldVisibility.delete(detail.fieldId);
+    }
+    if (!this.initialized || !detail.affectsOutput) return;
+    this.emitFormChange(
+      detail.fieldId,
+      this.activeFormValueStore.getValue(detail.fieldId)
+    );
+  }
+
+  /** 发送保留原始字段值、但按输出策略过滤后的表单变化事件。 */
+  private emitFormChange(fieldId: string, value: unknown): void {
     this.formChange.emit({
       fieldId,
-      value: event.detail,
-      formData: this.formData
+      value,
+      formData: createFormOutputData(
+        this.schema.fields,
+        this.formData,
+        this.schema.key,
+        {
+          definitions: this.fieldDefinitions,
+          maxDepth: this.maxRenderDepth,
+          isFieldVisible: currentFieldId =>
+            this.fieldVisibility.get(currentFieldId) ?? true
+        }
+      )
     });
-  };
+  }
 
   /** 写入完整表单数据，并为每一个字段发布 onChange 初始化事件。 */
   private applyFormData(formData: Record<string, unknown>): void {
@@ -149,6 +201,7 @@ export class FormEasy {
         this.maxRenderDepth
       );
     });
+    this.initialized = true;
     this.publishInitialFieldValues(this.schema.fields, this.schema.key, formData);
   }
 
@@ -175,10 +228,8 @@ export class FormEasy {
         .map(field => {
           const hasPresetValue = Object.prototype.hasOwnProperty.call(presetData, field.key!);
           const presetValue = hasPresetValue ? presetData[field.key!] : null;
-          return [
-            field.key!,
-            this.createPresetFieldValue(field, presetValue, depth)
-          ];
+          const value = this.createPresetFieldValue(field, presetValue, depth);
+          return [field.key!, value];
         })
     );
   }
@@ -195,6 +246,9 @@ export class FormEasy {
         ? this.createPresetFormData(field.fields ?? [], presetValue, depth + 1)
         : null;
     }
+    if (field.category === 'record') {
+      return this.createPresetRecordValue(field, presetValue, depth);
+    }
     if (field.category === 'array' && Array.isArray(presetValue)) {
       return presetValue.map(item => this.createPresetArrayElementValue(
         field,
@@ -203,6 +257,25 @@ export class FormEasy {
       ));
     }
     return presetValue === undefined ? null : this.cloneValue(presetValue);
+  }
+
+  /** 根据统一 value 定义规范化 record 字段的每一个动态属性值。 */
+  private createPresetRecordValue(
+    field: FormField,
+    presetValue: unknown,
+    depth: number
+  ): Record<string, unknown> | null {
+    if (!this.isRecord(presetValue)) return null;
+    const valueField = field.kvDef
+      ? this.resolveField(field.kvDef.value)
+      : undefined;
+    if (!valueField) return this.cloneValue(presetValue) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(presetValue).map(([key, value]) => [
+        key,
+        this.createPresetFieldValue(valueField, value, depth + 1)
+      ])
+    );
   }
 
   /** 根据数组元素定义规范化对象元素中的预设子字段。 */
@@ -230,7 +303,7 @@ export class FormEasy {
   /** 根据 defaultValue 配置构造字段默认值；未配置时统一返回 null。 */
   private createDefaultFieldValue(field: FormField): unknown {
     if (Object.prototype.hasOwnProperty.call(field, 'defaultValue')) {
-      return this.cloneValue(field.defaultValue);
+      return this.createPresetFieldValue(field, field.defaultValue, 0);
     }
     return null;
   }
@@ -313,7 +386,7 @@ export class FormEasy {
               renderDepth={0}
               maxRenderDepth={this.maxRenderDepth}
               onValueChange={(event: CustomEvent<unknown>) =>
-                this.changeField(field.key!, `${schema.key}.${field.key}`, event)
+                this.changeField(field, `${schema.key}.${field.key}`, event)
               }
             />
           );

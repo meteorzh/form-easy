@@ -18,6 +18,14 @@ const creatorRenderer = computed(() =>
   activeCreatorRenderer.value === 'elementPlus' ? elementPlusRenderer : null
 );
 
+/** 设计器示例默认加载的不含字段的空白 schema。 */
+const blankCreatorSchema: FormSchema = {
+  key: 'newForm',
+  name: '未命名表单',
+  labelPosition: 'left',
+  fields: []
+};
+
 /** 设计器初始化时载入的全类型、嵌套结构与递归引用综合示例。 */
 const comprehensiveCreatorSchema: FormSchema = {
   key: 'comprehensiveCreatorForm',
@@ -173,6 +181,7 @@ const comprehensiveCreatorSchema: FormSchema = {
       category: 'basic',
       dataType: 'string',
       component: 'upload',
+      omitNull: true,
       componentProperties: {
         accept: 'image/*,.pdf'
       }
@@ -189,6 +198,7 @@ const comprehensiveCreatorSchema: FormSchema = {
       name: 'Visible 绑定：高级说明',
       category: 'basic',
       dataType: 'string',
+      omitWhenHidden: true,
       binds: [
         {
           sourceFormKey: 'comprehensiveCreatorForm',
@@ -257,6 +267,42 @@ const comprehensiveCreatorSchema: FormSchema = {
       element: { $ref: 'contact' }
     },
     {
+      key: 'metadata',
+      name: 'Record：动态扩展属性',
+      category: 'record',
+      defaultValue: {
+        environment: 'production',
+        owner: 'form-easy'
+      },
+      rules: [
+        { type: 'minLength', value: 1 },
+        { type: 'maxLength', value: 6 }
+      ],
+      kvDef: {
+        key: {
+          name: '属性名',
+          hint: '支持连续修改，且不能为空或重复。',
+          rules: [
+            {
+              type: 'pattern',
+              value: '^[A-Za-z][A-Za-z0-9_-]*$',
+              message: '属性名需以字母开头，且只能包含字母、数字、下划线和连字符。'
+            }
+          ],
+          componentProperties: {
+            placeholder: '例如 environment'
+          }
+        },
+        value: {
+          category: 'basic',
+          dataType: 'string',
+          componentProperties: {
+            placeholder: '请输入属性值'
+          }
+        }
+      }
+    },
+    {
       key: 'emptyObject',
       name: '对象：Null 延迟创建',
       category: 'object',
@@ -285,6 +331,16 @@ const comprehensiveCreatorSchema: FormSchema = {
     }
   ]
 };
+
+/** 设计器当前正在编辑的 schema；默认保持空白。 */
+const creatorSchemaValue = ref<FormSchema>(blankCreatorSchema);
+
+/** 使用独立副本将覆盖全面的示例 schema 填入设计器。 */
+function fillComprehensiveCreatorSchema(): void {
+  creatorSchemaValue.value = JSON.parse(
+    JSON.stringify(comprehensiveCreatorSchema)
+  ) as FormSchema;
+}
 
 /** 演示基础、对象、数组和事件驱动字段。 */
 const schema: FormSchema = {
@@ -827,27 +883,36 @@ const rendererTitle = computed(() =>
           <p>PREVIEW RENDERER</p>
           <span>切换设计器右侧表单预览使用的基础字段渲染器。</span>
         </div>
-        <div class="creator-renderer-switch" role="group" aria-label="设计器预览渲染器">
+        <div class="creator-toolbar-actions">
           <button
+            class="creator-schema-fill"
             type="button"
-            :class="{ active: activeCreatorRenderer === 'h5' }"
-            :aria-pressed="activeCreatorRenderer === 'h5'"
-            @click="activeCreatorRenderer = 'h5'"
+            @click="fillComprehensiveCreatorSchema"
           >
-            H5
+            填入完整 Schema 示例
           </button>
-          <button
-            type="button"
-            :class="{ active: activeCreatorRenderer === 'elementPlus' }"
-            :aria-pressed="activeCreatorRenderer === 'elementPlus'"
-            @click="activeCreatorRenderer = 'elementPlus'"
-          >
-            Element Plus
-          </button>
+          <div class="creator-renderer-switch" role="group" aria-label="设计器预览渲染器">
+            <button
+              type="button"
+              :class="{ active: activeCreatorRenderer === 'h5' }"
+              :aria-pressed="activeCreatorRenderer === 'h5'"
+              @click="activeCreatorRenderer = 'h5'"
+            >
+              H5
+            </button>
+            <button
+              type="button"
+              :class="{ active: activeCreatorRenderer === 'elementPlus' }"
+              :aria-pressed="activeCreatorRenderer === 'elementPlus'"
+              @click="activeCreatorRenderer = 'elementPlus'"
+            >
+              Element Plus
+            </button>
+          </div>
         </div>
       </div>
       <form-easy-creator
-        :value.prop="comprehensiveCreatorSchema"
+        :value.prop="creatorSchemaValue"
         :basicFieldRenderer.prop="creatorRenderer"
       />
     </section>
@@ -947,6 +1012,11 @@ body { margin: 0; }
 .creator-example-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #d9deea; }
 .creator-example-toolbar p { margin: 0 0 7px; color: #27354f; font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
 .creator-example-toolbar span { color: #748096; font-size: 12px; }
+.creator-toolbar-actions { display: flex; align-items: center; gap: 10px; }
+.creator-schema-fill { min-height: 36px; padding: 8px 14px; border: 1px solid #8caf60; color: #172033; background: #b9ff66; cursor: pointer; font: 750 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.creator-schema-fill:hover { border-color: #6f9442; background: #adf255; }
+.creator-schema-fill:active { transform: translateY(1px); }
+.creator-schema-fill:focus-visible { outline: 2px solid #172033; outline-offset: 3px; }
 .creator-renderer-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid #d9deea; background: #fff; }
 .creator-renderer-switch button { padding: 8px 11px; border: 0; color: #68758a; background: transparent; cursor: pointer; font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transition: color .15s ease, background .15s ease; }
 .creator-renderer-switch button:hover { color: #101827; background: #f1f3f7; }
@@ -1016,6 +1086,9 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
   .workspace { width: min(100% - 32px, 640px); padding: 42px 0; }
   .creator-page { width: min(100% - 32px, 760px); padding: 42px 0 60px; }
   .creator-example-toolbar { align-items: flex-start; flex-direction: column; }
+  .creator-toolbar-actions { align-items: stretch; flex-direction: column; width: 100%; }
+  .creator-schema-fill { width: 100%; }
+  .creator-renderer-switch { align-self: flex-start; }
   .masthead { padding: 0 16px; }
   .masthead p { display: none; }
   .view-nav { gap: 18px; margin-left: auto; }

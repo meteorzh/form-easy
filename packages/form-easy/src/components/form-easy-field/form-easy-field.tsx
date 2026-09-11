@@ -35,6 +35,7 @@ import type {
   ComponentHandle,
   EventFlowHistory,
   FieldBinding,
+  FieldVisibilityChangeDetail,
   FieldValidationErrorType,
   FormField,
   HandleTarget,
@@ -77,6 +78,8 @@ export class FormEasyField implements HandleTarget {
   @Prop() maxRenderDepth = 32;
   /** 向父级渲染器通知字段值变更。 */
   @Event() valueChange!: EventEmitter<unknown>;
+  /** 向根表单通知当前字段的可见状态发生变化。 */
+  @Event() fieldVisibilityChange!: EventEmitter<FieldVisibilityChangeDetail>;
 
   /** 当前可见状态。 */
   @State() private visible = true;
@@ -100,8 +103,15 @@ export class FormEasyField implements HandleTarget {
   private validationFeedbackActive = false;
   /** 已注册事件订阅的清理回调。 */
   private unsubscribe: Array<() => void> = [];
+  /** 保存每一个 visible 或 enable 绑定最近一次解析出的布尔状态。 */
+  private readonly bindingStates = new Map<FieldBinding, boolean>();
   /** 供框架渲染适配器挂载视图的稳定宿主元素。 */
   private rendererHost?: HTMLDivElement;
+  /** 当前 record 结构组件，用于合并动态 key 校验结果。 */
+  private recordElement?: HTMLElement & {
+    /** 校验 record 内部动态 key。 */
+    validateEntries(): Promise<boolean>;
+  };
   /** 上一次实际用于渲染的适配器，用于切换时正确卸载。 */
   private activeRenderer?: BasicFieldRenderer;
   /** 用于取消已过期组件数据请求的控制器。 */
@@ -129,6 +139,23 @@ export class FormEasyField implements HandleTarget {
     this.currentValue = newValue ?? null;
     this.synchronizeStoredValue(this.currentValue);
     this.validateCurrentValue();
+  }
+
+  /**
+   * 动态数组或 record 删除条目后，字段索引可能发生变化；此时迁移字段值分支，
+   * 并按新的完整标识重新建立绑定与组件数据参数订阅。
+   */
+  @Watch('fieldId')
+  migrateFieldId(newFieldId: string, oldFieldId: string): void {
+    if (oldFieldId) this.emitVisibilityChange(false, oldFieldId);
+    oldFieldId && this.formValueStore?.deleteBranch(oldFieldId);
+    this.synchronizeStoredValue(this.currentValue);
+    this.unsubscribe.forEach(cleanup => cleanup());
+    this.unsubscribe = [];
+    this.bindingStates.clear();
+    this.registerSubscriptions();
+    this.configureComponentData();
+    this.emitVisibilityChange(true, newFieldId);
   }
 
   /** 字段配置更新后重新解析组件数据。 */
@@ -172,6 +199,7 @@ export class FormEasyField implements HandleTarget {
 
   /** 当前字段被移除时释放事件订阅。 */
   disconnectedCallback(): void {
+    this.emitVisibilityChange(false);
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
     this.clearComponentDataParameterSubscriptions();
@@ -182,6 +210,7 @@ export class FormEasyField implements HandleTarget {
 
   /** 字段完成首次挂载后调用已注册的框架渲染适配器。 */
   componentDidLoad(): void {
+    this.emitVisibilityChange(true);
     this.renderWithAdapter();
   }
 
@@ -199,10 +228,12 @@ export class FormEasyField implements HandleTarget {
   ): Promise<void> {
     if (handle === 'show' && !this.visible) {
       this.visible = true;
+      this.emitVisibilityChange(true);
       this.publish('onShow', undefined, history);
     }
     if (handle === 'hide' && this.visible) {
       this.visible = false;
+      this.emitVisibilityChange(true);
       this.publish('onHide', undefined, history);
     }
     if (handle === 'disable' && !this.disabled) {
@@ -226,7 +257,11 @@ export class FormEasyField implements HandleTarget {
   @Method()
   async validate(): Promise<boolean> {
     this.validationFeedbackActive = true;
-    return this.validateCurrentValue();
+    const fieldValid = this.validateCurrentValue();
+    const recordValid = this.field.category === 'record' && this.recordElement
+      ? await this.recordElement.validateEntries()
+      : true;
+    return fieldValid && recordValid;
   }
 
   /** 字段失焦后开始展示普通值校验错误。 */
@@ -261,6 +296,19 @@ export class FormEasyField implements HandleTarget {
     history: EventFlowHistory = []
   ): void {
     this.eventCenter.publish(this.fieldId, eventName, value, history);
+  }
+
+  /** 发布字段当前可见状态，供根表单重新生成对外输出。 */
+  private emitVisibilityChange(
+    connected: boolean,
+    fieldId = this.fieldId
+  ): void {
+    this.fieldVisibilityChange.emit({
+      fieldId,
+      visible: this.visible,
+      connected,
+      affectsOutput: this.field.omitWhenHidden === true
+    });
   }
 
   /** 将当前字段及其嵌套后代值同步到表单字段值存储。 */
@@ -353,9 +401,14 @@ export class FormEasyField implements HandleTarget {
   ): Promise<void> {
     if (binding.target === 'value') return;
     const result = this.resolveBindingBoolean(sourceFieldValue, binding);
+    this.bindingStates.set(binding, result);
+    const bindings = this.field.binds ?? [];
+    const effectiveResult = bindings
+      .filter(item => item.target === binding.target)
+      .every(item => this.bindingStates.get(item) ?? true);
     const handle: ComponentHandle = binding.target === 'visible'
-      ? result ? 'show' : 'hide'
-      : result ? 'enable' : 'disable';
+      ? effectiveResult ? 'show' : 'hide'
+      : effectiveResult ? 'enable' : 'disable';
     await this.applyHandle(handle, undefined, history);
   }
 
@@ -718,6 +771,30 @@ export class FormEasyField implements HandleTarget {
       return (
         <form-easy-object
           fields={this.field.fields ?? []}
+          fieldId={this.fieldId}
+          formKey={this.formKey}
+          labelPosition={this.labelPosition}
+          basicFieldRenderer={this.basicFieldRenderer}
+          componentDataManager={this.componentDataManager}
+          endpointManager={this.endpointManager}
+          value={this.currentValue}
+          eventCenter={this.eventCenter}
+          formValueStore={this.formValueStore}
+          fieldDefinitions={this.fieldDefinitions}
+          renderDepth={this.renderDepth}
+          maxRenderDepth={this.maxRenderDepth}
+          disabled={this.effectiveDisabled}
+          onValueChange={this.onNestedValueChange}
+        />
+      );
+    }
+    if (this.field.category === 'record') {
+      return (
+        <form-easy-record
+          ref={(element?: typeof this.recordElement) => {
+            this.recordElement = element;
+          }}
+          field={this.field}
           fieldId={this.fieldId}
           formKey={this.formKey}
           labelPosition={this.labelPosition}

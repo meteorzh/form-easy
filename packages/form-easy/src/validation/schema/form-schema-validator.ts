@@ -4,6 +4,7 @@ import type {
   FormField,
   FormFieldDefinition,
   FormFieldReference,
+  FormRecordKeyDefinition,
   LabelPosition
 } from '../../types';
 import {
@@ -53,6 +54,8 @@ const formFieldProperties = new Set([
   'name',
   'category',
   'required',
+  'omitNull',
+  'omitWhenHidden',
   'rules',
   'defaultValue',
   'hint',
@@ -60,6 +63,7 @@ const formFieldProperties = new Set([
   'component',
   'element',
   'fields',
+  'kvDef',
   'componentProperties',
   'componentData',
   'componentDataKey',
@@ -72,6 +76,8 @@ const formFieldReferenceProperties = new Set([
   'key',
   'name',
   'required',
+  'omitNull',
+  'omitWhenHidden',
   'rules',
   'defaultValue',
   'hint',
@@ -82,7 +88,12 @@ const formFieldReferenceProperties = new Set([
   'binds'
 ]);
 /** 支持的字段分类。 */
-const fieldCategories = new Set<FieldCategory>(['basic', 'array', 'object']);
+const fieldCategories = new Set<FieldCategory>([
+  'basic',
+  'array',
+  'object',
+  'record'
+]);
 /** 支持的基础字段数据类型。 */
 const dataTypes = new Set<DataType>(['string', 'number', 'boolean', 'date', 'datetime', 'time']);
 /** 支持的标签位置。 */
@@ -95,6 +106,19 @@ const basicOnlyProperties = [
   'componentData',
   'componentDataKey'
 ] as const;
+/** record 字段的 kvDef 对象允许配置的属性。 */
+const recordKeyValueDefinitionProperties = new Set(['key', 'value']);
+/** record 动态 key 定义允许配置的属性。 */
+const recordKeyDefinitionProperties = new Set([
+  'name',
+  'hint',
+  'rules',
+  'defaultValue',
+  'component',
+  'componentProperties',
+  'componentData',
+  'componentDataKey'
+]);
 
 /**
  * 深度校验未知输入是否为合法的 form-easy 表单 schema。
@@ -246,6 +270,7 @@ function validateField(
 
   validateUnknownProperties(value, formFieldProperties, path, context);
   validateFieldIdentity(value, path, requiresIdentity, context);
+  validateOutputOmissionScope(value, path, requiresIdentity, context);
   validateOptionalPropertyTypes(value, path, context);
   validateFieldConfigurationConflicts(value, path, context);
 
@@ -253,7 +278,11 @@ function validateField(
   if (!hasOwn(value, 'category')) {
     context.addError('missing-property', propertyPath(path, 'category'), '字段缺少必需的 category。');
   } else if (!fieldCategories.has(category as FieldCategory)) {
-    context.addError('invalid-value', propertyPath(path, 'category'), '字段 category 必须是 basic、array 或 object。');
+    context.addError(
+      'invalid-value',
+      propertyPath(path, 'category'),
+      '字段 category 必须是 basic、array、object 或 record。'
+    );
   } else {
     const field = value as unknown as FormField;
     validateSchemaRules(field, value.rules, propertyPath(path, 'rules'), context);
@@ -307,6 +336,7 @@ function validateFieldReference(
     context
   );
   validateFieldIdentity(rawReference, path, requiresIdentity, context);
+  validateOutputOmissionScope(rawReference, path, requiresIdentity, context);
   validateOptionalPropertyTypes(rawReference, path, context);
   validateFieldConfigurationConflicts(rawReference, path, context);
   validateBindings(reference.binds, propertyPath(path, 'binds'), context);
@@ -366,7 +396,7 @@ function validateFieldIdentity(
       context.addError(
         'forbidden-property',
         propertyPath(path, property),
-        `数组元素定义不应包含 ${property}。`
+        `匿名字段定义不应包含 ${property}。`
       );
     }
   });
@@ -379,6 +409,8 @@ function validateOptionalPropertyTypes(
   context: SchemaValidationContext
 ): void {
   validateOptionalType(field, 'required', 'boolean', path, context);
+  validateOptionalType(field, 'omitNull', 'boolean', path, context);
+  validateOptionalType(field, 'omitWhenHidden', 'boolean', path, context);
   validateOptionalType(field, 'hint', 'string', path, context);
   validateOptionalType(field, 'component', 'string', path, context, true);
   validateOptionalType(field, 'componentDataKey', 'string', path, context, true);
@@ -391,6 +423,24 @@ function validateOptionalPropertyTypes(
       'componentProperties 必须是普通对象。'
     );
   }
+}
+
+/** 限制输出省略策略仅用于拥有 key 和 name 的命名字段位置。 */
+function validateOutputOmissionScope(
+  field: Record<string, unknown>,
+  path: string,
+  requiresIdentity: boolean,
+  context: SchemaValidationContext
+): void {
+  if (requiresIdentity) return;
+  (['omitNull', 'omitWhenHidden'] as const).forEach(property => {
+    if (!hasOwn(field, property)) return;
+    context.addError(
+      'forbidden-property',
+      propertyPath(path, property),
+      `${property} 仅适用于拥有 key 的命名字段。`
+    );
+  });
 }
 
 /** 校验 componentDataKey 调用表达式及参数引用的基础格式。 */
@@ -433,13 +483,25 @@ function validateFieldCategoryConfiguration(
 ): void {
   if (field.category === 'basic') {
     validateBasicField(field, rawField, path, context);
-    validateForbiddenProperties(rawField, ['element', 'fields'], path, '基础字段', context);
+    validateForbiddenProperties(
+      rawField,
+      ['element', 'fields', 'kvDef'],
+      path,
+      '基础字段',
+      context
+    );
     return;
   }
 
   validateForbiddenProperties(rawField, basicOnlyProperties, path, `${field.category} 字段`, context);
   if (field.category === 'array') {
-    validateForbiddenProperties(rawField, ['fields'], path, '数组字段', context);
+    validateForbiddenProperties(
+      rawField,
+      ['fields', 'kvDef'],
+      path,
+      '数组字段',
+      context
+    );
     if (!hasOwn(rawField, 'element')) {
       context.addError('missing-property', propertyPath(path, 'element'), '数组字段缺少必需的 element 元素定义。');
     } else {
@@ -454,16 +516,136 @@ function validateFieldCategoryConfiguration(
     return;
   }
 
-  validateForbiddenProperties(rawField, ['element'], path, '对象字段', context);
-  if (!hasOwn(rawField, 'fields')) {
-    context.addError('missing-property', propertyPath(path, 'fields'), '对象字段缺少必需的 fields 字段列表。');
-  } else if (!Array.isArray(rawField.fields)) {
-    context.addError('invalid-type', propertyPath(path, 'fields'), '对象字段的 fields 必须是数组。');
+  if (field.category === 'object') {
+    validateForbiddenProperties(
+      rawField,
+      ['element', 'kvDef'],
+      path,
+      '对象字段',
+      context
+    );
+    if (!hasOwn(rawField, 'fields')) {
+      context.addError(
+        'missing-property',
+        propertyPath(path, 'fields'),
+        '对象字段缺少必需的 fields 字段列表。'
+      );
+    } else if (!Array.isArray(rawField.fields)) {
+      context.addError(
+        'invalid-type',
+        propertyPath(path, 'fields'),
+        '对象字段的 fields 必须是数组。'
+      );
+    } else {
+      validateFieldList(
+        rawField.fields,
+        propertyPath(path, 'fields'),
+        definitions,
+        context
+      );
+    }
+    return;
+  }
+
+  validateForbiddenProperties(
+    rawField,
+    ['element', 'fields'],
+    path,
+    'record 字段',
+    context
+  );
+  validateRecordKeyValueDefinition(rawField, path, definitions, context);
+}
+
+/** 校验 record 字段的动态 key 与统一 value 定义。 */
+function validateRecordKeyValueDefinition(
+  rawField: Record<string, unknown>,
+  path: string,
+  definitions: FormFieldDefinitions,
+  context: SchemaValidationContext
+): void {
+  const kvDefPath = propertyPath(path, 'kvDef');
+  if (!hasOwn(rawField, 'kvDef')) {
+    context.addError(
+      'missing-property',
+      kvDefPath,
+      'record 字段缺少必需的 kvDef。'
+    );
+    return;
+  }
+  if (!isPlainRecord(rawField.kvDef)) {
+    context.addError('invalid-type', kvDefPath, 'record 字段的 kvDef 必须是普通对象。');
+    return;
+  }
+
+  validateUnknownProperties(
+    rawField.kvDef,
+    recordKeyValueDefinitionProperties,
+    kvDefPath,
+    context
+  );
+  if (!hasOwn(rawField.kvDef, 'key')) {
+    context.addError(
+      'missing-property',
+      propertyPath(kvDefPath, 'key'),
+      'record 字段缺少必需的 key 定义。'
+    );
   } else {
-    validateFieldList(
-      rawField.fields,
-      propertyPath(path, 'fields'),
+    validateRecordKeyDefinition(rawField.kvDef.key, kvDefPath, context);
+  }
+  if (!hasOwn(rawField.kvDef, 'value')) {
+    context.addError(
+      'missing-property',
+      propertyPath(kvDefPath, 'value'),
+      'record 字段缺少必需的 value 定义。'
+    );
+  } else {
+    validateField(
+      rawField.kvDef.value,
+      propertyPath(kvDefPath, 'value'),
+      false,
       definitions,
+      context
+    );
+  }
+}
+
+/** 校验 record 字符串 key 的编辑配置和校验规则。 */
+function validateRecordKeyDefinition(
+  value: unknown,
+  kvDefPath: string,
+  context: SchemaValidationContext
+): void {
+  const keyPath = propertyPath(kvDefPath, 'key');
+  if (!isPlainRecord(value)) {
+    context.addError('invalid-type', keyPath, 'record 字段的 key 定义必须是普通对象。');
+    return;
+  }
+  validateUnknownProperties(
+    value,
+    recordKeyDefinitionProperties,
+    keyPath,
+    context
+  );
+  validateOptionalPropertyTypes(value, keyPath, context);
+  validateFieldConfigurationConflicts(value, keyPath, context);
+  const keyField: FormField = {
+    ...(value as FormRecordKeyDefinition),
+    category: 'basic',
+    dataType: 'string',
+    required: true
+  };
+  validateSchemaRules(
+    keyField,
+    value.rules,
+    propertyPath(keyPath, 'rules'),
+    context
+  );
+  if (hasOwn(value, 'defaultValue')) {
+    validateDefaultValue(
+      keyField,
+      value.defaultValue,
+      propertyPath(keyPath, 'defaultValue'),
       context
     );
   }

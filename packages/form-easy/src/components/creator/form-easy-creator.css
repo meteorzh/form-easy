@@ -217,10 +217,13 @@
 }
 
 .creator-form-preview {
+  max-height: min(620px, calc(100vh - 210px));
   min-height: 300px;
+  overflow: auto;
   padding: 22px;
   border: 1px solid #d9deea;
   background: #fff;
+  scrollbar-gutter: stable;
 }
 
 .creator-form-preview form-easy {

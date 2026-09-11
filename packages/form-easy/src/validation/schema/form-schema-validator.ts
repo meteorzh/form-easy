@@ -2,8 +2,15 @@ import type {
   DataType,
   FieldCategory,
   FormField,
+  FormFieldDefinition,
+  FormFieldReference,
   LabelPosition
 } from '../../types';
+import {
+  isFormFieldReference,
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
 import { parseComponentDataExpression } from '../../component-data-expression';
 import {
   isRelativeFieldReference,
@@ -33,7 +40,13 @@ import {
 } from './schema-validation-utils';
 
 /** schema 根对象允许配置的属性。 */
-const formSchemaProperties = new Set(['key', 'name', 'labelPosition', 'fields']);
+const formSchemaProperties = new Set([
+  'key',
+  'name',
+  'labelPosition',
+  'definitions',
+  'fields'
+]);
 /** 字段对象允许配置的全部属性。 */
 const formFieldProperties = new Set([
   'key',
@@ -47,6 +60,21 @@ const formFieldProperties = new Set([
   'component',
   'element',
   'fields',
+  'componentProperties',
+  'componentData',
+  'componentDataKey',
+  'eventSubscriptions',
+  'binds'
+]);
+/** 字段定义引用允许配置的属性。 */
+const formFieldReferenceProperties = new Set([
+  '$ref',
+  'key',
+  'name',
+  'required',
+  'rules',
+  'defaultValue',
+  'hint',
   'componentProperties',
   'componentData',
   'componentDataKey',
@@ -109,23 +137,68 @@ function validateSchemaRoot(
     );
   }
 
+  const definitions = readAndValidateDefinitions(schema, path, context);
+
   if (!hasOwn(schema, 'fields')) {
     context.addError('missing-property', propertyPath(path, 'fields'), '表单缺少必需的 fields 字段列表。');
   } else if (!Array.isArray(schema.fields)) {
     context.addError('invalid-type', propertyPath(path, 'fields'), '表单 fields 必须是数组。');
   } else {
-    validateFieldList(schema.fields, propertyPath(path, 'fields'), context);
+    validateFieldList(
+      schema.fields,
+      propertyPath(path, 'fields'),
+      definitions,
+      context
+    );
     if (typeof schema.key === 'string' && schema.key.trim()) {
-      validateLocalFieldReferences(schema.key, schema.fields, propertyPath(path, 'fields'), context);
+      validateLocalFieldReferences(
+        schema.key,
+        schema.fields,
+        propertyPath(path, 'fields'),
+        context,
+        definitions
+      );
     }
   }
   context.activeSchemaNodes.delete(schema);
+}
+
+/** 读取并校验 schema definitions 中的全部可复用字段模板。 */
+function readAndValidateDefinitions(
+  schema: Record<string, unknown>,
+  path: string,
+  context: SchemaValidationContext
+): FormFieldDefinitions {
+  if (!hasOwn(schema, 'definitions')) return {};
+  const definitionsPath = propertyPath(path, 'definitions');
+  if (!isPlainRecord(schema.definitions)) {
+    context.addError(
+      'invalid-type',
+      definitionsPath,
+      '表单 definitions 必须是普通对象。'
+    );
+    return {};
+  }
+  const definitions = schema.definitions as Record<string, FormFieldDefinition>;
+  Object.entries(definitions).forEach(([name, definition]) => {
+    const definitionPath = propertyPath(definitionsPath, name);
+    if (!name.trim()) {
+      context.addError(
+        'invalid-value',
+        definitionPath,
+        '字段定义名称不能为空。'
+      );
+    }
+    validateField(definition, definitionPath, false, definitions, context);
+  });
+  return definitions;
 }
 
 /** 校验同一层级的字段列表及字段 key 唯一性。 */
 function validateFieldList(
   fields: unknown[],
   path: string,
+  definitions: FormFieldDefinitions,
   context: SchemaValidationContext
 ): void {
   const keyIndexes = new Map<string, number>();
@@ -143,7 +216,7 @@ function validateFieldList(
         keyIndexes.set(field.key, index);
       }
     }
-    validateField(field, fieldPath, true, context);
+    validateField(field, fieldPath, true, definitions, context);
   });
 }
 
@@ -152,10 +225,21 @@ function validateField(
   value: unknown,
   path: string,
   requiresIdentity: boolean,
+  definitions: FormFieldDefinitions,
   context: SchemaValidationContext
 ): void {
   if (!isPlainRecord(value)) {
     context.addError('invalid-type', path, '字段配置必须是普通对象。');
+    return;
+  }
+  if (isFormFieldReference(value)) {
+    validateFieldReference(
+      value,
+      path,
+      requiresIdentity,
+      definitions,
+      context
+    );
     return;
   }
   if (!enterSchemaNode(value, path, context)) return;
@@ -173,9 +257,21 @@ function validateField(
   } else {
     const field = value as unknown as FormField;
     validateSchemaRules(field, value.rules, propertyPath(path, 'rules'), context);
-    validateFieldCategoryConfiguration(field, value, path, context);
+    validateFieldCategoryConfiguration(
+      field,
+      value,
+      path,
+      definitions,
+      context
+    );
     if (hasOwn(value, 'defaultValue')) {
-      validateDefaultValue(field, value.defaultValue, propertyPath(path, 'defaultValue'), context);
+      validateDefaultValue(
+        field,
+        value.defaultValue,
+        propertyPath(path, 'defaultValue'),
+        context,
+        definitions
+      );
     }
   }
 
@@ -186,6 +282,71 @@ function validateField(
     context
   );
   context.activeSchemaNodes.delete(value);
+}
+
+/** 校验一个字段定义引用及其允许覆盖的实例属性。 */
+function validateFieldReference(
+  reference: FormFieldReference,
+  path: string,
+  requiresIdentity: boolean,
+  definitions: FormFieldDefinitions,
+  context: SchemaValidationContext
+): void {
+  const rawReference = reference as unknown as Record<string, unknown>;
+  validateUnknownProperties(
+    rawReference,
+    formFieldReferenceProperties,
+    path,
+    context
+  );
+  validateRequiredNonEmptyString(
+    rawReference,
+    '$ref',
+    path,
+    '字段定义引用 $ref',
+    context
+  );
+  validateFieldIdentity(rawReference, path, requiresIdentity, context);
+  validateOptionalPropertyTypes(rawReference, path, context);
+  validateFieldConfigurationConflicts(rawReference, path, context);
+  validateBindings(reference.binds, propertyPath(path, 'binds'), context);
+  validateEventSubscriptions(
+    reference.eventSubscriptions,
+    propertyPath(path, 'eventSubscriptions'),
+    context
+  );
+
+  if (typeof reference.$ref !== 'string' || !reference.$ref.trim()) return;
+  const field = resolveFormFieldNode(reference, definitions);
+  if (!field) {
+    context.addError(
+      'unknown-field-definition',
+      propertyPath(path, '$ref'),
+      `未找到字段定义“${reference.$ref}”。`
+    );
+    return;
+  }
+  if (field.category !== 'basic') {
+    validateForbiddenProperties(
+      rawReference,
+      basicOnlyProperties,
+      path,
+      `${field.category} 字段引用`,
+      context
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(reference, 'rules')) {
+    validateSchemaRules(field, reference.rules, propertyPath(path, 'rules'), context);
+  }
+  if (Object.prototype.hasOwnProperty.call(reference, 'defaultValue')) {
+    validateDefaultValue(
+      field,
+      reference.defaultValue,
+      propertyPath(path, 'defaultValue'),
+      context,
+      definitions
+    );
+  }
 }
 
 /** 校验字段或数组元素定义是否正确配置 key 和 name。 */
@@ -267,6 +428,7 @@ function validateFieldCategoryConfiguration(
   field: FormField,
   rawField: Record<string, unknown>,
   path: string,
+  definitions: FormFieldDefinitions,
   context: SchemaValidationContext
 ): void {
   if (field.category === 'basic') {
@@ -281,7 +443,13 @@ function validateFieldCategoryConfiguration(
     if (!hasOwn(rawField, 'element')) {
       context.addError('missing-property', propertyPath(path, 'element'), '数组字段缺少必需的 element 元素定义。');
     } else {
-      validateField(rawField.element, propertyPath(path, 'element'), false, context);
+      validateField(
+        rawField.element,
+        propertyPath(path, 'element'),
+        false,
+        definitions,
+        context
+      );
     }
     return;
   }
@@ -292,7 +460,12 @@ function validateFieldCategoryConfiguration(
   } else if (!Array.isArray(rawField.fields)) {
     context.addError('invalid-type', propertyPath(path, 'fields'), '对象字段的 fields 必须是数组。');
   } else {
-    validateFieldList(rawField.fields, propertyPath(path, 'fields'), context);
+    validateFieldList(
+      rawField.fields,
+      propertyPath(path, 'fields'),
+      definitions,
+      context
+    );
   }
 }
 

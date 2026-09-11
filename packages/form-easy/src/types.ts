@@ -150,10 +150,10 @@ export interface FormField {
   dataType?: DataType;
   /** 优先于数据类型默认组件使用的已注册组件键。 */
   component?: BasicFieldComponentKey;
-  /** 数组字段的元素定义。 */
-  element?: Omit<FormField, 'key' | 'name'>;
-  /** 对象字段包含的子字段。 */
-  fields?: FormField[];
+  /** 数组字段的元素定义或可复用字段定义引用。 */
+  element?: FormArrayElementNode;
+  /** 对象字段包含的子字段或可复用字段定义引用。 */
+  fields?: FormFieldNode[];
   /** 透传给已注册自定义组件的属性。 */
   componentProperties?: Record<string, unknown>;
   /** 直接提供给组件的数据，优先于 componentDataKey。 */
@@ -165,6 +165,38 @@ export interface FormField {
   /** 当前字段拥有的单向绑定配置。 */
   binds?: FieldBinding[];
 }
+
+/** 可复用字段定义被引用时允许覆盖的实例级属性。 */
+export type FormFieldReferenceOverrides = Partial<Pick<
+  FormField,
+  | 'key'
+  | 'name'
+  | 'required'
+  | 'rules'
+  | 'defaultValue'
+  | 'hint'
+  | 'componentProperties'
+  | 'componentData'
+  | 'componentDataKey'
+  | 'eventSubscriptions'
+  | 'binds'
+>>;
+
+/** 引用 FormSchema definitions 中可复用字段定义的节点。 */
+export interface FormFieldReference extends FormFieldReferenceOverrides {
+  /** definitions 中需要引用的字段定义名称。 */
+  $ref: string;
+}
+
+/** 表单字段列表中允许出现的普通字段或字段定义引用。 */
+export type FormFieldNode = FormField | FormFieldReference;
+
+/** 数组元素允许使用的匿名字段配置或字段定义引用。 */
+export type FormArrayElementNode = Omit<FormField, 'key' | 'name'>
+  | FormFieldReference;
+
+/** definitions 中不携带实例字段标识的可复用字段模板。 */
+export type FormFieldDefinition = Omit<FormField, 'key' | 'name'>;
 
 /** 组件数据解析器执行时携带的上下文。 */
 export interface ComponentDataResolverContext {
@@ -197,8 +229,10 @@ export interface FormSchema {
   name: string;
   /** 字段标签位置；未配置时默认使用 left。 */
   labelPosition?: LabelPosition;
-  /** 顶层字段定义列表。 */
-  fields: FormField[];
+  /** 可通过 $ref 按需引用的字段模板。 */
+  definitions?: Record<string, FormFieldDefinition>;
+  /** 顶层字段定义或引用列表。 */
+  fields: FormFieldNode[];
 }
 
 /** 字段值变更时触发的事件载荷。 */

@@ -18,6 +18,7 @@ export type FormSchemaValidationIssueCode =
   | 'invalid-default-value'
   | 'unknown-default-field'
   | 'unknown-source-field'
+  | 'unknown-field-definition'
   | 'circular-reference';
 
 /** 描述一个可定位的表单 schema 配置问题。 */

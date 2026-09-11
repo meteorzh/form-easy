@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue';
+import type { FormSchema } from '@wenzhencn/form-easy';
 import { elementPlusRenderer } from './element-plus-renderer';
 import { playgroundVueRenderer } from './playground-vue-renderer';
 
@@ -17,10 +18,298 @@ const creatorRenderer = computed(() =>
   activeCreatorRenderer.value === 'elementPlus' ? elementPlusRenderer : null
 );
 
+/** 设计器初始化时载入的全类型、嵌套结构与递归引用综合示例。 */
+const comprehensiveCreatorSchema: FormSchema = {
+  key: 'comprehensiveCreatorForm',
+  name: '综合业务表单设计示例',
+  definitions: {
+    address: {
+      category: 'object',
+      fields: [
+        {
+          key: 'province',
+          name: '省份',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        },
+        {
+          key: 'city',
+          name: '城市',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        },
+        {
+          key: 'detail',
+          name: '详细地址',
+          category: 'basic',
+          dataType: 'string'
+        }
+      ]
+    },
+    contact: {
+      category: 'object',
+      fields: [
+        {
+          key: 'type',
+          name: '联系方式类型',
+          category: 'basic',
+          dataType: 'string',
+          component: 'select',
+          componentData: [
+            { label: '手机', value: 'mobile' },
+            { label: '邮箱', value: 'email' }
+          ],
+          required: true
+        },
+        {
+          key: 'value',
+          name: '联系方式',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        }
+      ]
+    },
+    categoryNode: {
+      category: 'object',
+      fields: [
+        {
+          key: 'name',
+          name: '分类名称',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        },
+        {
+          key: 'children',
+          name: '子分类',
+          category: 'array',
+          element: { $ref: 'categoryNode' }
+        }
+      ]
+    }
+  },
+  fields: [
+    {
+      key: 'title',
+      name: '字符串：表单标题',
+      category: 'basic',
+      dataType: 'string',
+      required: true,
+      defaultValue: '综合动态表单',
+      hint: '覆盖 required、defaultValue、hint、rules 和组件属性。',
+      rules: [
+        { type: 'minLength', value: 2 },
+        { type: 'maxLength', value: 30 }
+      ],
+      componentProperties: {
+        placeholder: '请输入表单标题'
+      }
+    },
+    {
+      key: 'quantity',
+      name: '数字：申请数量',
+      category: 'basic',
+      dataType: 'number',
+      defaultValue: 10,
+      rules: [
+        { type: 'min', value: 1 },
+        { type: 'max', value: 100 }
+      ],
+      componentProperties: {
+        min: 1,
+        max: 100
+      }
+    },
+    {
+      key: 'enabled',
+      name: '布尔：是否启用',
+      category: 'basic',
+      dataType: 'boolean',
+      defaultValue: true
+    },
+    {
+      key: 'effectiveDate',
+      name: '日期：生效日期',
+      category: 'basic',
+      dataType: 'date',
+      defaultValue: '2026-09-11'
+    },
+    {
+      key: 'updatedAt',
+      name: '日期时间：更新时间',
+      category: 'basic',
+      dataType: 'datetime',
+      defaultValue: '2026-09-11T09:30'
+    },
+    {
+      key: 'reminderTime',
+      name: '时间：提醒时间',
+      category: 'basic',
+      dataType: 'time',
+      defaultValue: '09:30'
+    },
+    {
+      key: 'status',
+      name: 'Select：业务状态',
+      category: 'basic',
+      dataType: 'string',
+      component: 'select',
+      componentData: [
+        { label: '草稿', value: 'draft' },
+        { label: '已启用', value: 'enabled' },
+        { label: '已停用', value: 'disabled' }
+      ],
+      defaultValue: 'draft',
+      rules: [
+        { type: 'enum', value: ['draft', 'enabled', 'disabled'] }
+      ]
+    },
+    {
+      key: 'attachment',
+      name: 'Upload：附件地址',
+      category: 'basic',
+      dataType: 'string',
+      component: 'upload',
+      componentProperties: {
+        accept: 'image/*,.pdf'
+      }
+    },
+    {
+      key: 'showAdvanced',
+      name: '绑定源：显示高级配置',
+      category: 'basic',
+      dataType: 'boolean',
+      defaultValue: false
+    },
+    {
+      key: 'advancedNotes',
+      name: 'Visible 绑定：高级说明',
+      category: 'basic',
+      dataType: 'string',
+      binds: [
+        {
+          sourceFormKey: 'comprehensiveCreatorForm',
+          sourceFieldId: 'comprehensiveCreatorForm.showAdvanced',
+          target: 'visible'
+        }
+      ]
+    },
+    {
+      key: 'profile',
+      name: '对象：申请人资料',
+      category: 'object',
+      required: true,
+      defaultValue: {
+        email: 'demo@example.com',
+        address: {
+          province: '四川省',
+          city: '成都市',
+          detail: '天府大道 1 号'
+        }
+      },
+      fields: [
+        {
+          key: 'email',
+          name: '对象子字段：邮箱',
+          category: 'basic',
+          dataType: 'string',
+          required: true,
+          rules: [
+            {
+              type: 'pattern',
+              value: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+              message: '请输入有效的邮箱地址。'
+            }
+          ]
+        },
+        {
+          $ref: 'address',
+          key: 'address',
+          name: 'Definitions：复用地址对象'
+        }
+      ]
+    },
+    {
+      key: 'tags',
+      name: '数组：字符串标签',
+      category: 'array',
+      defaultValue: ['动态表单', '递归'],
+      rules: [
+        { type: 'minLength', value: 1 }
+      ],
+      element: {
+        category: 'basic',
+        dataType: 'string',
+        hint: '匿名基础数组元素'
+      }
+    },
+    {
+      key: 'contacts',
+      name: '数组：Definitions 对象元素',
+      category: 'array',
+      defaultValue: [
+        { type: 'mobile', value: '13800000000' },
+        { type: 'email', value: 'contact@example.com' }
+      ],
+      element: { $ref: 'contact' }
+    },
+    {
+      key: 'emptyObject',
+      name: '对象：Null 延迟创建',
+      category: 'object',
+      fields: [
+        {
+          key: 'description',
+          name: '延迟创建后的说明',
+          category: 'basic',
+          dataType: 'string'
+        }
+      ]
+    },
+    {
+      $ref: 'categoryNode',
+      key: 'categoryTree',
+      name: '递归：分类树',
+      defaultValue: {
+        name: '根分类',
+        children: [
+          {
+            name: '默认子分类',
+            children: []
+          }
+        ]
+      }
+    }
+  ]
+};
+
 /** 演示基础、对象、数组和事件驱动字段。 */
-const schema = {
+const schema: FormSchema = {
   key: 'form1',
   name: 'form-easy 全功能示例表单',
+  definitions: {
+    recursiveTreeNode: {
+      category: 'object',
+      fields: [
+        {
+          key: 'nodeName',
+          name: '递归节点：名称',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        },
+        {
+          key: 'children',
+          name: '递归节点：子节点列表',
+          category: 'array',
+          element: { $ref: 'recursiveTreeNode' }
+        }
+      ]
+    }
+  },
   fields: [
     {
       key: 'stringDefault',
@@ -260,6 +549,21 @@ const schema = {
         ]
       },
       defaultValue: [{ itemName: '默认对象元素', itemEnabled: true }]
+    },
+    {
+      $ref: 'recursiveTreeNode',
+      key: 'recursiveTree',
+      name: 'Definitions：$ref 递归树形字段示例',
+      hint: '子节点数组继续引用 recursiveTreeNode，可按实际数据深度逐层渲染。',
+      defaultValue: {
+        nodeName: '根节点',
+        children: [
+          {
+            nodeName: '默认子节点',
+            children: []
+          }
+        ]
+      }
     },
     {
       key: 'eventSource',
@@ -542,7 +846,10 @@ const rendererTitle = computed(() =>
           </button>
         </div>
       </div>
-      <form-easy-creator :basicFieldRenderer.prop="creatorRenderer" />
+      <form-easy-creator
+        :value.prop="comprehensiveCreatorSchema"
+        :basicFieldRenderer.prop="creatorRenderer"
+      />
     </section>
     <ReadmeDocument v-else />
   </main>

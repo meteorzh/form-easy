@@ -9,6 +9,7 @@ import {
   resolveRelativeFieldId,
   resolveSiblingFieldId
 } from '../../field-reference';
+import type { FormFieldDefinitions } from '../../form-field-definition-resolver';
 import {
   getGlobalComponentDataManager,
   type ComponentDataManager
@@ -68,6 +69,12 @@ export class FormEasyField implements HandleTarget {
   @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 当前表单共享的字段值存储。 */
   @Prop() formValueStore?: FormValueStore;
+  /** 当前表单中可通过 $ref 使用的可复用字段定义。 */
+  @Prop() fieldDefinitions: FormFieldDefinitions = {};
+  /** 当前字段在表单结构中的实际渲染深度。 */
+  @Prop() renderDepth = 0;
+  /** 表单允许渲染的最大嵌套深度。 */
+  @Prop() maxRenderDepth = 32;
   /** 向父级渲染器通知字段值变更。 */
   @Event() valueChange!: EventEmitter<unknown>;
 
@@ -155,7 +162,9 @@ export class FormEasyField implements HandleTarget {
         newStore,
         this.field,
         this.fieldId,
-        this.currentValue
+        this.currentValue,
+        this.fieldDefinitions,
+        this.maxRenderDepth
       );
     }
     this.configureComponentData();
@@ -261,7 +270,9 @@ export class FormEasyField implements HandleTarget {
       this.formValueStore,
       this.field,
       this.fieldId,
-      value
+      value,
+      this.fieldDefinitions,
+      this.maxRenderDepth
     );
   }
 
@@ -695,6 +706,9 @@ export class FormEasyField implements HandleTarget {
           value={this.currentValue}
           eventCenter={this.eventCenter}
           formValueStore={this.formValueStore}
+          fieldDefinitions={this.fieldDefinitions}
+          renderDepth={this.renderDepth}
+          maxRenderDepth={this.maxRenderDepth}
           disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />
@@ -713,6 +727,9 @@ export class FormEasyField implements HandleTarget {
           value={this.currentValue}
           eventCenter={this.eventCenter}
           formValueStore={this.formValueStore}
+          fieldDefinitions={this.fieldDefinitions}
+          renderDepth={this.renderDepth}
+          maxRenderDepth={this.maxRenderDepth}
           disabled={this.effectiveDisabled}
           onValueChange={this.onNestedValueChange}
         />
@@ -724,6 +741,16 @@ export class FormEasyField implements HandleTarget {
   /** 渲染字段名称和编辑器。 */
   render() {
     if (!this.visible) return null;
+    if (this.renderDepth > this.maxRenderDepth) {
+      return (
+        <p
+          class="component-data-status component-data-status--error"
+          role="alert"
+        >
+          字段嵌套层级超过最大限制 {this.maxRenderDepth}。
+        </p>
+      );
+    }
     const hasName = typeof this.field.name === 'string'
       && this.field.name.trim().length > 0;
     const hasHint = typeof this.field.hint === 'string'

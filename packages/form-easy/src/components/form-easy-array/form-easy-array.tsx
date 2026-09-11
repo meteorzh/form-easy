@@ -3,6 +3,10 @@ import { globalEventCenter, type EventCenter } from '../../managers/event-center
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { FormValueStore } from '../../managers/form-value-store';
+import {
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type { FormField, LabelPosition } from '../../types';
 
@@ -29,6 +33,12 @@ export class FormEasyArray {
   @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 当前表单共享的字段值存储。 */
   @Prop() formValueStore?: FormValueStore;
+  /** 当前表单中可通过 $ref 使用的可复用字段定义。 */
+  @Prop() fieldDefinitions: FormFieldDefinitions = {};
+  /** 当前数组字段在表单结构中的实际渲染深度。 */
+  @Prop() renderDepth = 0;
+  /** 表单允许渲染的最大嵌套深度。 */
+  @Prop() maxRenderDepth = 32;
   /** 是否禁用数组修改。 */
   @Prop() disabled = false;
   /** 数组变更后触发新的数组值。 */
@@ -106,15 +116,24 @@ export class FormEasyArray {
 
   /** 返回适合元素分类的空值。 */
   private defaultElementValue(): unknown {
-    if (this.field.element?.category === 'array') return [];
-    if (this.field.element?.category === 'object') return {};
-    return this.field.element?.dataType === 'boolean' ? false : '';
+    if (!this.field.element) return '';
+    const element = resolveFormFieldNode(
+      this.field.element,
+      this.fieldDefinitions
+    );
+    if (element?.category === 'array') return [];
+    if (element?.category === 'object') return {};
+    return element?.dataType === 'boolean' ? false : '';
   }
 
   /** 渲染数组项和编辑操作。 */
   render() {
-    const element = this.field.element;
-    if (!element) return <p class="error">数组字段缺少元素定义。</p>;
+    const elementNode = this.field.element;
+    if (!elementNode) return <p class="error">数组字段缺少元素定义。</p>;
+    const element = resolveFormFieldNode(elementNode, this.fieldDefinitions);
+    if (!element) {
+      return <p class="error">数组元素引用的字段定义不存在。</p>;
+    }
 
     return (
       <div class="array" part="array">
@@ -199,6 +218,9 @@ export class FormEasyArray {
                     value={item}
                     eventCenter={this.eventCenter}
                     formValueStore={this.formValueStore}
+                    fieldDefinitions={this.fieldDefinitions}
+                    renderDepth={this.renderDepth + 1}
+                    maxRenderDepth={this.maxRenderDepth}
                     parentDisabled={this.disabled}
                     onValueChange={(event: CustomEvent<unknown>) =>
                       this.changeItem(index, event)

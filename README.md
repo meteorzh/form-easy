@@ -8,6 +8,7 @@
 
 - 📝 支持字符串、数字、布尔、日期、日期时间和时间基础字段。
 - 🌳 支持对象字段与可增删的数组字段，并自动递归渲染。
+- ♻️ 支持通过 `definitions` 与 `$ref` 声明可复用及递归字段结构。
 - 🎛️ 支持默认值与预设值加载；初始化会统一触发字段 `onChange`。
 - 🔗 支持字段事件订阅、`visible` / `enable` / `value` 绑定及自定义 resolver。
 - 🔄 内置事件流循环检测，避免订阅配置意外形成无限循环。
@@ -94,6 +95,46 @@ form.addEventListener('formChange', event => {
 <form-easy></form-easy>
 ```
 
+## 可复用与递归字段定义 ♻️
+
+`definitions` 可以保存不含实例 `key` 和 `name` 的字段模板，`$ref` 在顶层字段、对象子字段或数组元素位置按需引用模板。引用只在实际渲染到当前层级时展开，因此树形数据、条件组和嵌套流程等递归结构不会在初始化时无限展开。
+
+```ts
+const recursiveSchema = {
+  key: 'categoryTree',
+  name: '分类树',
+  definitions: {
+    categoryNode: {
+      category: 'object',
+      fields: [
+        {
+          key: 'name',
+          name: '分类名称',
+          category: 'basic',
+          dataType: 'string',
+          required: true
+        },
+        {
+          key: 'children',
+          name: '子分类',
+          category: 'array',
+          element: { $ref: 'categoryNode' }
+        }
+      ]
+    }
+  },
+  fields: [
+    {
+      $ref: 'categoryNode',
+      key: 'root',
+      name: '根分类'
+    }
+  ]
+};
+```
+
+引用实例可以覆盖 `key`、`name`、`required`、`hint`、`defaultValue`、`rules`、绑定和组件数据等实例属性，但字段分类和嵌套结构始终来自模板。`validateFormSchema()` 会检查 definitions 结构与未知 `$ref`。`<form-easy>` 默认最多渲染 32 层，可通过 `maxRenderDepth` 调整保护上限；该限制不会修改原始表单值。
+
 ## 可视化表单设计器 🧰
 
 核心包提供 `<form-easy-creator>`。设计器自身仍然是一个 `<form-easy>`：配置界面由独立的 `creator-schema.json` 驱动，编辑结果会实时转换为目标 `FormSchema`，并通过深度 schema 校验器显示错误和警告。
@@ -144,7 +185,9 @@ const validation = await creator.getSchemaValidationResult();
 const valid = await creator.validate();
 ```
 
-第一版支持表单基础信息、顶层字段、校验规则、绑定和事件订阅的可视化配置。由于 JSON schema 本身无法表达无限递归的自引用结构，数组字段的 `element` 和对象字段的 `fields` 暂由内置多行 JSON 编辑器配置；解析问题会与 schema 静态校验结果一起显示。
+设计器支持表单基础信息、`definitions`、任意层级字段、校验规则、绑定和事件订阅的可视化配置。数组字段的 `element` 与对象字段的 `fields` 也使用动态表单递归编辑，不需要手写整段 JSON；默认值、组件属性和组件静态数据等任意 JSON 值仍使用专用多行编辑器输入。
+
+字段节点可以选择“内联配置”或“引用 definitions”。引用模式只保存 `$ref` 和实例覆盖，不会在设计器中展开目标定义，因此可以安全表达自引用树结构。引用 definitions 的普通字段仍需填写实例 `key` 和 `name`，数组元素引用则不需要。设计器会动态列出当前已声明的 definition，并在定义被删除、改名、重名或引用不存在时通过结构检查给出错误。
 
 设计器右侧可以在 `JSON Schema` 与“表单预览”之间切换。`basicFieldRenderer` 仅用于渲染预览表单；不传时使用默认 H5 渲染器，也可以传入 Vue 或 Element Plus 渲染器。设计器左侧配置区域固定使用隔离的内置 H5 渲染器，确保设计器专用 JSON 编辑组件不要求业务渲染器额外注册。
 
@@ -339,6 +382,7 @@ result.warnings.forEach(issue => {
 深度校验覆盖以下内容：
 
 - 表单 `key`、`name`、`fields` 等必需属性、属性类型、未知属性和 `labelPosition` 枚举。
+- `definitions` 字段模板、`$ref` 引用及不存在的定义名称。
 - 每一级字段的 `key`、`name`、`category`，同级重复 key，以及会破坏完整字段标识的 key 字符。
 - 对象字段、数组元素定义和嵌套结构，并提供循环引用保护。
 - `defaultValue` 与字段分类、`dataType`、对象 fields 和数组 element 的深度兼容性。
@@ -364,7 +408,9 @@ result.warnings.forEach(issue => {
 | `key` | 表单唯一标识。 |
 | `name` | 表单标题。 |
 | `fields` | 字段配置列表。 |
+| `definitions` | 可通过 `$ref` 引用的可复用字段模板。 |
 | `labelPosition` | 标签位置：`left`（默认）、`top`、`right`。 |
+| `maxRenderDepth` | `<form-easy>` 组件属性，递归字段最大渲染深度，默认 `32`。 |
 
 ### 基础字段
 

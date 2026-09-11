@@ -1,3 +1,9 @@
+import {
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../form-field-definition-resolver';
+import type { FormField } from '../types';
+
 /** 字段值变化订阅函数。 */
 export type FormValueSubscriber = (value: unknown) => void;
 
@@ -116,10 +122,20 @@ export function synchronizeFormFieldValue(
   store: FormValueStore,
   field: FormField,
   fieldId: string,
-  value: unknown
+  value: unknown,
+  definitions: FormFieldDefinitions = {},
+  maxDepth = 32
 ): void {
   const branchValues = new Map<string, unknown>();
-  collectFormFieldValues(field, fieldId, value, branchValues);
+  collectFormFieldValues(
+    field,
+    fieldId,
+    value,
+    branchValues,
+    definitions,
+    maxDepth,
+    0
+  );
   store.replaceBranch(fieldId, branchValues);
 }
 
@@ -128,34 +144,52 @@ function collectFormFieldValues(
   field: FormField,
   fieldId: string,
   value: unknown,
-  values: Map<string, unknown>
+  values: Map<string, unknown>,
+  definitions: FormFieldDefinitions,
+  maxDepth: number,
+  depth: number
 ): void {
   const normalizedValue = value === undefined ? null : value;
   values.set(fieldId, normalizedValue);
+  if (depth >= maxDepth) return;
 
   if (field.category === 'object') {
     if (!isValueRecord(normalizedValue)) return;
-    (field.fields ?? []).forEach(childField => {
+    (field.fields ?? []).forEach(childFieldNode => {
+      const childField = resolveFormFieldNode(childFieldNode, definitions);
+      if (!childField) return;
       if (!childField.key) return;
       collectFormFieldValues(
         childField,
         `${fieldId}.${childField.key}`,
         normalizedValue[childField.key],
-        values
+        values,
+        definitions,
+        maxDepth,
+        depth + 1
       );
     });
     return;
   }
 
-  if (field.category !== 'array' || !Array.isArray(normalizedValue) || !field.element) {
+  if (
+    field.category !== 'array'
+    || !Array.isArray(normalizedValue)
+    || !field.element
+  ) {
     return;
   }
+  const element = resolveFormFieldNode(field.element, definitions);
+  if (!element) return;
   normalizedValue.forEach((item, index) => {
     collectFormFieldValues(
-      field.element!,
+      element,
       `${fieldId}[${index}]`,
       item,
-      values
+      values,
+      definitions,
+      maxDepth,
+      depth + 1
     );
   });
 }
@@ -164,4 +198,3 @@ function collectFormFieldValues(
 function isValueRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-import type { FormField } from '../types';

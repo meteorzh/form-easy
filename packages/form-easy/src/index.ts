@@ -1,6 +1,7 @@
 export * from './components';
 export * from './component-data-expression';
 export * from './field-reference';
+export * from './form-field-definition-resolver';
 export type { FormEasyCreatorChangeDetail } from './components/creator/types';
 export * from './managers/component-registry';
 export * from './managers/component-data-manager';

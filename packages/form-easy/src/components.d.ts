@@ -5,20 +5,22 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+import { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
 import { EndpointManager } from "./managers/endpoint-manager";
 import { FormValueStore } from "./managers/form-value-store";
+import { FormFieldDefinitions } from "./form-field-definition-resolver";
 import { FormEasyCreatorChangeDetail } from "./components/creator/types";
 import { FormSchemaValidationResult } from "./validation/schema";
-export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormSchema, LabelPosition } from "./types";
+export { ComponentHandle, EventFlowHistory, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
 export { EndpointManager } from "./managers/endpoint-manager";
 export { FormValueStore } from "./managers/form-value-store";
+export { FormFieldDefinitions } from "./form-field-definition-resolver";
 export { FormEasyCreatorChangeDetail } from "./components/creator/types";
 export { FormSchemaValidationResult } from "./validation/schema";
 export namespace Components {
@@ -46,6 +48,11 @@ export namespace Components {
           * 当前表单使用的字段值存储；未传入时为当前表单创建独立实例。
          */
         "formValueStore"?: FormValueStore;
+        /**
+          * 表单允许渲染的最大字段嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth": number;
         /**
           * 描述表单及其字段的 JSON schema。
          */
@@ -94,6 +101,11 @@ export namespace Components {
          */
         "field": FormField;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions": FormFieldDefinitions;
+        /**
           * 数组字段的唯一标识。
          */
         "fieldId": string;
@@ -110,6 +122,16 @@ export namespace Components {
           * @default 'left'
          */
         "labelPosition": LabelPosition;
+        /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth": number;
+        /**
+          * 当前数组字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth": number;
         /**
           * 当前数组值。
          */
@@ -193,6 +215,11 @@ export namespace Components {
          */
         "field": FormField;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions": FormFieldDefinitions;
+        /**
           * 分配给当前字段的完整唯一标识。
          */
         "fieldId": string;
@@ -210,10 +237,20 @@ export namespace Components {
          */
         "labelPosition": LabelPosition;
         /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth": number;
+        /**
           * 父级对象或数组字段是否处于禁用状态。
           * @default false
          */
         "parentDisabled": boolean;
+        /**
+          * 当前字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth": number;
         /**
           * 执行当前字段的同步规则校验，并更新错误展示状态。
          */
@@ -250,6 +287,11 @@ export namespace Components {
          */
         "eventCenter": EventCenter;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions": FormFieldDefinitions;
+        /**
           * 当前对象字段的标识前缀。
          */
         "fieldId": string;
@@ -257,7 +299,7 @@ export namespace Components {
           * 子字段定义列表。
           * @default []
          */
-        "fields": FormField[];
+        "fields": FormFieldNode[];
         /**
           * 所属表单的键。
          */
@@ -271,6 +313,16 @@ export namespace Components {
           * @default 'left'
          */
         "labelPosition": LabelPosition;
+        /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth": number;
+        /**
+          * 当前对象字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth": number;
         /**
           * 当前对象值。
          */
@@ -571,6 +623,11 @@ declare namespace LocalJSX {
          */
         "formValueStore"?: FormValueStore;
         /**
+          * 表单允许渲染的最大字段嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth"?: number;
+        /**
           * 每次值变更时触发字段和完整表单上下文。
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
@@ -614,6 +671,11 @@ declare namespace LocalJSX {
          */
         "field": FormField;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions"?: FormFieldDefinitions;
+        /**
           * 数组字段的唯一标识。
          */
         "fieldId": string;
@@ -631,9 +693,19 @@ declare namespace LocalJSX {
          */
         "labelPosition"?: LabelPosition;
         /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth"?: number;
+        /**
           * 数组变更后触发新的数组值。
          */
         "onValueChange"?: (event: FormEasyArrayCustomEvent<unknown[]>) => void;
+        /**
+          * 当前数组字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth"?: number;
         /**
           * 当前数组值。
          */
@@ -709,6 +781,11 @@ declare namespace LocalJSX {
          */
         "field": FormField;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions"?: FormFieldDefinitions;
+        /**
           * 分配给当前字段的完整唯一标识。
          */
         "fieldId": string;
@@ -726,6 +803,11 @@ declare namespace LocalJSX {
          */
         "labelPosition"?: LabelPosition;
         /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth"?: number;
+        /**
           * 向父级渲染器通知字段值变更。
          */
         "onValueChange"?: (event: FormEasyFieldCustomEvent<unknown>) => void;
@@ -734,6 +816,11 @@ declare namespace LocalJSX {
           * @default false
          */
         "parentDisabled"?: boolean;
+        /**
+          * 当前字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth"?: number;
         /**
           * 当前字段值。
          */
@@ -766,6 +853,11 @@ declare namespace LocalJSX {
          */
         "eventCenter"?: EventCenter;
         /**
+          * 当前表单中可通过 $ref 使用的可复用字段定义。
+          * @default {}
+         */
+        "fieldDefinitions"?: FormFieldDefinitions;
+        /**
           * 当前对象字段的标识前缀。
          */
         "fieldId": string;
@@ -773,7 +865,7 @@ declare namespace LocalJSX {
           * 子字段定义列表。
           * @default []
          */
-        "fields"?: FormField[];
+        "fields"?: FormFieldNode[];
         /**
           * 所属表单的键。
          */
@@ -788,9 +880,19 @@ declare namespace LocalJSX {
          */
         "labelPosition"?: LabelPosition;
         /**
+          * 表单允许渲染的最大嵌套深度。
+          * @default 32
+         */
+        "maxRenderDepth"?: number;
+        /**
           * 子字段变更后触发完整的嵌套对象。
          */
         "onValueChange"?: (event: FormEasyObjectCustomEvent<Record<string, unknown>>) => void;
+        /**
+          * 当前对象字段在表单结构中的实际渲染深度。
+          * @default 0
+         */
+        "renderDepth"?: number;
         /**
           * 当前对象值。
          */
@@ -867,10 +969,15 @@ declare namespace LocalJSX {
         "value"?: unknown;
     }
 
+    interface FormEasyAttributes {
+        "maxRenderDepth": number;
+    }
     interface FormEasyArrayAttributes {
         "fieldId": string;
         "formKey": string;
         "labelPosition": LabelPosition;
+        "renderDepth": number;
+        "maxRenderDepth": number;
         "disabled": boolean;
     }
     interface FormEasyCreatorJsonEditorAttributes {
@@ -883,11 +990,15 @@ declare namespace LocalJSX {
         "formKey": string;
         "labelPosition": LabelPosition;
         "parentDisabled": boolean;
+        "renderDepth": number;
+        "maxRenderDepth": number;
     }
     interface FormEasyObjectAttributes {
         "fieldId": string;
         "formKey": string;
         "labelPosition": LabelPosition;
+        "renderDepth": number;
+        "maxRenderDepth": number;
         "disabled": boolean;
     }
     interface FormEasySelectAttributes {
@@ -903,7 +1014,7 @@ declare namespace LocalJSX {
     }
 
     interface IntrinsicElements {
-        "form-easy": FormEasy;
+        "form-easy": Omit<FormEasy, keyof FormEasyAttributes> & { [K in keyof FormEasy & keyof FormEasyAttributes]?: FormEasy[K] } & { [K in keyof FormEasy & keyof FormEasyAttributes as `attr:${K}`]?: FormEasyAttributes[K] } & { [K in keyof FormEasy & keyof FormEasyAttributes as `prop:${K}`]?: FormEasy[K] };
         "form-easy-array": Omit<FormEasyArray, keyof FormEasyArrayAttributes> & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes]?: FormEasyArray[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `attr:${K}`]?: FormEasyArrayAttributes[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `prop:${K}`]?: FormEasyArray[K] } & OneOf<"fieldId", FormEasyArray["fieldId"], FormEasyArrayAttributes["fieldId"]> & OneOf<"formKey", FormEasyArray["formKey"], FormEasyArrayAttributes["formKey"]>;
         "form-easy-creator": FormEasyCreator;
         "form-easy-creator-json-editor": Omit<FormEasyCreatorJsonEditor, keyof FormEasyCreatorJsonEditorAttributes> & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes]?: FormEasyCreatorJsonEditor[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `attr:${K}`]?: FormEasyCreatorJsonEditorAttributes[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `prop:${K}`]?: FormEasyCreatorJsonEditor[K] };

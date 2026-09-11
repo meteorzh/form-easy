@@ -3,14 +3,18 @@ import { globalEventCenter, type EventCenter } from '../../managers/event-center
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { FormValueStore } from '../../managers/form-value-store';
+import {
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { FormField, LabelPosition } from '../../types';
+import type { FormField, FormFieldNode, LabelPosition } from '../../types';
 
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
 @Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css' })
 export class FormEasyObject {
   /** 子字段定义列表。 */
-  @Prop() fields: FormField[] = [];
+  @Prop() fields: FormFieldNode[] = [];
   /** 当前对象字段的标识前缀。 */
   @Prop() fieldId!: string;
   /** 所属表单的键。 */
@@ -29,6 +33,12 @@ export class FormEasyObject {
   @Prop() eventCenter: EventCenter = globalEventCenter;
   /** 当前表单共享的字段值存储。 */
   @Prop() formValueStore?: FormValueStore;
+  /** 当前表单中可通过 $ref 使用的可复用字段定义。 */
+  @Prop() fieldDefinitions: FormFieldDefinitions = {};
+  /** 当前对象字段在表单结构中的实际渲染深度。 */
+  @Prop() renderDepth = 0;
+  /** 表单允许渲染的最大嵌套深度。 */
+  @Prop() maxRenderDepth = 32;
   /** 是否禁用嵌套字段编辑。 */
   @Prop() disabled = false;
   /** 子字段变更后触发完整的嵌套对象。 */
@@ -69,7 +79,7 @@ export class FormEasyObject {
     if (this.disabled) return;
     this.expanded = true;
     const initialValue = Object.fromEntries(
-      this.fields
+      this.resolvedFields
         .filter(field => field.key)
         .map(field => [field.key!, this.createFieldInitialValue(field)])
     );
@@ -86,7 +96,7 @@ export class FormEasyObject {
   /** 为当前对象的直接子字段发布 onChange 初始化事件。 */
   private publishInitialFieldValues(): void {
     if (!this.objectValue) return;
-    this.fields.forEach(field => {
+    this.resolvedFields.forEach(field => {
       if (!field.key) return;
       this.eventCenter.publish(
         `${this.fieldId}.${field.key}`,
@@ -131,6 +141,14 @@ export class FormEasyObject {
     return value;
   }
 
+  /** 获取当前对象字段中能够成功解析的全部直接子字段。 */
+  private get resolvedFields(): FormField[] {
+    return this.fields.flatMap(fieldNode => {
+      const field = resolveFormFieldNode(fieldNode, this.fieldDefinitions);
+      return field ? [field] : [];
+    });
+  }
+
   /** 渲染尚未创建对象时使用的编辑按钮。 */
   private renderPlaceholder() {
     const label = '创建并编辑对象';
@@ -155,6 +173,7 @@ export class FormEasyObject {
   render() {
     if (this.objectValue === null) return this.renderPlaceholder();
     const objectValue = this.objectValue;
+    const resolvedFields = this.resolvedFields;
 
     return (
       <div class="object" part="object">
@@ -174,11 +193,11 @@ export class FormEasyObject {
             >
               <path d="m7 5 5 5-5 5" />
             </svg>
-            <span>共 {this.fields.length} 个字段</span>
+            <span>共 {resolvedFields.length} 个字段</span>
           </button>
         </div>
         <div class="object-content" hidden={!this.expanded}>
-          {this.fields.map(field =>
+          {resolvedFields.map(field =>
             field.key ? (
               <form-easy-field
                 field={field}
@@ -191,6 +210,9 @@ export class FormEasyObject {
                 value={objectValue[field.key]}
                 eventCenter={this.eventCenter}
                 formValueStore={this.formValueStore}
+                fieldDefinitions={this.fieldDefinitions}
+                renderDepth={this.renderDepth + 1}
+                maxRenderDepth={this.maxRenderDepth}
                 parentDisabled={this.disabled}
                 onValueChange={(event: CustomEvent<unknown>) =>
                   this.changeField(field.key!, event)

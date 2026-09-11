@@ -7,6 +7,11 @@ import {
   resolveSiblingFieldId
 } from '../../field-reference';
 import { parseComponentDataExpression } from '../../component-data-expression';
+import {
+  isFormFieldReference,
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
 import { SchemaValidationContext } from './schema-validation-context';
 import { indexPath, isPlainRecord, propertyPath } from './schema-validation-utils';
 
@@ -15,12 +20,20 @@ export function validateLocalFieldReferences(
   formKey: string,
   fields: unknown[],
   path: string,
-  context: SchemaValidationContext
+  context: SchemaValidationContext,
+  definitions: FormFieldDefinitions = {}
 ): void {
   const declaredFieldIds = new Set<string>();
-  fields.forEach(field => collectFieldIds(field, formKey, declaredFieldIds, new WeakSet<object>()));
+  fields.forEach(field => collectFieldIds(
+    field,
+    formKey,
+    declaredFieldIds,
+    new WeakSet<object>(),
+    definitions,
+    new Set<string>()
+  ));
   fields.forEach((field, index) => {
-    const fieldId = createFieldId(field, formKey);
+    const fieldId = createFieldId(field, formKey, definitions);
     validateFieldReferences(
       field,
       indexPath(path, index),
@@ -28,6 +41,8 @@ export function validateLocalFieldReferences(
       declaredFieldIds,
       fieldId,
       new WeakSet<object>(),
+      definitions,
+      new Set<string>(),
       context
     );
   });
@@ -39,23 +54,46 @@ function collectFieldIds(
   parentFieldId: string,
   fieldIds: Set<string>,
   visited: WeakSet<object>,
+  definitions: FormFieldDefinitions,
+  activeDefinitionNames: Set<string>,
   anonymousFieldId?: string
 ): void {
   if (!isPlainRecord(value) || visited.has(value)) return;
   visited.add(value);
+  const referenceName = isFormFieldReference(value) ? value.$ref : undefined;
+  const field = resolveFormFieldNode(value, definitions);
+  if (!field) return;
 
   const fieldId = anonymousFieldId
-    ?? (typeof value.key === 'string' && value.key.trim()
-      ? `${parentFieldId}.${value.key}`
+    ?? (typeof field.key === 'string' && field.key.trim()
+      ? `${parentFieldId}.${field.key}`
       : undefined);
   if (!fieldId) return;
   fieldIds.add(fieldId);
+  if (referenceName && activeDefinitionNames.has(referenceName)) return;
+  const childActiveDefinitionNames = new Set(activeDefinitionNames);
+  if (referenceName) childActiveDefinitionNames.add(referenceName);
 
-  if (value.category === 'object' && Array.isArray(value.fields)) {
-    value.fields.forEach(field => collectFieldIds(field, fieldId, fieldIds, visited));
+  if (field.category === 'object' && Array.isArray(field.fields)) {
+    field.fields.forEach(childField => collectFieldIds(
+      childField,
+      fieldId,
+      fieldIds,
+      visited,
+      definitions,
+      childActiveDefinitionNames
+    ));
   }
-  if (value.category === 'array' && isPlainRecord(value.element)) {
-    collectFieldIds(value.element, fieldId, fieldIds, visited, `${fieldId}[]`);
+  if (field.category === 'array' && isPlainRecord(field.element)) {
+    collectFieldIds(
+      field.element,
+      fieldId,
+      fieldIds,
+      visited,
+      definitions,
+      childActiveDefinitionNames,
+      `${fieldId}[]`
+    );
   }
 }
 
@@ -106,13 +144,18 @@ function validateFieldReferences(
   fieldIds: ReadonlySet<string>,
   currentFieldId: string | undefined,
   visited: WeakSet<object>,
+  definitions: FormFieldDefinitions,
+  activeDefinitionNames: Set<string>,
   context: SchemaValidationContext
 ): void {
   if (!isPlainRecord(value) || visited.has(value)) return;
   visited.add(value);
+  const referenceName = isFormFieldReference(value) ? value.$ref : undefined;
+  const field = resolveFormFieldNode(value, definitions);
+  if (!field) return;
 
   validateComponentDataParameterReferences(
-    value.componentDataKey,
+    field.componentDataKey,
     propertyPath(path, 'componentDataKey'),
     formKey,
     currentFieldId,
@@ -120,8 +163,8 @@ function validateFieldReferences(
     context
   );
 
-  if (Array.isArray(value.binds)) {
-    value.binds.forEach((binding, index) => {
+  if (Array.isArray(field.binds)) {
+    field.binds.forEach((binding, index) => {
       if (!isPlainRecord(binding)) return;
       const sourceFieldPath = propertyPath(
         indexPath(propertyPath(path, 'binds'), index),
@@ -151,8 +194,8 @@ function validateFieldReferences(
       );
     });
   }
-  if (Array.isArray(value.eventSubscriptions)) {
-    value.eventSubscriptions.forEach((subscription, index) => {
+  if (Array.isArray(field.eventSubscriptions)) {
+    field.eventSubscriptions.forEach((subscription, index) => {
       if (!isPlainRecord(subscription) || subscription.sourceFormKey !== formKey) return;
       validateLocalSourceFieldId(
         subscription.sourceFieldKey,
@@ -162,40 +205,55 @@ function validateFieldReferences(
       );
     });
   }
-  if (value.category === 'object' && Array.isArray(value.fields)) {
-    value.fields.forEach((field, index) => {
+  if (referenceName && activeDefinitionNames.has(referenceName)) return;
+  const childActiveDefinitionNames = new Set(activeDefinitionNames);
+  if (referenceName) childActiveDefinitionNames.add(referenceName);
+
+  if (field.category === 'object' && Array.isArray(field.fields)) {
+    field.fields.forEach((childField, index) => {
       const childFieldId = currentFieldId
-        ? createFieldId(field, currentFieldId)
+        ? createFieldId(childField, currentFieldId, definitions)
         : undefined;
       validateFieldReferences(
-        field,
+        childField,
         indexPath(propertyPath(path, 'fields'), index),
         formKey,
         fieldIds,
         childFieldId,
         visited,
+        definitions,
+        childActiveDefinitionNames,
         context
       );
     });
   }
-  if (value.category === 'array' && isPlainRecord(value.element)) {
+  if (field.category === 'array' && isPlainRecord(field.element)) {
     const elementFieldId = currentFieldId ? `${currentFieldId}[]` : undefined;
     validateFieldReferences(
-      value.element,
+      field.element,
       propertyPath(path, 'element'),
       formKey,
       fieldIds,
       elementFieldId,
       visited,
+      definitions,
+      childActiveDefinitionNames,
       context
     );
   }
 }
 
 /** 根据父级标识和字段 key 创建当前字段的声明标识。 */
-function createFieldId(value: unknown, parentFieldId: string): string | undefined {
-  return isPlainRecord(value) && typeof value.key === 'string' && value.key.trim()
-    ? `${parentFieldId}.${value.key}`
+function createFieldId(
+  value: unknown,
+  parentFieldId: string,
+  definitions: FormFieldDefinitions
+): string | undefined {
+  const field = isPlainRecord(value)
+    ? resolveFormFieldNode(value, definitions)
+    : undefined;
+  return field && typeof field.key === 'string' && field.key.trim()
+    ? `${parentFieldId}.${field.key}`
     : undefined;
 }
 

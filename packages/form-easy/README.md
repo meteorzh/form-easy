@@ -16,7 +16,7 @@ defineCustomElements();
 <form-easy></form-easy>
 ```
 
-将表单 schema 通过 `element.schema = schema` 传入即可渲染。支持基础、对象与数组字段，以及事件订阅、字段绑定、默认值和预设值加载。未传 `eventCenter` 的表单会共用 `globalEventCenter`；也可自行创建 `new EventCenter()` 并传入表单以隔离事件。
+将表单 schema 通过 `element.schema = schema` 传入即可渲染。支持基础、对象与数组字段，以及事件订阅、字段绑定、默认值和预设值加载。schema 可以通过 `definitions` 保存可复用字段模板，并在字段或数组元素位置使用 `{ $ref: '定义名' }` 声明递归结构。未传 `eventCenter` 的表单会共用 `globalEventCenter`；也可自行创建 `new EventCenter()` 并传入表单以隔离事件。
 
 字段可通过 `componentData` 直接提供下拉选项等组件数据，或通过 `componentDataKey` 配合 `ComponentDataManager` 异步加载。数据就绪后，组件才会挂载并接收字段值。`componentDataKey` 也支持 `city-options(provinceCode:./provinceCode)` 参数表达式；框架通过表单级 `FormValueStore` 读取并订阅引用字段，将最新值传入 resolver 的 `params` 参数。
 
@@ -30,7 +30,7 @@ defineCustomElements();
 
 完整使用文档、Vue 3 与 Element Plus 示例请参阅 [项目主页](https://github.com/meteorzh/form-easy#readme)。
 
-核心包还提供由动态表单 JSON 驱动的 `<form-easy-creator>` 可视化设计器，可实时生成并校验表单 schema。
+核心包还提供由动态表单 JSON 驱动的 `<form-easy-creator>` 可视化设计器，可实时生成并校验表单 schema；设计器能够维护 `definitions`，并通过不展开目标定义的 `$ref` 节点安全设计递归表单。
 
 ## License
 

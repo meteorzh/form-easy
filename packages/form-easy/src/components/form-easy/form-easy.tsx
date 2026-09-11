@@ -6,9 +6,15 @@ import {
   FormValueStore,
   synchronizeFormFieldValue
 } from '../../managers/form-value-store';
+import {
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   FormChangeDetail,
+  FormField,
+  FormFieldNode,
   FormSchema,
   LabelPosition
 } from '../../types';
@@ -41,6 +47,8 @@ export class FormEasy {
   @Prop() endpointManager?: EndpointManager;
   /** 当前表单使用的字段值存储；未传入时为当前表单创建独立实例。 */
   @Prop() formValueStore?: FormValueStore;
+  /** 表单允许渲染的最大字段嵌套深度。 */
+  @Prop() maxRenderDepth = 32;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
   /** 当前完整表单数据。 */
@@ -63,6 +71,11 @@ export class FormEasy {
     return this.formValueStore ?? this.internalFormValueStore;
   }
 
+  /** 获取当前 schema 声明的可复用字段定义。 */
+  private get fieldDefinitions(): FormFieldDefinitions {
+    return this.schema.definitions ?? {};
+  }
+
   /** 初始化第一阶段：挂载控件时先提供空表单数据。 */
   componentWillLoad(): void {
     this.formData = {};
@@ -72,7 +85,7 @@ export class FormEasy {
   componentDidLoad(): void {
     const initialData = this.value === undefined
       ? this.createDefaultFormData(this.schema.fields)
-      : this.createPresetFormData(this.schema.fields, this.value);
+      : this.createPresetFormData(this.schema.fields, this.value, 0);
     this.applyFormData(initialData);
   }
 
@@ -123,75 +136,99 @@ export class FormEasy {
   /** 写入完整表单数据，并为每一个字段发布 onChange 初始化事件。 */
   private applyFormData(formData: Record<string, unknown>): void {
     this.formData = formData;
-    this.schema.fields.forEach(field => {
+    this.schema.fields.forEach(fieldNode => {
+      const field = this.resolveField(fieldNode);
+      if (!field) return;
       if (!field.key) return;
       synchronizeFormFieldValue(
         this.activeFormValueStore,
         field,
         `${this.schema.key}.${field.key}`,
-        formData[field.key]
+        formData[field.key],
+        this.fieldDefinitions,
+        this.maxRenderDepth
       );
     });
     this.publishInitialFieldValues(this.schema.fields, this.schema.key, formData);
   }
 
   /** 根据字段定义构造默认表单数据；无默认值的基础和数组字段为 null。 */
-  private createDefaultFormData(fields: FormSchema['fields']): Record<string, unknown> {
+  private createDefaultFormData(fields: FormFieldNode[]): Record<string, unknown> {
     return Object.fromEntries(
       fields
-        .filter(field => field.key)
+        .map(fieldNode => this.resolveField(fieldNode))
+        .filter((field): field is FormField => Boolean(field?.key))
         .map(field => [field.key!, this.createDefaultFieldValue(field)])
     );
   }
 
   /** 根据预设值构造完整表单数据；预设中缺失的字段一律为 null。 */
   private createPresetFormData(
-    fields: FormSchema['fields'],
-    presetData: Record<string, unknown>
+    fields: FormFieldNode[],
+    presetData: Record<string, unknown>,
+    depth: number
   ): Record<string, unknown> {
     return Object.fromEntries(
       fields
-        .filter(field => field.key)
+        .map(fieldNode => this.resolveField(fieldNode))
+        .filter((field): field is FormField => Boolean(field?.key))
         .map(field => {
           const hasPresetValue = Object.prototype.hasOwnProperty.call(presetData, field.key!);
           const presetValue = hasPresetValue ? presetData[field.key!] : null;
-          return [field.key!, this.createPresetFieldValue(field, presetValue)];
+          return [
+            field.key!,
+            this.createPresetFieldValue(field, presetValue, depth)
+          ];
         })
     );
   }
 
   /** 根据字段分类规范化单个预设值。 */
   private createPresetFieldValue(
-    field: FormSchema['fields'][number],
-    presetValue: unknown
+    field: FormField,
+    presetValue: unknown,
+    depth: number
   ): unknown {
+    if (depth >= this.maxRenderDepth) return this.cloneValue(presetValue);
     if (field.category === 'object') {
       return this.isRecord(presetValue)
-        ? this.createPresetFormData(field.fields ?? [], presetValue)
+        ? this.createPresetFormData(field.fields ?? [], presetValue, depth + 1)
         : null;
     }
     if (field.category === 'array' && Array.isArray(presetValue)) {
-      return presetValue.map(item => this.createPresetArrayElementValue(field, item));
+      return presetValue.map(item => this.createPresetArrayElementValue(
+        field,
+        item,
+        depth + 1
+      ));
     }
     return presetValue === undefined ? null : this.cloneValue(presetValue);
   }
 
   /** 根据数组元素定义规范化对象元素中的预设子字段。 */
   private createPresetArrayElementValue(
-    field: FormSchema['fields'][number],
-    presetValue: unknown
+    field: FormField,
+    presetValue: unknown,
+    depth: number
   ): unknown {
-    const element = field.element;
+    if (depth >= this.maxRenderDepth) return this.cloneValue(presetValue);
+    const element = field.element
+      ? this.resolveField(field.element)
+      : undefined;
     if (element?.category === 'object') {
       return this.isRecord(presetValue)
-        ? this.createPresetFormData(element.fields ?? [], presetValue)
+        ? this.createPresetFormData(
+          element.fields ?? [],
+          presetValue,
+          depth + 1
+        )
         : null;
     }
     return presetValue === undefined ? null : this.cloneValue(presetValue);
   }
 
   /** 根据 defaultValue 配置构造字段默认值；未配置时统一返回 null。 */
-  private createDefaultFieldValue(field: FormSchema['fields'][number]): unknown {
+  private createDefaultFieldValue(field: FormField): unknown {
     if (Object.prototype.hasOwnProperty.call(field, 'defaultValue')) {
       return this.cloneValue(field.defaultValue);
     }
@@ -219,17 +256,24 @@ export class FormEasy {
 
   /** 发布顶层字段的 onChange 事件；嵌套值由对应对象和数组容器继续发布。 */
   private publishInitialFieldValues(
-    fields: FormSchema['fields'],
+    fields: FormFieldNode[],
     parentFieldId: string,
     data: Record<string, unknown>
   ): void {
-    fields.forEach(field => {
+    fields.forEach(fieldNode => {
+      const field = this.resolveField(fieldNode);
+      if (!field) return;
       if (!field.key) return;
 
       const fieldId = `${parentFieldId}.${field.key}`;
       const fieldValue = data[field.key] ?? null;
       this.activeEventCenter.publish(fieldId, 'onChange', fieldValue);
     });
+  }
+
+  /** 使用当前 schema definitions 浅解析一个字段节点。 */
+  private resolveField(fieldNode: FormFieldNode): FormField | undefined {
+    return resolveFormFieldNode(fieldNode, this.fieldDefinitions);
   }
 
   /** 渲染表单标题和全部顶层字段渲染器。 */
@@ -240,23 +284,40 @@ export class FormEasy {
     return (
       <form part="form" novalidate>
         <h2>{schema?.name}</h2>
-        {fields.map(field => field.key ? (
-          <form-easy-field
-            field={field}
-            fieldId={`${schema.key}.${field.key}`}
-            formKey={schema.key}
-            labelPosition={this.labelPosition}
-            basicFieldRenderer={this.basicFieldRenderer}
-            componentDataManager={this.componentDataManager}
-            endpointManager={this.endpointManager}
-            value={this.formData[field.key]}
-            eventCenter={this.activeEventCenter}
-            formValueStore={this.activeFormValueStore}
-            onValueChange={(event: CustomEvent<unknown>) =>
-              this.changeField(field.key!, `${schema.key}.${field.key}`, event)
-            }
-          />
-        ) : null)}
+        {fields.map(fieldNode => {
+          const field = this.resolveField(fieldNode);
+          if (!field) {
+            const referenceName = '$ref' in fieldNode
+              ? fieldNode.$ref
+              : '未知定义';
+            return (
+              <p class="form-schema-error" role="alert">
+                未找到字段定义：{referenceName}。
+              </p>
+            );
+          }
+          if (!field.key) return null;
+          return (
+            <form-easy-field
+              field={field}
+              fieldId={`${schema.key}.${field.key}`}
+              formKey={schema.key}
+              labelPosition={this.labelPosition}
+              basicFieldRenderer={this.basicFieldRenderer}
+              componentDataManager={this.componentDataManager}
+              endpointManager={this.endpointManager}
+              value={this.formData[field.key]}
+              eventCenter={this.activeEventCenter}
+              formValueStore={this.activeFormValueStore}
+              fieldDefinitions={this.fieldDefinitions}
+              renderDepth={0}
+              maxRenderDepth={this.maxRenderDepth}
+              onValueChange={(event: CustomEvent<unknown>) =>
+                this.changeField(field.key!, `${schema.key}.${field.key}`, event)
+              }
+            />
+          );
+        })}
       </form>
     );
   }

@@ -1,4 +1,8 @@
-import type { DataType, FormField } from '../../types';
+import {
+  resolveFormFieldNode,
+  type FormFieldDefinitions
+} from '../../form-field-definition-resolver';
+import type { DataType, FormField, FormFieldNode } from '../../types';
 import { normalizeRuleComparableValue } from '../rule-configuration-validator';
 import { SchemaValidationContext } from './schema-validation-context';
 import {
@@ -13,7 +17,8 @@ export function validateDefaultValue(
   field: FormField,
   value: unknown,
   path: string,
-  context: SchemaValidationContext
+  context: SchemaValidationContext,
+  definitions: FormFieldDefinitions = {}
 ): void {
   if (value === null || value === undefined) return;
   if (field.category === 'basic') {
@@ -27,7 +32,18 @@ export function validateDefaultValue(
     }
     if (!enterDefaultValue(value, path, context)) return;
     value.forEach((item, index) => {
-      if (field.element) validateDefaultValue(field.element, item, indexPath(path, index), context);
+      const element = field.element
+        ? resolveFormFieldNode(field.element, definitions)
+        : undefined;
+      if (element) {
+        validateDefaultValue(
+          element,
+          item,
+          indexPath(path, index),
+          context,
+          definitions
+        );
+      }
     });
     context.activeDefaultValues.delete(value);
     return;
@@ -37,7 +53,13 @@ export function validateDefaultValue(
     return;
   }
   if (!enterDefaultValue(value, path, context)) return;
-  validateObjectDefaultValue(field.fields ?? [], value, path, context);
+  validateObjectDefaultValue(
+    field.fields ?? [],
+    value,
+    path,
+    context,
+    definitions
+  );
   context.activeDefaultValues.delete(value);
 }
 
@@ -72,12 +94,21 @@ function validateBasicDefaultValue(
 
 /** 校验对象默认值中的已声明字段、未知字段及嵌套值。 */
 function validateObjectDefaultValue(
-  fields: FormField[],
+  fields: FormFieldNode[],
   value: Record<string, unknown>,
   path: string,
-  context: SchemaValidationContext
+  context: SchemaValidationContext,
+  definitions: FormFieldDefinitions
 ): void {
-  const fieldsByKey = new Map(fields.filter(field => field.key).map(field => [field.key!, field]));
+  const resolvedFields = fields.flatMap(fieldNode => {
+    const field = resolveFormFieldNode(fieldNode, definitions);
+    return field ? [field] : [];
+  });
+  const fieldsByKey = new Map(
+    resolvedFields
+      .filter(field => field.key)
+      .map(field => [field.key!, field])
+  );
   Object.entries(value).forEach(([key, item]) => {
     const childPath = propertyPath(path, key);
     const childField = fieldsByKey.get(key);
@@ -89,7 +120,13 @@ function validateObjectDefaultValue(
       );
       return;
     }
-    validateDefaultValue(childField, item, childPath, context);
+    validateDefaultValue(
+      childField,
+      item,
+      childPath,
+      context,
+      definitions
+    );
   });
 }
 

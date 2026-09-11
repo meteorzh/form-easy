@@ -1,2 +1,8 @@
 :host { display: block; }
 form { box-sizing: border-box; }
+
+.form-schema-error {
+  margin: 8px 0;
+  color: #dc2626;
+  font-size: 13px;
+}

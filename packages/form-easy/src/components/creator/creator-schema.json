@@ -38,8 +38,18 @@
       ]
     },
     {
+      "key": "schemaDefinitions",
+      "name": "可复用字段定义",
+      "category": "array",
+      "element": {
+        "category": "object",
+        "fields": []
+      },
+      "hint": "定义可以被顶层字段、对象子字段或数组元素引用，并允许形成递归结构。"
+    },
+    {
       "key": "fieldDefinitions",
-      "name": "字段配置列表",
+      "name": "顶层字段列表",
       "category": "array",
       "required": true,
       "rules": [
@@ -200,15 +210,9 @@
             ]
           },
           {
-            "key": "elementJson",
-            "name": "数组元素定义 JSON",
-            "category": "basic",
-            "dataType": "string",
-            "component": "creator-json-editor",
-            "componentProperties": {
-              "placeholder": "例如：{ \"category\": \"basic\", \"dataType\": \"string\" }",
-              "rows": 5
-            },
+            "$ref": "arrayElementDefinition",
+            "key": "elementDefinition",
+            "name": "数组元素定义",
             "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
             "binds": [
               {
@@ -220,14 +224,11 @@
             ]
           },
           {
-            "key": "fieldsJson",
-            "name": "对象子字段列表 JSON",
-            "category": "basic",
-            "dataType": "string",
-            "component": "creator-json-editor",
-            "componentProperties": {
-              "placeholder": "例如：[{ \"key\": \"city\", \"name\": \"城市\", \"category\": \"basic\", \"dataType\": \"string\" }]",
-              "rows": 6
+            "key": "fields",
+            "name": "对象子字段列表",
+            "category": "array",
+            "element": {
+              "$ref": "fieldDefinition"
             },
             "hint": "仅 category 为 object 时生效。",
             "binds": [

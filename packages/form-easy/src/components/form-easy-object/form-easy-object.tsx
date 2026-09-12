@@ -1,4 +1,13 @@
-import { Component, Event, EventEmitter, h, Prop, State, Watch } from '@stencil/core';
+import {
+  Component,
+  Event,
+  EventEmitter,
+  h,
+  Listen,
+  Prop,
+  State,
+  Watch
+} from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
@@ -8,7 +17,12 @@ import {
   type FormFieldDefinitions
 } from '../../form-field-definition-resolver';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import type { FormField, FormFieldNode, LabelPosition } from '../../types';
+import type {
+  FieldVisibilityChangeDetail,
+  FormField,
+  FormFieldNode,
+  LabelPosition
+} from '../../types';
 
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
 @Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css' })
@@ -47,6 +61,8 @@ export class FormEasyObject {
   @State() private objectValue: Record<string, unknown> | null = null;
   /** 对象内容是否处于展开状态。 */
   @State() private expanded = true;
+  /** 当前对象直接子字段的可见状态。 */
+  @State() private childFieldVisibility: Record<string, boolean> = {};
   /** 标记对象在本轮渲染完成后是否需要发布子字段初始化事件。 */
   private shouldPublishInitialFieldValues = false;
 
@@ -93,6 +109,32 @@ export class FormEasyObject {
   private toggleExpanded = (): void => {
     this.expanded = !this.expanded;
   };
+
+  /**
+   * 记录直接子字段的可见状态，用于展示准确的对象字段摘要。
+   * 嵌套后代字段的事件会继续冒泡到根表单，但不会计入本对象的直接字段数。
+   */
+  @Listen('fieldVisibilityChange')
+  handleChildFieldVisibilityChange(
+    event: CustomEvent<FieldVisibilityChangeDetail>
+  ): void {
+    const detail = event.detail;
+    if (!this.isDirectChildFieldId(detail.fieldId)) return;
+    const nextVisibility = { ...this.childFieldVisibility };
+    if (detail.connected) {
+      nextVisibility[detail.fieldId] = detail.visible;
+    } else {
+      delete nextVisibility[detail.fieldId];
+    }
+    this.childFieldVisibility = nextVisibility;
+  }
+
+  /** 判断字段标识是否属于当前对象的直接子字段。 */
+  private isDirectChildFieldId(fieldId: string): boolean {
+    return this.renderedFields.some(
+      field => `${this.fieldId}.${field.key}` === fieldId
+    );
+  }
 
   /** 为当前对象的直接子字段发布 onChange 初始化事件。 */
   private publishInitialFieldValues(): void {
@@ -156,6 +198,13 @@ export class FormEasyObject {
     });
   }
 
+  /** 获取拥有有效 key、会实际创建字段组件的直接子字段。 */
+  private get renderedFields(): Array<FormField & { key: string }> {
+    return this.resolvedFields.filter(
+      (field): field is FormField & { key: string } => Boolean(field.key)
+    );
+  }
+
   /** 渲染尚未创建对象时使用的编辑按钮。 */
   private renderPlaceholder() {
     const label = '创建并编辑对象';
@@ -180,7 +229,13 @@ export class FormEasyObject {
   render() {
     if (this.objectValue === null) return this.renderPlaceholder();
     const objectValue = this.objectValue;
-    const resolvedFields = this.resolvedFields;
+    const renderedFields = this.renderedFields;
+    const visibleFieldCount = renderedFields.filter(field =>
+      this.childFieldVisibility[`${this.fieldId}.${field.key}`] !== false
+    ).length;
+    const fieldCountSummary = visibleFieldCount === renderedFields.length
+      ? `共 ${renderedFields.length} 个字段`
+      : `${visibleFieldCount} 个可见字段 / 共 ${renderedFields.length} 个字段`;
 
     return (
       <div class="object" part="object">
@@ -200,37 +255,35 @@ export class FormEasyObject {
             >
               <path d="m7 5 5 5-5 5" />
             </svg>
-            <span>共 {resolvedFields.length} 个字段</span>
+            <span>{fieldCountSummary}</span>
           </button>
         </div>
         <div class="object-content" hidden={!this.expanded}>
-          {resolvedFields.map(field =>
-            field.key ? (
-              <form-easy-field
-                field={field}
-                fieldId={`${this.fieldId}.${field.key}`}
-                formKey={this.formKey}
-                labelPosition={this.labelPosition}
-                basicFieldRenderer={this.basicFieldRenderer}
-                componentDataManager={this.componentDataManager}
-                endpointManager={this.endpointManager}
-                value={objectValue[field.key]}
-                valuePresent={Object.prototype.hasOwnProperty.call(
-                  objectValue,
-                  field.key
-                )}
-                eventCenter={this.eventCenter}
-                formValueStore={this.formValueStore}
-                fieldDefinitions={this.fieldDefinitions}
-                renderDepth={this.renderDepth + 1}
-                maxRenderDepth={this.maxRenderDepth}
-                parentDisabled={this.disabled}
-                onValueChange={(event: CustomEvent<unknown>) =>
-                  this.changeField(field, event)
-                }
-              />
-            ) : null
-          )}
+          {renderedFields.map(field => (
+            <form-easy-field
+              field={field}
+              fieldId={`${this.fieldId}.${field.key}`}
+              formKey={this.formKey}
+              labelPosition={this.labelPosition}
+              basicFieldRenderer={this.basicFieldRenderer}
+              componentDataManager={this.componentDataManager}
+              endpointManager={this.endpointManager}
+              value={objectValue[field.key]}
+              valuePresent={Object.prototype.hasOwnProperty.call(
+                objectValue,
+                field.key
+              )}
+              eventCenter={this.eventCenter}
+              formValueStore={this.formValueStore}
+              fieldDefinitions={this.fieldDefinitions}
+              renderDepth={this.renderDepth + 1}
+              maxRenderDepth={this.maxRenderDepth}
+              parentDisabled={this.disabled}
+              onValueChange={(event: CustomEvent<unknown>) =>
+                this.changeField(field, event)
+              }
+            />
+          ))}
         </div>
       </div>
     );

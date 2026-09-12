@@ -16,7 +16,6 @@
     "publish": "npm run build && npm publish -w ./packages/form-easy --registry=https://registry.npmjs.org && npm publish -w ./packages/form-easy-vue --registry=https://registry.npmjs.org"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
     "lerna": "^9.0.0",
     "typescript": "^5.7.3"
   }

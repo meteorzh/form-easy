@@ -613,18 +613,34 @@ Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部�
 
 字段事件支持 `onShow`、`onHide`、`onDisabled`、`onEnabled`、`onClear`、`onChange`；可调用的 handle 为 `show`、`hide`、`disable`、`enable`、`clear`、`change`。
 
-`binds` 支持 `visible`、`enable`、`value` 三种目标。`visible` 与 `enable` 默认将 `null` / `undefined` / `0` / 空字符串视为 `false`，也可通过 `resolver` 提供只引用 `sourceFieldValue` 的 JavaScript 代码。同一字段配置多个相同的 `visible` 或 `enable` 目标时，可使用 `combine: 'and' | 'or'` 指定全部满足或任一满足，默认值为 `and`；同一目标的全部绑定必须使用一致的组合方式。`value` 目标仍然只允许配置一个绑定源。
+`binds` 支持 `visible`、`enable`、`value` 三种目标。一个 bind 使用 `params` 声明参数名到源字段引用的映射，`resolver` 可以直接引用全部命名参数。`visible` 与 `enable` 会将 resolver 返回值转换为布尔值，`value` 直接使用返回值。同一字段的同一个 target 只能声明一个 bind；单参数可以省略 resolver，多参数必须显式配置 resolver。
+
+单参数绑定省略 resolver 时，`visible` 与 `enable` 默认将 `null` / `undefined` / `0` / 空字符串视为 `false`，`value` 则直接同步参数原值。多参数能够在一个 resolver 中明确表达完整逻辑：
+
+```ts
+{
+  target: 'visible',
+  params: {
+    category: './category',
+    reference: './$ref'
+  },
+  resolver: "return category === 'basic' || reference !== null;"
+}
+```
 
 数组对象或嵌套对象中的字段可以使用 `./字段key` 引用当前结构的同级字段。运行时会保留当前数组下标，例如目标字段 `order.items[2].detail` 中的 `./type` 会解析为 `order.items[2].type`：
 
 ```ts
 {
-  sourceFormKey: 'order',
-  sourceFieldId: './type',
   target: 'visible',
+  params: {
+    sourceFieldValue: './type'
+  },
   resolver: "return sourceFieldValue === 'custom';"
 }
 ```
+
+绑定参数也支持 `otherForm.fieldKey` 形式的完整字段标识。跨表单读取时，相关表单需要显式共用同一个 `FormValueStore` 和 `EventCenter`；相对引用始终从当前字段所在结构解析。
 
 ### 事件中心
 

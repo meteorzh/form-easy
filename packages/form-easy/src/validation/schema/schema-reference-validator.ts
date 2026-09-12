@@ -1,10 +1,7 @@
 import {
   isRelativeFieldReference,
-  isSiblingFieldReference,
   parseRelativeFieldReference,
-  readSiblingFieldKey,
-  resolveRelativeFieldId,
-  resolveSiblingFieldId
+  resolveRelativeFieldId
 } from '../../field-reference';
 import { parseComponentDataExpression } from '../../component-data-expression';
 import {
@@ -177,30 +174,15 @@ function validateFieldReferences(
 
   if (Array.isArray(field.binds)) {
     field.binds.forEach((binding, index) => {
-      if (!isPlainRecord(binding)) return;
-      const sourceFieldPath = propertyPath(
-        indexPath(propertyPath(path, 'binds'), index),
-        'sourceFieldId'
-      );
-      if (
-        typeof binding.sourceFieldId === 'string'
-        && isSiblingFieldReference(binding.sourceFieldId)
-      ) {
-        validateSiblingSourceFieldId(
-          binding.sourceFormKey,
-          binding.sourceFieldId,
-          sourceFieldPath,
-          formKey,
-          currentFieldId,
-          fieldIds,
-          context
-        );
-        return;
-      }
-      if (binding.sourceFormKey !== formKey) return;
-      validateLocalSourceFieldId(
-        binding.sourceFieldId,
-        sourceFieldPath,
+      if (!isPlainRecord(binding) || !isPlainRecord(binding.params)) return;
+      validateBindingParameterReferences(
+        binding.params,
+        propertyPath(
+          indexPath(propertyPath(path, 'binds'), index),
+          'params'
+        ),
+        formKey,
+        currentFieldId,
         fieldIds,
         context
       );
@@ -299,35 +281,35 @@ function createFieldId(
     : undefined;
 }
 
-/** 校验同级字段引用能否在当前字段所在结构中解析。 */
-function validateSiblingSourceFieldId(
-  sourceFormKey: unknown,
-  sourceFieldReference: string,
+/** 校验绑定参数引用的当前表单字段是否存在。 */
+function validateBindingParameterReferences(
+  params: Record<string, unknown>,
   path: string,
   formKey: string,
   currentFieldId: string | undefined,
   fieldIds: ReadonlySet<string>,
   context: SchemaValidationContext
 ): void {
-  if (!readSiblingFieldKey(sourceFieldReference)) return;
-  if (sourceFormKey !== formKey) {
-    context.addError(
-      'invalid-value',
-      path,
-      '同级字段引用只能引用当前字段所属表单。'
-    );
-    return;
-  }
-  const sourceFieldId = currentFieldId
-    ? resolveSiblingFieldId(currentFieldId, sourceFieldReference)
-    : undefined;
-  if (!sourceFieldId || !fieldIds.has(sourceFieldId)) {
-    context.addError(
-      'unknown-source-field',
-      path,
-      `当前字段所在结构中不存在同级源字段“${sourceFieldReference}”。`
-    );
-  }
+  Object.entries(params).forEach(([name, value]) => {
+    if (typeof value !== 'string' || !value.trim()) return;
+    const parameterPath = propertyPath(path, name);
+    if (isRelativeFieldReference(value)) {
+      if (!parseRelativeFieldReference(value)) return;
+      const sourceFieldId = currentFieldId
+        ? resolveRelativeFieldId(currentFieldId, value)
+        : undefined;
+      if (!sourceFieldId || !fieldIds.has(sourceFieldId)) {
+        context.addError(
+          'unknown-source-field',
+          parameterPath,
+          `绑定参数“${name}”引用的字段“${value}”不存在。`
+        );
+      }
+      return;
+    }
+    if (!value.startsWith(`${formKey}.`)) return;
+    validateLocalSourceFieldId(value, parameterPath, fieldIds, context);
+  });
 }
 
 /** 校验一个当前表单内的源字段完整标识。 */

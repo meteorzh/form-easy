@@ -24,16 +24,32 @@ import {
   type FormSchemaValidationResult
 } from '../../validation/schema';
 import creatorSchemaJson from './creator-schema.json';
-import {
-  createCreatorFormValue,
-  mapCreatorValueToSchema,
-  mergeCreatorValidationResults,
-  type CreatorFormValue
-} from './creator-schema-mapper';
 import type { FormEasyCreatorChangeDetail } from './types';
+
+/** 设计器动态表单直接维护的目标 Schema 对象。 */
+type CreatorFormValue = Record<string, unknown>;
 
 /** 驱动设计器配置区域的内部递归动态表单 schema。 */
 const creatorSchema = creatorSchemaJson as FormSchema;
+
+/** 设计器未传入待编辑 Schema 时使用的初始目标表单。 */
+const defaultCreatedSchema: FormSchema = {
+  key: 'newForm',
+  name: '未命名表单',
+  labelPosition: 'left',
+  fields: [
+    {
+      key: 'title',
+      name: '标题',
+      category: 'basic',
+      dataType: 'string',
+      required: true,
+      componentProperties: {
+        placeholder: '请输入标题'
+      }
+    }
+  ]
+};
 
 /** 创建仅供设计器内部使用的 H5 基础字段渲染器。 */
 function createCreatorRenderer(): H5BasicFieldRenderer {
@@ -114,12 +130,12 @@ export class FormEasyCreator {
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 设计器生成的 schema 或校验结果变化时触发。 */
   @Event() schemaChange!: EventEmitter<FormEasyCreatorChangeDetail>;
-  /** 设计器动态表单当前维护的中间数据。 */
-  @State() private creatorFormValue: CreatorFormValue = createCreatorFormValue();
-  /** 当前已转换完成的目标表单 schema。 */
-  @State() private createdSchema: FormSchema = mapCreatorValueToSchema(
-    this.creatorFormValue
-  ).schema;
+  /** 设计器动态表单直接维护的目标 Schema 数据。 */
+  @State() private creatorFormValue: CreatorFormValue = (
+    defaultCreatedSchema as unknown as CreatorFormValue
+  );
+  /** 当前设计器直接输出的目标表单 Schema。 */
+  @State() private createdSchema: FormSchema = defaultCreatedSchema;
   /** 当前目标表单 schema 的完整静态校验结果。 */
   @State() private schemaValidation: FormSchemaValidationResult = validateFormSchema(
     this.createdSchema
@@ -191,32 +207,31 @@ export class FormEasyCreator {
     return editorValid && this.schemaValidation.valid;
   }
 
-  /** 将现有 schema 或默认 schema 转换为设计器可编辑数据。 */
+  /** 将现有 Schema 或默认 Schema 直接载入设计器动态表单。 */
   private loadSchema(schema?: FormSchema): void {
-    this.creatorFormValue = createCreatorFormValue(schema);
+    this.creatorFormValue = (
+      schema ?? defaultCreatedSchema
+    ) as unknown as CreatorFormValue;
     this.refreshCreatedSchema(this.creatorFormValue, false);
   }
 
-  /** 接收内部动态表单变更并实时生成目标 schema。 */
+  /** 接收内部动态表单直接输出的目标 Schema。 */
   private handleCreatorFormChange = (event: CustomEvent<FormChangeDetail>): void => {
     event.stopPropagation();
     this.creatorFormValue = event.detail.formData;
     this.refreshCreatedSchema(this.creatorFormValue, true);
   };
 
-  /** 转换并校验当前设计数据，可按需向使用方发送变化事件。 */
+  /** 校验当前设计数据，并按需向使用方发送变化事件。 */
   private refreshCreatedSchema(value: CreatorFormValue, emitChange: boolean): void {
-    const mapping = mapCreatorValueToSchema(value);
-    const validation = mergeCreatorValidationResults(
-      validateFormSchema(mapping.schema),
-      mapping.issues
-    );
-    this.createdSchema = mapping.schema;
+    const schema = value as unknown as FormSchema;
+    const validation = validateFormSchema(value);
+    this.createdSchema = schema;
     this.schemaValidation = validation;
     this.previewRevision += 1;
     if (emitChange) {
       this.schemaChange.emit({
-        schema: mapping.schema,
+        schema,
         validation
       });
     }

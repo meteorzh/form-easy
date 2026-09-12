@@ -5,9 +5,7 @@ import {
 } from '../../component-data-expression';
 import {
   isRelativeFieldReference,
-  isSiblingFieldReference,
-  resolveRelativeFieldId,
-  resolveSiblingFieldId
+  resolveRelativeFieldId
 } from '../../field-reference';
 import type { FormFieldDefinitions } from '../../form-field-definition-resolver';
 import {
@@ -113,8 +111,6 @@ export class FormEasyField implements HandleTarget {
   private validationFeedbackActive = false;
   /** 已注册事件订阅的清理回调。 */
   private unsubscribe: Array<() => void> = [];
-  /** 保存每一个 visible 或 enable 绑定最近一次解析出的布尔状态。 */
-  private readonly bindingStates = new Map<FieldBinding, boolean>();
   /** 供框架渲染适配器挂载视图的稳定宿主元素。 */
   private rendererHost?: HTMLDivElement;
   /** 当前 record 结构组件，用于合并动态 key 校验结果。 */
@@ -180,18 +176,20 @@ export class FormEasyField implements HandleTarget {
     this.synchronizeStoredValue(this.currentValue);
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
-    this.bindingStates.clear();
     this.registerSubscriptions();
     this.configureComponentData();
     this.emitVisibilityChange(true, newFieldId);
     this.emitPresenceChange(true, newFieldId);
   }
 
-  /** 字段配置更新后重新解析组件数据。 */
+  /** 字段配置更新后重新注册绑定并解析组件数据。 */
   @Watch('field')
   reloadComponentData(): void {
     this.componentValidationResult = undefined;
     this.validateCurrentValue();
+    this.unsubscribe.forEach(cleanup => cleanup());
+    this.unsubscribe = [];
+    this.registerSubscriptions();
     this.configureComponentData();
   }
 
@@ -224,6 +222,9 @@ export class FormEasyField implements HandleTarget {
         this.maxRenderDepth
       );
     }
+    this.unsubscribe.forEach(cleanup => cleanup());
+    this.unsubscribe = [];
+    this.registerSubscriptions();
     this.configureComponentData();
   }
 
@@ -416,94 +417,103 @@ export class FormEasyField implements HandleTarget {
     });
   }
 
-  /** 为一个绑定目标注册对应的源事件监听。 */
+  /** 为一个绑定目标的全部命名源参数注册值变化监听。 */
   private registerBinding(binding: FieldBinding): Array<() => void> {
-    const sourceFieldId = this.resolveBindingSourceFieldId(binding);
-    if (!sourceFieldId) return [];
-    if (binding.target === 'value') {
-      return [
-        this.eventCenter.subscribe(sourceFieldId, 'onChange', this, 'change')
-      ];
+    const parameterFieldIds = Object.entries(binding.params ?? {}).map(
+      ([name, fieldReference]) => ({
+        name,
+        fieldId: this.resolveBindingParameterFieldId(fieldReference)
+      })
+    );
+    if (
+      parameterFieldIds.length === 0
+      || parameterFieldIds.some(parameter => !parameter.fieldId)
+    ) {
+      console.error(`字段“${this.fieldId}”的 ${binding.target} 绑定参数配置无效。`);
+      return [];
     }
-
-    return [
+    if (parameterFieldIds.length > 1 && !binding.resolver) {
+      console.error(
+        `字段“${this.fieldId}”的 ${binding.target} 绑定包含多个参数，必须配置 resolver。`
+      );
+      return [];
+    }
+    if (!this.formValueStore) {
+      console.error(`字段“${this.fieldId}”未连接到表单字段值存储，无法执行绑定。`);
+      return [];
+    }
+    return parameterFieldIds.map(parameter => (
       this.eventCenter.subscribe(
-        sourceFieldId,
+        parameter.fieldId!,
         'onChange',
         {
-          applyHandle: (_handle, sourceFieldValue, history) => {
-            void this.applyStateBinding(binding, sourceFieldValue, history);
+          applyHandle: (_handle, _sourceFieldValue, history) => {
+            void this.applyBinding(binding, parameterFieldIds, history);
           }
         },
         'change'
       )
-    ];
+    ));
   }
 
-  /** 将绑定配置中的完整或同级引用解析为运行时字段标识。 */
-  private resolveBindingSourceFieldId(binding: FieldBinding): string | undefined {
-    if (!isSiblingFieldReference(binding.sourceFieldId)) {
-      return this.normalizeSourceFieldId(binding.sourceFormKey, binding.sourceFieldId);
+  /** 将绑定参数中的相对或完整字段引用解析为运行时字段标识。 */
+  private resolveBindingParameterFieldId(
+    fieldReference: string
+  ): string | undefined {
+    if (isRelativeFieldReference(fieldReference)) {
+      return resolveRelativeFieldId(this.fieldId, fieldReference);
     }
-    if (binding.sourceFormKey !== this.formKey) {
-      console.error(
-        `字段“${this.fieldId}”的同级绑定只能引用当前表单“${this.formKey}”。`
-      );
-      return undefined;
-    }
-    const sourceFieldId = resolveSiblingFieldId(this.fieldId, binding.sourceFieldId);
-    if (!sourceFieldId) {
-      console.error(
-        `字段“${this.fieldId}”的同级绑定源“${binding.sourceFieldId}”格式无效。`
-      );
-    }
-    return sourceFieldId;
+    return fieldReference.includes('.') ? fieldReference : undefined;
   }
 
-  /** 根据绑定源值更新当前字段的可见或启用状态。 */
-  private async applyStateBinding(
+  /** 读取全部最新源参数并计算当前字段的绑定目标。 */
+  private async applyBinding(
     binding: FieldBinding,
-    sourceFieldValue: unknown,
+    parameterFieldIds: Array<{ name: string; fieldId?: string }>,
     history: EventFlowHistory = []
   ): Promise<void> {
-    if (binding.target === 'value') return;
-    const result = this.resolveBindingBoolean(sourceFieldValue, binding);
-    this.bindingStates.set(binding, result);
-    const bindings = this.field.binds ?? [];
-    const targetBindings = bindings.filter(
-      item => item.target === binding.target
+    const parameterNames = parameterFieldIds.map(parameter => parameter.name);
+    const parameterValues = parameterFieldIds.map(parameter => (
+      this.formValueStore!.getValue(parameter.fieldId!)
+    ));
+    const result = this.resolveBindingValue(
+      binding,
+      parameterNames,
+      parameterValues
     );
-    const combine = targetBindings[0]?.combine ?? 'and';
-    const effectiveResult = combine === 'or'
-      ? targetBindings.some(item => this.bindingStates.get(item) ?? false)
-      : targetBindings.every(item => this.bindingStates.get(item) ?? true);
+    if (binding.target === 'value') {
+      await this.applyHandle('change', result, history);
+      return;
+    }
+    const effectiveResult = binding.resolver
+      ? Boolean(result)
+      : this.getDefaultBindingBoolean(result);
     const handle: ComponentHandle = binding.target === 'visible'
       ? effectiveResult ? 'show' : 'hide'
       : effectiveResult ? 'enable' : 'disable';
     await this.applyHandle(handle, undefined, history);
   }
 
-  /** 使用当前绑定配置或默认规则将源字段值转换为布尔值。 */
-  private resolveBindingBoolean(
-    sourceFieldValue: unknown,
-    binding: FieldBinding
-  ): boolean {
-    if (binding.resolver) {
-      try {
-        const resolver = new Function(
-          'sourceFieldValue',
-          binding.resolver
-        ) as (value: unknown) => unknown;
-        return Boolean(resolver(sourceFieldValue));
-      } catch (error) {
-        console.error(
-          `字段“${this.fieldId}”的 ${binding.target} 绑定 resolver 执行失败，将按 false 处理。`,
-          error
-        );
-        return false;
-      }
+  /** 使用 resolver 计算绑定结果，省略时直接返回唯一源参数值。 */
+  private resolveBindingValue(
+    binding: FieldBinding,
+    parameterNames: string[],
+    parameterValues: unknown[]
+  ): unknown {
+    if (!binding.resolver) return parameterValues[0];
+    try {
+      const resolver = new Function(
+        ...parameterNames,
+        binding.resolver
+      ) as (...values: unknown[]) => unknown;
+      return resolver(...parameterValues);
+    } catch (error) {
+      console.error(
+        `字段“${this.fieldId}”的 ${binding.target} 绑定 resolver 执行失败。`,
+        error
+      );
+      return binding.target === 'value' ? this.currentValue : false;
     }
-    return this.getDefaultBindingBoolean(sourceFieldValue);
   }
 
   /** 按默认规则将绑定源字段值转换为布尔值。 */

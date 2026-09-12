@@ -4,8 +4,8 @@ import type {
   FieldBinding
 } from '../../types';
 import {
-  isSiblingFieldReference,
-  readSiblingFieldKey
+  isRelativeFieldReference,
+  parseRelativeFieldReference
 } from '../../field-reference';
 import { SchemaValidationContext } from './schema-validation-context';
 import {
@@ -20,10 +20,8 @@ import {
 
 /** 字段绑定对象允许配置的属性。 */
 const bindingProperties = new Set([
-  'sourceFormKey',
-  'sourceFieldId',
   'target',
-  'combine',
+  'params',
   'resolver'
 ]);
 /** 事件订阅对象允许配置的属性。 */
@@ -35,11 +33,8 @@ const eventSubscriptionProperties = new Set([
 ]);
 /** 支持的字段绑定目标。 */
 const bindingTargets = new Set<FieldBinding['target']>(['visible', 'enable', 'value']);
-/** 支持的同目标绑定组合方式。 */
-const bindingCombinations = new Set<NonNullable<FieldBinding['combine']>>([
-  'and',
-  'or'
-]);
+/** 绑定 resolver 参数名允许使用的标识符格式。 */
+const bindingParameterNamePattern = /^[A-Za-z_$][\w$]*$/;
 /** 支持的组件事件。 */
 const componentEventNames = new Set<ComponentEventName>([
   'onShow',
@@ -70,12 +65,7 @@ export function validateBindings(
     context.addError('invalid-type', path, '字段 binds 必须是数组。');
     return;
   }
-  const targetBindings = new Map<FieldBinding['target'], {
-    /** 第一个相同目标绑定的索引。 */
-    index: number;
-    /** 该目标统一使用的组合方式。 */
-    combine: NonNullable<FieldBinding['combine']>;
-  }>();
+  const targetBindingIndexes = new Map<FieldBinding['target'], number>();
   bindingsValue.forEach((bindingValue, index) => {
     const bindingPath = indexPath(path, index);
     if (!isPlainRecord(bindingValue)) {
@@ -83,79 +73,111 @@ export function validateBindings(
       return;
     }
     validateUnknownProperties(bindingValue, bindingProperties, bindingPath, context);
-    validateRequiredNonEmptyString(bindingValue, 'sourceFormKey', bindingPath, '绑定源表单 key', context);
-    validateRequiredNonEmptyString(bindingValue, 'sourceFieldId', bindingPath, '绑定源字段标识', context);
-    if (
-      typeof bindingValue.sourceFormKey === 'string'
-      && typeof bindingValue.sourceFieldId === 'string'
-      && isSiblingFieldReference(bindingValue.sourceFieldId)
-      && !readSiblingFieldKey(bindingValue.sourceFieldId)
-    ) {
-      context.addError(
-        'invalid-value',
-        propertyPath(bindingPath, 'sourceFieldId'),
-        '同级 sourceFieldId 必须使用“./字段key”格式，且不能继续包含点号或方括号。'
-      );
-    } else if (
-      typeof bindingValue.sourceFormKey === 'string'
-      && typeof bindingValue.sourceFieldId === 'string'
-      && !isSiblingFieldReference(bindingValue.sourceFieldId)
-      && !bindingValue.sourceFieldId.startsWith(`${bindingValue.sourceFormKey}.`)
-    ) {
-      context.addError(
-        'invalid-value',
-        propertyPath(bindingPath, 'sourceFieldId'),
-        'sourceFieldId 必须是以 sourceFormKey 开头的完整字段唯一标识，或使用“./字段key”引用同级字段。'
-      );
-    }
+    const parameterNames = validateBindingParams(bindingValue, bindingPath, context);
     if (!hasOwn(bindingValue, 'target')) {
       context.addError('missing-property', propertyPath(bindingPath, 'target'), '字段绑定缺少必需的 target。');
     } else if (!bindingTargets.has(bindingValue.target as FieldBinding['target'])) {
       context.addError('invalid-value', propertyPath(bindingPath, 'target'), '绑定 target 必须是 visible、enable 或 value。');
     } else {
       const target = bindingValue.target as FieldBinding['target'];
-      const combine = bindingCombinations.has(
-        bindingValue.combine as NonNullable<FieldBinding['combine']>
-      )
-        ? bindingValue.combine as NonNullable<FieldBinding['combine']>
-        : 'and';
-      const previous = targetBindings.get(target);
-      if (target === 'value' && previous) {
+      const previousIndex = targetBindingIndexes.get(target);
+      if (previousIndex !== undefined) {
         context.addError(
           'duplicate-binding',
           propertyPath(bindingPath, 'target'),
-          `绑定目标 value 与 ${indexPath(path, previous.index)} 重复。`
-        );
-      } else if (previous && previous.combine !== combine) {
-        context.addError(
-          'conflicting-configuration',
-          propertyPath(bindingPath, 'combine'),
-          `相同绑定目标 ${target} 必须使用一致的 combine。`
+          `绑定目标 ${target} 与 ${indexPath(path, previousIndex)} 重复。`
         );
       } else {
-        targetBindings.set(target, { index, combine });
+        targetBindingIndexes.set(target, index);
       }
     }
     if (
-      hasOwn(bindingValue, 'combine')
-      && !bindingCombinations.has(
-        bindingValue.combine as NonNullable<FieldBinding['combine']>
-      )
+      parameterNames.length > 1
+      && !hasOwn(bindingValue, 'resolver')
     ) {
       context.addError(
-        'invalid-value',
-        propertyPath(bindingPath, 'combine'),
-        '绑定 combine 必须是 and 或 or。'
+        'missing-property',
+        propertyPath(bindingPath, 'resolver'),
+        '包含多个源参数的绑定必须配置 resolver。'
       );
     }
-    validateBindingResolver(bindingValue, bindingPath, context);
+    validateBindingResolver(bindingValue, bindingPath, parameterNames, context);
   });
 }
 
-/** 校验绑定 resolver 的类型和 JavaScript 函数体语法。 */
+/** 校验绑定源参数名、字段引用格式并返回合法参数名。 */
+function validateBindingParams(
+  binding: Record<string, unknown>,
+  bindingPath: string,
+  context: SchemaValidationContext
+): string[] {
+  const paramsPath = propertyPath(bindingPath, 'params');
+  if (!hasOwn(binding, 'params')) {
+    context.addError('missing-property', paramsPath, '字段绑定缺少必需的 params。');
+    return [];
+  }
+  if (!isPlainRecord(binding.params)) {
+    context.addError('invalid-type', paramsPath, '字段绑定 params 必须是普通对象。');
+    return [];
+  }
+  const entries = Object.entries(binding.params);
+  if (entries.length === 0) {
+    context.addError('invalid-value', paramsPath, '字段绑定 params 至少需要一个源参数。');
+    return [];
+  }
+  const parameterNames: string[] = [];
+  entries.forEach(([name, fieldReference]) => {
+    const parameterPath = propertyPath(paramsPath, name);
+    if (!isValidBindingParameterName(name)) {
+      context.addError(
+        'invalid-value',
+        parameterPath,
+        `绑定参数名“${name}”不是合法的 JavaScript 函数参数名。`
+      );
+      return;
+    }
+    parameterNames.push(name);
+    if (typeof fieldReference !== 'string' || !fieldReference.trim()) {
+      context.addError('invalid-type', parameterPath, '绑定参数的字段引用必须是非空字符串。');
+      return;
+    }
+    if (isRelativeFieldReference(fieldReference)) {
+      if (!parseRelativeFieldReference(fieldReference)) {
+        context.addError(
+          'invalid-value',
+          parameterPath,
+          '相对字段引用必须使用“./字段key”或“../字段key”格式。'
+        );
+      }
+      return;
+    }
+    if (!fieldReference.includes('.')) {
+      context.addError(
+        'invalid-value',
+        parameterPath,
+        '完整字段引用必须包含表单 key 和字段路径。'
+      );
+    }
+  });
+  return parameterNames;
+}
+
+/** 判断参数名能否安全用作 new Function 的独立参数。 */
+function isValidBindingParameterName(name: string): boolean {
+  if (!bindingParameterNamePattern.test(name)) return false;
+  try {
+    new Function(name, 'return undefined;');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 校验绑定 resolver 的类型、参数和 JavaScript 函数体语法。 */
 function validateBindingResolver(
   binding: Record<string, unknown>,
   path: string,
+  parameterNames: string[],
   context: SchemaValidationContext
 ): void {
   if (!hasOwn(binding, 'resolver')) return;
@@ -164,7 +186,7 @@ function validateBindingResolver(
     return;
   }
   try {
-    new Function('sourceFieldValue', binding.resolver);
+    new Function(...parameterNames, binding.resolver);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     context.addError(

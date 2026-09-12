@@ -201,9 +201,10 @@ const comprehensiveCreatorSchema: FormSchema = {
       omitWhenHidden: true,
       binds: [
         {
-          sourceFormKey: 'comprehensiveCreatorForm',
-          sourceFieldId: 'comprehensiveCreatorForm.showAdvanced',
-          target: 'visible'
+          target: 'visible',
+          params: {
+            sourceFieldValue: 'comprehensiveCreatorForm.showAdvanced'
+          }
         }
       ]
     },
@@ -656,9 +657,10 @@ const schema: FormSchema = {
       dataType: 'string',
       binds: [
         {
-          sourceFormKey: 'form1',
-          sourceFieldId: 'form1.visibleBindingSource',
           target: 'visible',
+          params: {
+            sourceFieldValue: 'form1.visibleBindingSource'
+          },
           resolver: 'return sourceFieldValue === "1";'
         }
       ]
@@ -677,9 +679,10 @@ const schema: FormSchema = {
       dataType: 'string',
       binds: [
         {
-          sourceFormKey: 'form1',
-          sourceFieldId: 'form1.enableBindingSource',
-          target: 'enable'
+          target: 'enable',
+          params: {
+            sourceFieldValue: 'form1.enableBindingSource'
+          }
         }
       ]
     },
@@ -697,9 +700,10 @@ const schema: FormSchema = {
       dataType: 'string',
       binds: [
         {
-          sourceFormKey: 'form1',
-          sourceFieldId: 'form1.valueBindingSource',
-          target: 'value'
+          target: 'value',
+          params: {
+            sourceFieldValue: 'form1.valueBindingSource'
+          }
         }
       ]
     }

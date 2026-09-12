@@ -61,19 +61,18 @@ export type EventFlowHistory = readonly string[];
 /** 当前字段支持绑定的目标属性。 */
 export type BindingTarget = 'visible' | 'enable' | 'value';
 
-/** 声明其他字段状态或值到当前字段的单向绑定。 */
+/** 字段绑定中参数名到源字段引用的映射。 */
+export type FieldBindingParams = Record<string, string>;
+
+/** 声明一组源字段如何共同计算当前字段的目标属性。 */
 export interface FieldBinding {
-  /** 绑定源所属表单的键。 */
-  sourceFormKey: string;
-  /** 绑定源字段的完整唯一标识，或使用“./字段key”引用当前结构中的同级字段。 */
-  sourceFieldId: string;
   /** 当前字段需要同步的目标属性。 */
   target: BindingTarget;
-  /** 多个相同状态目标绑定的组合方式；默认使用 and。 */
-  combine?: 'and' | 'or';
+  /** resolver 参数名到相对或完整源字段标识的映射。 */
+  params: FieldBindingParams;
   /**
-   * 将绑定源字段值转换为布尔值的 JavaScript 函数体。
-   * 函数体仅可使用 sourceFieldValue 参数，并应使用 return 返回转换结果。
+   * 根据全部命名源字段参数计算目标值的 JavaScript 函数体。
+   * visible 和 enable 会将返回值转换为布尔值，value 直接使用返回值。
    */
   resolver?: string;
 }

@@ -145,9 +145,10 @@
               "hint": "仅 category 为 basic 时生效。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'basic';"
                 }
               ],
@@ -174,9 +175,10 @@
               "hint": "仅 category 为 basic 时生效。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'basic';"
                 }
               ],
@@ -197,9 +199,10 @@
               "hint": "仅 category 为 basic 时生效。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'basic';"
                 }
               ],
@@ -215,9 +218,10 @@
               "hint": "留空时按照 dataType 使用渲染器默认组件。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'basic';"
                 }
               ],
@@ -237,9 +241,10 @@
               "hint": "仅基础字段生效，内容必须是 JSON 对象。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'basic';"
                 }
               ],
@@ -254,9 +259,10 @@
               "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'array';"
                 }
               ]
@@ -271,9 +277,10 @@
               "hint": "仅 category 为 object 时生效。",
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'object';"
                 }
               ],
@@ -418,9 +425,10 @@
               ],
               "binds": [
                 {
-                  "sourceFormKey": "formEasyCreator",
-                  "sourceFieldId": "./category",
                   "target": "visible",
+                  "params": {
+                    "sourceFieldValue": "./category"
+                  },
                   "resolver": "return sourceFieldValue === 'record';"
                 }
               ],
@@ -473,20 +481,6 @@
                 "category": "object",
                 "fields": [
                   {
-                    "key": "sourceFormKey",
-                    "name": "绑定源表单 key",
-                    "category": "basic",
-                    "dataType": "string",
-                    "required": true
-                  },
-                  {
-                    "key": "sourceFieldId",
-                    "name": "绑定源字段完整标识",
-                    "category": "basic",
-                    "dataType": "string",
-                    "required": true
-                  },
-                  {
                     "key": "target",
                     "name": "绑定目标",
                     "category": "basic",
@@ -509,27 +503,38 @@
                     "required": true
                   },
                   {
-                    "key": "combine",
-                    "name": "同目标组合方式",
-                    "category": "basic",
-                    "dataType": "string",
-                    "component": "select",
-                    "componentData": [
-                      {
-                        "label": "全部满足（and）",
-                        "value": "and"
+                    "key": "params",
+                    "name": "绑定源参数",
+                    "category": "record",
+                    "required": true,
+                    "hint": "参数名可在 resolver 中直接引用，参数值使用相对或完整字段标识。",
+                    "kvDef": {
+                      "key": {
+                        "name": "参数名",
+                        "rules": [
+                          {
+                            "type": "pattern",
+                            "value": "^[A-Za-z_$][\\w$]*$",
+                            "message": "参数名必须是合法的 JavaScript 标识符。"
+                          }
+                        ],
+                        "componentProperties": {
+                          "placeholder": "例如 enabled"
+                        }
                       },
-                      {
-                        "label": "任一满足（or）",
-                        "value": "or"
+                      "value": {
+                        "category": "basic",
+                        "dataType": "string",
+                        "required": true,
+                        "componentProperties": {
+                          "placeholder": "例如 ./enabled 或 otherForm.enabled"
+                        }
                       }
-                    ],
-                    "optional": true,
-                    "hint": "同一字段存在多个 visible 或 enable 绑定时使用；未配置默认为 and。"
+                    }
                   },
                   {
                     "key": "resolver",
-                    "name": "布尔值 resolver",
+                    "name": "绑定计算 resolver",
                     "category": "basic",
                     "dataType": "string",
                     "omitNull": true,
@@ -538,7 +543,8 @@
                       "placeholder": "例如：return sourceFieldValue === 'enabled';",
                       "rows": 3,
                       "mode": "text"
-                    }
+                    },
+                    "hint": "可直接引用 params 中声明的全部参数；多参数时必填。"
                   }
                 ]
               },
@@ -728,9 +734,10 @@
           "omitWhenHidden": true,
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
               "target": "visible",
+              "params": {
+                "sourceFieldValue": "./$ref"
+              },
               "resolver": "return sourceFieldValue === null;"
             }
           ]
@@ -813,16 +820,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -848,18 +851,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -879,18 +876,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -905,16 +896,12 @@
           "hint": "留空时按照 dataType 使用渲染器默认组件。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
             }
           ],
           "optional": true,
@@ -934,18 +921,12 @@
           "hint": "仅基础字段生效，内容必须是 JSON 对象。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -959,9 +940,10 @@
           "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
+              "params": {
+                "sourceFieldValue": "./category"
+              },
               "resolver": "return sourceFieldValue === 'array';"
             }
           ]
@@ -976,16 +958,12 @@
           "hint": "仅 category 为 object 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'object';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'object') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -1129,16 +1107,12 @@
           ],
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'record';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'record') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -1190,20 +1164,6 @@
             "category": "object",
             "fields": [
               {
-                "key": "sourceFormKey",
-                "name": "绑定源表单 key",
-                "category": "basic",
-                "dataType": "string",
-                "required": true
-              },
-              {
-                "key": "sourceFieldId",
-                "name": "绑定源字段完整标识",
-                "category": "basic",
-                "dataType": "string",
-                "required": true
-              },
-              {
                 "key": "target",
                 "name": "绑定目标",
                 "category": "basic",
@@ -1226,27 +1186,38 @@
                 "required": true
               },
               {
-                "key": "combine",
-                "name": "同目标组合方式",
-                "category": "basic",
-                "dataType": "string",
-                "component": "select",
-                "componentData": [
-                  {
-                    "label": "全部满足（and）",
-                    "value": "and"
+                "key": "params",
+                "name": "绑定源参数",
+                "category": "record",
+                "required": true,
+                "hint": "参数名可在 resolver 中直接引用，参数值使用相对或完整字段标识。",
+                "kvDef": {
+                  "key": {
+                    "name": "参数名",
+                    "rules": [
+                      {
+                        "type": "pattern",
+                        "value": "^[A-Za-z_$][\\w$]*$",
+                        "message": "参数名必须是合法的 JavaScript 标识符。"
+                      }
+                    ],
+                    "componentProperties": {
+                      "placeholder": "例如 enabled"
+                    }
                   },
-                  {
-                    "label": "任一满足（or）",
-                    "value": "or"
+                  "value": {
+                    "category": "basic",
+                    "dataType": "string",
+                    "required": true,
+                    "componentProperties": {
+                      "placeholder": "例如 ./enabled 或 otherForm.enabled"
+                    }
                   }
-                ],
-                "optional": true,
-                "hint": "同一字段存在多个 visible 或 enable 绑定时使用；未配置默认为 and。"
+                }
               },
               {
                 "key": "resolver",
-                "name": "布尔值 resolver",
+                "name": "绑定计算 resolver",
                 "category": "basic",
                 "dataType": "string",
                 "omitNull": true,
@@ -1255,7 +1226,8 @@
                   "placeholder": "例如：return sourceFieldValue === 'enabled';",
                   "rows": 3,
                   "mode": "text"
-                }
+                },
+                "hint": "可直接引用 params 中声明的全部参数；多参数时必填。"
               }
             ]
           },
@@ -1403,9 +1375,10 @@
           "omitWhenHidden": true,
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
               "target": "visible",
+              "params": {
+                "sourceFieldValue": "./$ref"
+              },
               "resolver": "return sourceFieldValue === null;"
             }
           ]
@@ -1461,16 +1434,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -1496,18 +1465,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -1527,18 +1490,12 @@
           "hint": "仅 category 为 basic 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -1553,16 +1510,12 @@
           "hint": "留空时按照 dataType 使用渲染器默认组件。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
             }
           ],
           "optional": true,
@@ -1582,18 +1535,12 @@
           "hint": "仅基础字段生效，内容必须是 JSON 对象。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue === 'basic';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "combine": "or",
-              "resolver": "return sourceFieldValue !== null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
             }
           ],
           "optional": true,
@@ -1607,9 +1554,10 @@
           "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
+              "params": {
+                "sourceFieldValue": "./category"
+              },
               "resolver": "return sourceFieldValue === 'array';"
             }
           ]
@@ -1624,16 +1572,12 @@
           "hint": "仅 category 为 object 时生效。",
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'object';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'object') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -1777,16 +1721,12 @@
           ],
           "binds": [
             {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./category",
               "target": "visible",
-              "resolver": "return sourceFieldValue === 'record';"
-            },
-            {
-              "sourceFormKey": "formEasyCreator",
-              "sourceFieldId": "./$ref",
-              "target": "visible",
-              "resolver": "return sourceFieldValue === null;"
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'record') && ($ref === null);"
             }
           ],
           "omitWhenHidden": true
@@ -1838,20 +1778,6 @@
             "category": "object",
             "fields": [
               {
-                "key": "sourceFormKey",
-                "name": "绑定源表单 key",
-                "category": "basic",
-                "dataType": "string",
-                "required": true
-              },
-              {
-                "key": "sourceFieldId",
-                "name": "绑定源字段完整标识",
-                "category": "basic",
-                "dataType": "string",
-                "required": true
-              },
-              {
                 "key": "target",
                 "name": "绑定目标",
                 "category": "basic",
@@ -1874,27 +1800,38 @@
                 "required": true
               },
               {
-                "key": "combine",
-                "name": "同目标组合方式",
-                "category": "basic",
-                "dataType": "string",
-                "component": "select",
-                "componentData": [
-                  {
-                    "label": "全部满足（and）",
-                    "value": "and"
+                "key": "params",
+                "name": "绑定源参数",
+                "category": "record",
+                "required": true,
+                "hint": "参数名可在 resolver 中直接引用，参数值使用相对或完整字段标识。",
+                "kvDef": {
+                  "key": {
+                    "name": "参数名",
+                    "rules": [
+                      {
+                        "type": "pattern",
+                        "value": "^[A-Za-z_$][\\w$]*$",
+                        "message": "参数名必须是合法的 JavaScript 标识符。"
+                      }
+                    ],
+                    "componentProperties": {
+                      "placeholder": "例如 enabled"
+                    }
                   },
-                  {
-                    "label": "任一满足（or）",
-                    "value": "or"
+                  "value": {
+                    "category": "basic",
+                    "dataType": "string",
+                    "required": true,
+                    "componentProperties": {
+                      "placeholder": "例如 ./enabled 或 otherForm.enabled"
+                    }
                   }
-                ],
-                "optional": true,
-                "hint": "同一字段存在多个 visible 或 enable 绑定时使用；未配置默认为 and。"
+                }
               },
               {
                 "key": "resolver",
-                "name": "布尔值 resolver",
+                "name": "绑定计算 resolver",
                 "category": "basic",
                 "dataType": "string",
                 "omitNull": true,
@@ -1903,7 +1840,8 @@
                   "placeholder": "例如：return sourceFieldValue === 'enabled';",
                   "rows": 3,
                   "mode": "text"
-                }
+                },
+                "hint": "可直接引用 params 中声明的全部参数；多参数时必填。"
               }
             ]
           },

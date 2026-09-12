@@ -30,6 +30,7 @@ const blankCreatorSchema: FormSchema = {
 const comprehensiveCreatorSchema: FormSchema = {
   key: 'comprehensiveCreatorForm',
   name: '综合业务表单设计示例',
+  labelPosition: 'top',
   definitions: {
     address: {
       category: 'object',

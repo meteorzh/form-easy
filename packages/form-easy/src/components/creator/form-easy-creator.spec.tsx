@@ -1,10 +1,19 @@
 import { h } from '@stencil/core';
 import { newSpecPage } from '@stencil/core/testing';
 import type { FormChangeDetail, FormSchema } from '../../types';
+import { validateFormSchema } from '../../validation/schema';
+import creatorSchemaJson from './creator-schema.json';
 import { FormEasyCreator } from './form-easy-creator';
 import type { FormEasyCreatorChangeDetail } from './types';
 
 describe('设计器直接维护 FormSchema', () => {
+  it('设计器自身的动态表单 Schema 符合完整结构约束', () => {
+    const validation = validateFormSchema(creatorSchemaJson);
+
+    expect(validation.valid).toBe(true);
+    expect(validation.issues).toEqual([]);
+  });
+
   it('直接载入外部 Schema，不再创建中间草稿对象', async () => {
     const schema: FormSchema = {
       key: 'directCreatorValue',

@@ -24,6 +24,11 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgb(185 255 102 / 14%);
 }
 
+textarea[aria-invalid='true'] {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgb(248 113 113 / 12%);
+}
+
 textarea:disabled {
   opacity: .58;
   cursor: not-allowed;

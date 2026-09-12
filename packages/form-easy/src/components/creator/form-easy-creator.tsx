@@ -12,15 +12,8 @@ import { ComponentDataManager } from '../../managers/component-data-manager';
 import { EventCenter } from '../../managers/event-center';
 import { H5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
-import {
-  isFormFieldReference,
-  resolveFormFieldNode
-} from '../../form-field-definition-resolver';
 import type {
   FormChangeDetail,
-  FormField,
-  FormFieldDefinition,
-  FormFieldNode,
   FormSchema
 } from '../../types';
 import {
@@ -39,381 +32,8 @@ import {
 } from './creator-schema-mapper';
 import type { FormEasyCreatorChangeDetail } from './types';
 
-/** 设计器内部用于编辑完整字段配置的 definitions 名称。 */
-const FIELD_DEFINITION_NAME = 'fieldDefinition';
-/** 设计器内部用于编辑匿名数组元素配置的 definitions 名称。 */
-const ARRAY_ELEMENT_DEFINITION_NAME = 'arrayElementDefinition';
-
-/** 引用节点 required 覆盖使用的三态选项。 */
-const REQUIRED_OVERRIDE_OPTIONS = [
-  { label: '继承定义', value: 'inherit' },
-  { label: '必填', value: 'true' },
-  { label: '非必填', value: 'false' }
-];
-
-/**
- * 从 JSON 中的顶层字段编辑器模板构建设计器递归 definitions。
- *
- * 匿名数组元素模板会移除字段 key 和字段名称控件，其余配置继续与完整
- * 字段模板共享同一种递归结构。
- */
-function createCreatorSchema(): FormSchema {
-  const schema = JSON.parse(JSON.stringify(creatorSchemaJson)) as FormSchema;
-  const fieldDefinitionsField = findCreatorSchemaField(schema, 'fieldDefinitions');
-  const schemaDefinitionsField = findCreatorSchemaField(schema, 'schemaDefinitions');
-  const element = fieldDefinitionsField?.element;
-  if (!element || isFormFieldReference(element)) {
-    throw new Error('设计器 schema 缺少字段配置编辑器模板。');
-  }
-
-  const originalFieldDefinition = element as FormFieldDefinition;
-  const inlineDefinitionFields = addRecordDefinitionEditor(
-    removeIdentityEditorFields(originalFieldDefinition),
-    originalFieldDefinition
-  );
-  const anonymousInlineDefinitionFields = removeEditorFields(
-    inlineDefinitionFields,
-    ['omitNull', 'omitWhenHidden']
-  );
-  const fieldDefinition = createFieldNodeEditorDefinition(
-    originalFieldDefinition,
-    inlineDefinitionFields,
-    true
-  );
-  const arrayElementDefinition = createFieldNodeEditorDefinition(
-    originalFieldDefinition,
-    anonymousInlineDefinitionFields,
-    false
-  );
-  schema.definitions = {
-    [FIELD_DEFINITION_NAME]: fieldDefinition,
-    [ARRAY_ELEMENT_DEFINITION_NAME]: arrayElementDefinition
-  };
-  fieldDefinitionsField.element = { $ref: FIELD_DEFINITION_NAME };
-  if (!schemaDefinitionsField) {
-    throw new Error('设计器 schema 缺少 definitions 配置区域。');
-  }
-  schemaDefinitionsField.category = 'record';
-  delete schemaDefinitionsField.element;
-  delete schemaDefinitionsField.fields;
-  schemaDefinitionsField.kvDef = createSchemaDefinitionRecordEditor(
-    anonymousInlineDefinitionFields
-  );
-  return schema;
-}
-
-/** 从编辑器字段列表中移除指定 key 的配置项。 */
-function removeEditorFields(
-  fields: FormFieldNode[],
-  fieldKeys: readonly string[]
-): FormFieldNode[] {
-  const excludedKeys = new Set(fieldKeys);
-  return fields.filter(fieldNode => {
-    const field = resolveFormFieldNode(fieldNode);
-    return !field?.key || !excludedKeys.has(field.key);
-  });
-}
-
-/** 根据字段 key 查找设计器 schema 中的顶层字段。 */
-function findCreatorSchemaField(
-  schema: FormSchema,
-  fieldKey: string
-): FormField | undefined {
-  return schema.fields
-    .map(fieldNode => resolveFormFieldNode(fieldNode))
-    .find(field => field?.key === fieldKey);
-}
-
-/** 从字段编辑器模板中移除仅普通字段需要的 key 和 name 控件。 */
-function removeIdentityEditorFields(
-  definition: FormFieldDefinition
-): FormFieldNode[] {
-  return (definition.fields ?? []).filter(fieldNode => {
-    const field = resolveFormFieldNode(fieldNode);
-    return field?.key !== 'key' && field?.key !== 'name';
-  });
-}
-
-/** 在内联字段配置中插入 record 专用的 kvDef 编辑器。 */
-function addRecordDefinitionEditor(
-  fields: FormFieldNode[],
-  originalDefinition: FormFieldDefinition
-): FormFieldNode[] {
-  const nextFields = cloneFieldNodes(fields);
-  const objectFieldsIndex = nextFields.findIndex(fieldNode =>
-    resolveFormFieldNode(fieldNode)?.key === 'fields'
-  );
-  const insertIndex = objectFieldsIndex < 0
-    ? nextFields.length
-    : objectFieldsIndex + 1;
-  nextFields.splice(
-    insertIndex,
-    0,
-    createRecordKeyValueEditor(originalDefinition)
-  );
-  return nextFields;
-}
-
-/** 创建 record 字段动态 key 和统一 value 的配置编辑器。 */
-function createRecordKeyValueEditor(
-  originalDefinition: FormFieldDefinition
-): FormField {
-  const keyFields = selectEditorFields(originalDefinition, [
-    'name',
-    'hint',
-    'defaultValueJson',
-    'componentDataKey',
-    'componentDataJson',
-    'component',
-    'componentPropertiesJson',
-    'rules'
-  ]).flatMap(fieldNode => {
-    const field = resolveFormFieldNode(fieldNode);
-    if (!field) return [];
-    const keyField = cloneField(field);
-    delete keyField.binds;
-    if (keyField.key === 'name') {
-      keyField.name = 'Key 标签';
-      keyField.required = false;
-      keyField.rules = undefined;
-    } else {
-      keyField.name = `Key ${field.name ?? field.key ?? '配置'}`;
-    }
-    if (keyField.key === 'rules') {
-      useRuleTypes(
-        keyField,
-        supportedRulesByFieldType.string ?? new Set()
-      );
-    }
-    return [keyField];
-  });
-
-  return {
-    key: 'kvDef',
-    name: 'Record 键值定义',
-    category: 'object',
-    required: true,
-    hint: 'Key 固定为字符串，Value 可以使用任意匿名字段或 definitions 引用。',
-    fields: [
-      {
-        key: 'key',
-        name: '动态 Key 定义',
-        category: 'object',
-        required: true,
-        fields: keyFields
-      },
-      {
-        $ref: ARRAY_ELEMENT_DEFINITION_NAME,
-        key: 'value',
-        name: '统一 Value 定义'
-      }
-    ],
-    binds: [
-      {
-        sourceFormKey: 'formEasyCreator',
-        sourceFieldId: './category',
-        target: 'visible',
-        resolver: "return sourceFieldValue === 'record';"
-      }
-    ]
-  };
-}
-
-/** 创建一个支持内联配置和 definitions 引用的字段节点编辑器。 */
-function createFieldNodeEditorDefinition(
-  originalDefinition: FormFieldDefinition,
-  inlineDefinitionFields: FormFieldNode[],
-  requiresIdentity: boolean
-): FormFieldDefinition {
-  const identityFields = requiresIdentity
-    ? selectEditorFields(originalDefinition, ['key', 'name'])
-    : [];
-  return {
-    category: 'object',
-    fields: [
-      ...identityFields,
-      createReferenceEditor(),
-      ...inlineDefinitionFields.map(fieldNode =>
-        applyReferenceVisibility(cloneFieldNode(fieldNode), false)
-      ),
-      ...createReferenceOverrideEditors(originalDefinition, requiresIdentity)
-    ]
-  };
-}
-
-/** 创建 definitions 的动态名称和匿名字段定义编辑器。 */
-function createSchemaDefinitionRecordEditor(
-  inlineDefinitionFields: FormFieldNode[]
-): NonNullable<FormField['kvDef']> {
-  return {
-    key: {
-      name: '定义名称',
-      hint: '供 $ref 使用，必须在当前 schema 的 definitions 中唯一。',
-      rules: [
-        {
-          type: 'pattern',
-          value: '^[^.\\[\\]\\s]+$',
-          message: '定义名称不能包含空白、点号或方括号。'
-        }
-      ],
-      componentProperties: {
-        placeholder: '例如 address'
-      }
-    },
-    value: {
-      category: 'object',
-      fields: cloneFieldNodes(inlineDefinitionFields)
-    }
-  };
-}
-
-/** 创建引用目标选择器，并从当前 definitions 草稿动态读取选项。 */
-function createReferenceEditor(): FormField {
-  return {
-    key: '$ref',
-    name: '引用定义',
-    category: 'basic',
-    dataType: 'string',
-    component: 'select',
-    componentDataKey: 'creator-definition-options(definitions:formEasyCreator.schemaDefinitions)',
-    componentProperties: {
-      clearable: true,
-      placeholder: '不引用，使用内联配置'
-    },
-    omitNull: true,
-    hint: '不选择时使用同级内联配置；选择后生成 $ref 引用。'
-  };
-}
-
-/** 创建引用节点可覆盖的全部实例属性编辑器。 */
-function createReferenceOverrideEditors(
-  originalDefinition: FormFieldDefinition,
-  requiresIdentity: boolean
-): FormFieldNode[] {
-  const overrideFieldKeys = [
-    'hint',
-    'defaultValueJson',
-    'componentDataKey',
-    'componentDataJson',
-    'componentPropertiesJson',
-    'rules',
-    'binds',
-    'eventSubscriptions'
-  ];
-  if (requiresIdentity) {
-    overrideFieldKeys.unshift('omitNull', 'omitWhenHidden');
-  }
-  const overrideFields = selectEditorFields(
-    originalDefinition,
-    overrideFieldKeys
-  ).map(fieldNode => {
-    const field = resolveFormFieldNode(fieldNode);
-    if (!field) return fieldNode;
-    const overrideField = cloneField(field);
-    overrideField.key = `referenceOverride_${field.key}`;
-    overrideField.name = `覆盖${field.name ?? field.key ?? '配置'}`;
-    if (field.key === 'rules') {
-      useAllRuleTypesForReference(overrideField);
-    }
-    return applyReferenceVisibility(overrideField, true);
-  });
-  return [
-    applyReferenceVisibility({
-      key: 'requiredOverride',
-      name: '覆盖必填状态',
-      category: 'basic',
-      dataType: 'string',
-      component: 'select',
-      componentData: REQUIRED_OVERRIDE_OPTIONS
-    }, true),
-    ...overrideFields
-  ];
-}
-
-/** 让引用规则类型显示全部候选项，具体兼容性由目标 schema 校验。 */
-function useAllRuleTypesForReference(rulesField: FormField): void {
-  const ruleTypes = new Set(
-    Object.values(supportedRulesByFieldType).flatMap(types =>
-      Array.from(types)
-    )
-  );
-  useRuleTypes(rulesField, ruleTypes);
-}
-
-/** 将规则类型选择器改为指定的静态规则类型列表。 */
-function useRuleTypes(
-  rulesField: FormField,
-  ruleTypes: ReadonlySet<string>
-): void {
-  const element = rulesField.element;
-  if (!element || isFormFieldReference(element)) return;
-  const typeField = element.fields
-    ?.map(fieldNode => resolveFormFieldNode(fieldNode))
-    .find(field => field?.key === 'type');
-  if (!typeField) return;
-  delete typeField.componentDataKey;
-  typeField.componentData = Array.from(ruleTypes).map(ruleType => ({
-    label: ruleType,
-    value: ruleType
-  }));
-}
-
-/** 从原始字段编辑器中按顺序复制指定字段。 */
-function selectEditorFields(
-  definition: FormFieldDefinition,
-  fieldKeys: string[]
-): FormFieldNode[] {
-  const fieldsByKey = new Map(
-    (definition.fields ?? []).flatMap(fieldNode => {
-      const field = resolveFormFieldNode(fieldNode);
-      return field?.key ? [[field.key, fieldNode] as const] : [];
-    })
-  );
-  return fieldKeys.flatMap(fieldKey => {
-    const fieldNode = fieldsByKey.get(fieldKey);
-    return fieldNode ? [cloneFieldNode(fieldNode)] : [];
-  });
-}
-
-/** 为编辑字段增加根据 $ref 是否存在控制可见性的绑定。 */
-function applyReferenceVisibility(
-  field: FormFieldNode,
-  showWhenReference: boolean
-): FormFieldNode {
-  return {
-    ...field,
-    omitWhenHidden: true,
-    binds: [
-      ...(field.binds ?? []),
-      {
-        sourceFormKey: 'formEasyCreator',
-        sourceFieldId: './$ref',
-        target: 'visible',
-        resolver: showWhenReference
-          ? 'return sourceFieldValue !== null;'
-          : 'return sourceFieldValue === null;'
-      }
-    ]
-  };
-}
-
-/** 深复制一个字段节点，避免不同编辑器定义共享可变配置。 */
-function cloneFieldNode<T extends FormFieldNode>(fieldNode: T): T {
-  return JSON.parse(JSON.stringify(fieldNode)) as T;
-}
-
-/** 深复制一个普通字段配置。 */
-function cloneField(field: FormField): FormField {
-  return cloneFieldNode(field);
-}
-
-/** 深复制字段节点数组。 */
-function cloneFieldNodes(fields: FormFieldNode[]): FormFieldNode[] {
-  return fields.map(fieldNode => cloneFieldNode(fieldNode));
-}
-
 /** 驱动设计器配置区域的内部递归动态表单 schema。 */
-const creatorSchema = createCreatorSchema();
+const creatorSchema = creatorSchemaJson as FormSchema;
 
 /** 创建仅供设计器内部使用的 H5 基础字段渲染器。 */
 function createCreatorRenderer(): H5BasicFieldRenderer {
@@ -431,12 +51,31 @@ function createCreatorRenderer(): H5BasicFieldRenderer {
 function createCreatorComponentDataManager(): ComponentDataManager {
   const manager = new ComponentDataManager();
   manager.register('validation-rule-types', (_context, params) => {
-    const category = typeof params.category === 'string'
+    let category = typeof params.category === 'string'
       ? params.category
       : undefined;
-    const dataType = typeof params.dataType === 'string'
+    let dataType = typeof params.dataType === 'string'
       ? params.dataType
       : undefined;
+    const reference = typeof params.reference === 'string'
+      ? params.reference
+      : undefined;
+    if (
+      reference
+      && params.definitions
+      && typeof params.definitions === 'object'
+      && !Array.isArray(params.definitions)
+    ) {
+      const definition = (
+        params.definitions as Record<string, CreatorFormValue>
+      )[reference];
+      category = typeof definition?.category === 'string'
+        ? definition.category
+        : undefined;
+      dataType = typeof definition?.dataType === 'string'
+        ? definition.dataType
+        : undefined;
+    }
     const fieldType = category === 'basic' ? dataType : category;
     const supportedRules = fieldType
       ? supportedRulesByFieldType[fieldType]
@@ -504,6 +143,11 @@ export class FormEasyCreator {
   private readonly previewEventCenter = new EventCenter();
   /** 清除复制反馈所使用的计时器。 */
   private copyStateTimer?: ReturnType<typeof setTimeout>;
+  /** 当前用于编辑 Schema 的内部动态表单元素。 */
+  private creatorFormElement?: HTMLElement & {
+    /** 主动拉取并校验内部全部字段。 */
+    validate(): Promise<boolean>;
+  };
 
   /** 组件首次加载前同步外部传入的待编辑 schema。 */
   componentWillLoad(): void {
@@ -543,7 +187,8 @@ export class FormEasyCreator {
   /** 校验设计器当前生成的 schema 是否可以安全使用。 */
   @Method()
   async validate(): Promise<boolean> {
-    return this.schemaValidation.valid;
+    const editorValid = await this.creatorFormElement?.validate() ?? true;
+    return editorValid && this.schemaValidation.valid;
   }
 
   /** 将现有 schema 或默认 schema 转换为设计器可编辑数据。 */
@@ -686,6 +331,9 @@ export class FormEasyCreator {
               </div>
             </div>
             <form-easy
+              ref={(element?: typeof this.creatorFormElement) => {
+                this.creatorFormElement = element;
+              }}
               key={`creator-editor-${this.editorRevision}`}
               schema={creatorSchema}
               value={this.creatorFormValue}

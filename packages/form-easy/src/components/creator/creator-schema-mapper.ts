@@ -7,7 +7,9 @@ import type {
   FormFieldReference,
   FormRecordKeyDefinition,
   FormSchema,
-  LabelPosition
+  LabelPosition,
+  NamedFormFieldNode,
+  AnonymousFormFieldNode
 } from '../../types';
 import { isFormFieldReference } from '../../form-field-definition-resolver';
 import type {
@@ -48,16 +50,16 @@ const defaultCreatedSchema: FormSchema = {
 /** 将待编辑表单 schema 转换为 creator 动态表单需要的数据。 */
 export function createCreatorFormValue(schema: FormSchema = defaultCreatedSchema): CreatorFormValue {
   return {
-    formKey: schema.key,
-    formName: schema.name,
+    key: schema.key,
+    name: schema.name,
     labelPosition: schema.labelPosition ?? 'left',
-    schemaDefinitions: Object.fromEntries(
+    definitions: Object.fromEntries(
       Object.entries(schema.definitions ?? {}).map(([name, definition]) => [
         name,
         createInlineFieldDraft(definition)
       ])
     ),
-    fieldDefinitions: schema.fields.map(fieldNode =>
+    fields: schema.fields.map(fieldNode =>
       createFieldNodeDraft(fieldNode, true)
     )
   };
@@ -81,18 +83,18 @@ function createFieldNodeDraft(
 /** 将 creator 动态表单数据转换为标准 FormSchema。 */
 export function mapCreatorValueToSchema(value: CreatorFormValue): CreatorSchemaMappingResult {
   const issues: FormSchemaValidationIssue[] = [];
-  const fieldValues = Array.isArray(value.fieldDefinitions) ? value.fieldDefinitions : [];
+  const fieldValues = Array.isArray(value.fields) ? value.fields : [];
   const labelPosition = readOptionalString(value.labelPosition) as LabelPosition | undefined;
-  const definitions = mapDefinitionDrafts(value.schemaDefinitions, issues);
+  const definitions = mapDefinitionDrafts(value.definitions, issues);
   return {
     schema: {
-      key: readString(value.formKey),
-      name: readString(value.formName),
+      key: readString(value.key),
+      name: readString(value.name),
       ...(labelPosition ? { labelPosition } : {}),
       ...(Object.keys(definitions).length > 0 ? { definitions } : {}),
       fields: fieldValues.map((field, index) => mapFieldNodeDraft(
         field,
-        `$.fieldDefinitions[${index}]`,
+        `$.fields[${index}]`,
         issues,
         true
       ))
@@ -126,7 +128,7 @@ function mapDefinitionDrafts(
   const definitions: Array<[string, FormFieldDefinition]> = [];
   Object.entries(value).forEach(([rawName, definition]) => {
     const name = rawName.trim();
-    const definitionPath = `$.schemaDefinitions[${JSON.stringify(rawName)}]`;
+    const definitionPath = `$.definitions[${JSON.stringify(rawName)}]`;
     if (!name) {
       addMappingIssue(issues, definitionPath, '字段定义名称不能为空。');
       return;
@@ -149,7 +151,7 @@ function mapDefinitionDrafts(
 
 /** 将普通字段转换为不包含实例标识的内联定义草稿。 */
 function createInlineFieldDraft(field: FormField): CreatorFormValue {
-  const elementDefinition = field.element
+  const element = field.element
     ? createFieldNodeDraft(field.element, false)
     : undefined;
   const fields = (field.fields ?? []).map(childFieldNode =>
@@ -157,33 +159,48 @@ function createInlineFieldDraft(field: FormField): CreatorFormValue {
   );
   return {
     category: field.category,
-    required: field.required ?? false,
-    omitNull: field.omitNull ?? false,
-    omitWhenHidden: field.omitWhenHidden ?? false,
-    hint: field.hint ?? null,
-    dataType: field.dataType ?? null,
-    component: field.component ?? null,
-    componentDataKey: field.componentDataKey ?? null,
-    defaultValueJson: hasOwn(field, 'defaultValue') ? stringifyJson(field.defaultValue) : null,
-    componentPropertiesJson: field.componentProperties
-      ? stringifyJson(field.componentProperties)
-      : null,
-    componentDataJson: hasOwn(field, 'componentData')
-      ? stringifyJson(field.componentData)
-      : null,
-    kvDef: field.kvDef
+    ...(hasOwn(field, 'required') ? { required: field.required } : {}),
+    ...(hasOwn(field, 'optional') ? { optional: field.optional } : {}),
+    ...(hasOwn(field, 'omitNull') ? { omitNull: field.omitNull } : {}),
+    ...(hasOwn(field, 'omitWhenHidden')
+      ? { omitWhenHidden: field.omitWhenHidden }
+      : {}),
+    ...(hasOwn(field, 'hint') ? { hint: field.hint } : {}),
+    ...(hasOwn(field, 'dataType') ? { dataType: field.dataType } : {}),
+    ...(hasOwn(field, 'component') ? { component: field.component } : {}),
+    ...(hasOwn(field, 'componentDataKey')
+      ? { componentDataKey: field.componentDataKey }
+      : {}),
+    ...(hasOwn(field, 'defaultValue')
+      ? { defaultValue: cloneJsonValue(field.defaultValue) }
+      : {}),
+    ...(hasOwn(field, 'componentProperties')
+      ? { componentProperties: cloneJsonValue(field.componentProperties) }
+      : {}),
+    ...(hasOwn(field, 'componentData')
+      ? { componentData: cloneJsonValue(field.componentData) }
+      : {}),
+    ...(hasOwn(field, 'kvDef') && field.kvDef
       ? {
-        key: createRecordKeyDraft(field.kvDef.key),
-        value: createFieldNodeDraft(field.kvDef.value, false)
+        kvDef: {
+          key: createRecordKeyDraft(field.kvDef.key),
+          value: createFieldNodeDraft(field.kvDef.value, false)
+        }
       }
-      : null,
-    elementDefinition: elementDefinition ?? null,
-    fields,
-    rules: createRulesDraft(field.rules),
-    binds: (field.binds ?? []).map(binding => ({ ...binding })),
-    eventSubscriptions: (field.eventSubscriptions ?? []).map(
-      subscription => ({ ...subscription })
-    )
+      : {}),
+    ...(element ? { element } : {}),
+    ...(hasOwn(field, 'fields') ? { fields } : {}),
+    ...(hasOwn(field, 'rules') ? { rules: createRulesDraft(field.rules) } : {}),
+    ...(hasOwn(field, 'binds')
+      ? { binds: (field.binds ?? []).map(binding => ({ ...binding })) }
+      : {}),
+    ...(hasOwn(field, 'eventSubscriptions')
+      ? {
+        eventSubscriptions: (field.eventSubscriptions ?? []).map(
+          subscription => ({ ...subscription })
+        )
+      }
+      : {})
   };
 }
 
@@ -195,27 +212,52 @@ function createReferenceFieldDraft(
   return {
     ...(requiresIdentity ? createIdentityDraft(reference) : {}),
     $ref: reference.$ref,
-    requiredOverride: hasOwn(reference, 'required')
-      ? String(reference.required)
-      : 'inherit',
-    referenceOverride_omitNull: reference.omitNull ?? false,
-    referenceOverride_omitWhenHidden: reference.omitWhenHidden ?? false,
-    referenceOverride_hint: reference.hint ?? null,
-    referenceOverride_componentDataKey: reference.componentDataKey ?? null,
-    referenceOverride_defaultValueJson: hasOwn(reference, 'defaultValue')
-      ? stringifyJson(reference.defaultValue)
-      : null,
-    referenceOverride_componentPropertiesJson: reference.componentProperties
-      ? stringifyJson(reference.componentProperties)
-      : null,
-    referenceOverride_componentDataJson: hasOwn(reference, 'componentData')
-      ? stringifyJson(reference.componentData)
-      : null,
-    referenceOverride_rules: createRulesDraft(reference.rules),
-    referenceOverride_binds: (reference.binds ?? []).map(binding => ({ ...binding })),
-    referenceOverride_eventSubscriptions: (reference.eventSubscriptions ?? []).map(
-      subscription => ({ ...subscription })
-    )
+    ...(hasOwn(reference, 'required') ? { required: reference.required } : {}),
+    ...(hasOwn(reference, 'optional')
+      ? { optional: reference.optional }
+      : {}),
+    ...(hasOwn(reference, 'omitNull')
+      ? { omitNull: reference.omitNull }
+      : {}),
+    ...(hasOwn(reference, 'omitWhenHidden')
+      ? { omitWhenHidden: reference.omitWhenHidden }
+      : {}),
+    ...(hasOwn(reference, 'hint')
+      ? { hint: reference.hint }
+      : {}),
+    ...(hasOwn(reference, 'componentDataKey')
+      ? { componentDataKey: reference.componentDataKey }
+      : {}),
+    ...(hasOwn(reference, 'defaultValue')
+      ? { defaultValue: cloneJsonValue(reference.defaultValue) }
+      : {}),
+    ...(hasOwn(reference, 'componentProperties')
+      ? {
+        componentProperties: cloneJsonValue(
+          reference.componentProperties
+        )
+      }
+      : {}),
+    ...(hasOwn(reference, 'componentData')
+      ? { componentData: cloneJsonValue(reference.componentData) }
+      : {}),
+    ...(hasOwn(reference, 'rules')
+      ? { rules: createRulesDraft(reference.rules) }
+      : {}),
+    ...(hasOwn(reference, 'binds')
+      ? {
+        binds: (reference.binds ?? []).map(binding => ({
+          ...binding
+        }))
+      }
+      : {}),
+    ...(hasOwn(reference, 'eventSubscriptions')
+      ? {
+        eventSubscriptions: (
+          reference.eventSubscriptions ?? []
+        ).map(subscription => ({ ...subscription }))
+      }
+      : {})
   };
 }
 
@@ -227,11 +269,11 @@ function createIdentityDraft(field: FormFieldReference | FormField): CreatorForm
   };
 }
 
-/** 将校验规则转换为设计器使用的 JSON 文本草稿。 */
+/** 将校验规则转换为设计器直接编辑真实值的草稿。 */
 function createRulesDraft(rules?: FieldValidationRule[]): CreatorFormValue[] {
   return (rules ?? []).map(rule => ({
     type: rule.type,
-    valueJson: hasOwn(rule, 'value') ? stringifyJson(rule.value) : null,
+    value: hasOwn(rule, 'value') ? cloneJsonValue(rule.value) : null,
     message: rule.message ?? null
   }));
 }
@@ -241,12 +283,26 @@ function mapFieldNodeDraft(
   value: unknown,
   path: string,
   issues: FormSchemaValidationIssue[],
+  requiresIdentity: true
+): NamedFormFieldNode;
+/** 将匿名位置的字段草稿转换为严格的匿名字段节点。 */
+function mapFieldNodeDraft(
+  value: unknown,
+  path: string,
+  issues: FormSchemaValidationIssue[],
+  requiresIdentity: false
+): AnonymousFormFieldNode;
+/** 根据字段所在位置将草稿转换为对应的字段节点。 */
+function mapFieldNodeDraft(
+  value: unknown,
+  path: string,
+  issues: FormSchemaValidationIssue[],
   requiresIdentity: boolean
 ): FormFieldNode {
   const draft = isRecord(value) ? value : {};
   const referenceName = readOptionalString(draft.$ref);
   if (referenceName) {
-    return mapReferenceFieldDraft(draft, path, issues, requiresIdentity);
+    return mapReferenceFieldDraft(draft, requiresIdentity);
   }
   const field = mapInlineFieldDraft(draft, path, issues);
   if (requiresIdentity) {
@@ -254,9 +310,9 @@ function mapFieldNodeDraft(
       ...field,
       key: readString(draft.key),
       name: readString(draft.name)
-    };
+    } as NamedFormFieldNode;
   }
-  return field;
+  return field as AnonymousFormFieldNode;
 }
 
 /** 将内联字段定义草稿转换为不包含实例标识的字段配置。 */
@@ -267,46 +323,18 @@ function mapInlineFieldDraft(
 ): FormFieldDefinition {
   const draft = isRecord(value) ? value : {};
   const category = readString(draft.category) as FormField['category'];
-  const field: FormFieldDefinition = { category };
-  if (draft.required === true) field.required = true;
-  if (draft.omitNull === true) field.omitNull = true;
-  if (draft.omitWhenHidden === true) field.omitWhenHidden = true;
-  assignOptionalString(field, 'hint', draft.hint);
-  assignOptionalJson(field, 'defaultValue', draft.defaultValueJson, `${path}.defaultValueJson`, issues);
-
-  const rules = mapRules(draft.rules, `${path}.rules`, issues);
-  if (rules.length > 0) field.rules = rules;
-  const binds = mapRecordArray(draft.binds) as unknown as FieldBinding[];
-  if (binds.length > 0) field.binds = binds;
-  const eventSubscriptions = mapRecordArray(draft.eventSubscriptions);
-  if (eventSubscriptions.length > 0) {
-    field.eventSubscriptions = eventSubscriptions as unknown as FormField['eventSubscriptions'];
-  }
+  const field = { category } as FormField;
+  assignSharedFieldDraftProperties(field, draft);
 
   if (category === 'basic') {
     field.dataType = readString(draft.dataType) as FormField['dataType'];
-    assignOptionalString(field, 'component', draft.component);
-    assignOptionalString(field, 'componentDataKey', draft.componentDataKey);
-    assignOptionalJson(
-      field,
-      'componentProperties',
-      draft.componentPropertiesJson,
-      `${path}.componentPropertiesJson`,
-      issues
-    );
-    assignOptionalJson(
-      field,
-      'componentData',
-      draft.componentDataJson,
-      `${path}.componentDataJson`,
-      issues
-    );
+    assignStringProperty(field, 'component', draft.component);
   }
   if (category === 'array') {
-    if (isRecord(draft.elementDefinition)) {
+    if (isRecord(draft.element)) {
       field.element = mapFieldNodeDraft(
-        draft.elementDefinition,
-        `${path}.elementDefinition`,
+        draft.element,
+        `${path}.element`,
         issues,
         false
       );
@@ -323,11 +351,7 @@ function mapInlineFieldDraft(
   }
   if (category === 'record' && isRecord(draft.kvDef)) {
     field.kvDef = {
-      key: mapRecordKeyDraft(
-        draft.kvDef.key,
-        `${path}.kvDef.key`,
-        issues
-      ),
+      key: mapRecordKeyDraft(draft.kvDef.key),
       value: mapFieldNodeDraft(
         draft.kvDef.value,
         `${path}.kvDef.value`,
@@ -336,7 +360,7 @@ function mapInlineFieldDraft(
       )
     };
   }
-  return field;
+  return field as FormFieldDefinition;
 }
 
 /** 将 record 动态字符串 key 定义转换为设计器草稿。 */
@@ -348,14 +372,14 @@ function createRecordKeyDraft(
     hint: keyDefinition.hint ?? null,
     component: keyDefinition.component ?? null,
     componentDataKey: keyDefinition.componentDataKey ?? null,
-    defaultValueJson: hasOwn(keyDefinition, 'defaultValue')
-      ? stringifyJson(keyDefinition.defaultValue)
+    defaultValue: hasOwn(keyDefinition, 'defaultValue')
+      ? cloneJsonValue(keyDefinition.defaultValue)
       : null,
-    componentPropertiesJson: keyDefinition.componentProperties
-      ? stringifyJson(keyDefinition.componentProperties)
+    componentProperties: keyDefinition.componentProperties
+      ? cloneJsonValue(keyDefinition.componentProperties)
       : null,
-    componentDataJson: hasOwn(keyDefinition, 'componentData')
-      ? stringifyJson(keyDefinition.componentData)
+    componentData: hasOwn(keyDefinition, 'componentData')
+      ? cloneJsonValue(keyDefinition.componentData)
       : null,
     rules: createRulesDraft(keyDefinition.rules)
   };
@@ -363,9 +387,7 @@ function createRecordKeyDraft(
 
 /** 将设计器草稿转换为固定 string 类型的 record key 定义。 */
 function mapRecordKeyDraft(
-  value: unknown,
-  path: string,
-  issues: FormSchemaValidationIssue[]
+  value: unknown
 ): FormRecordKeyDefinition {
   const draft = isRecord(value) ? value : {};
   const keyDefinition: FormRecordKeyDefinition = {};
@@ -377,28 +399,10 @@ function mapRecordKeyDraft(
     'componentDataKey',
     draft.componentDataKey
   );
-  assignOptionalJson(
-    keyDefinition,
-    'defaultValue',
-    draft.defaultValueJson,
-    `${path}.defaultValueJson`,
-    issues
-  );
-  assignOptionalJson(
-    keyDefinition,
-    'componentProperties',
-    draft.componentPropertiesJson,
-    `${path}.componentPropertiesJson`,
-    issues
-  );
-  assignOptionalJson(
-    keyDefinition,
-    'componentData',
-    draft.componentDataJson,
-    `${path}.componentDataJson`,
-    issues
-  );
-  const rules = mapRules(draft.rules, `${path}.rules`, issues);
+  assignOptionalValue(keyDefinition, 'defaultValue', draft);
+  assignOptionalValue(keyDefinition, 'componentProperties', draft);
+  assignOptionalValue(keyDefinition, 'componentData', draft);
+  const rules = mapRules(draft.rules);
   if (rules.length > 0) keyDefinition.rules = rules;
   return keyDefinition;
 }
@@ -406,8 +410,6 @@ function mapRecordKeyDraft(
 /** 将引用草稿转换为 $ref 节点及其可选实例覆盖。 */
 function mapReferenceFieldDraft(
   draft: CreatorFormValue,
-  path: string,
-  issues: FormSchemaValidationIssue[],
   requiresIdentity: boolean
 ): FormFieldReference {
   const reference: FormFieldReference = {
@@ -417,56 +419,35 @@ function mapReferenceFieldDraft(
     reference.key = readString(draft.key);
     reference.name = readString(draft.name);
   }
-  if (draft.requiredOverride === 'true') reference.required = true;
-  if (draft.requiredOverride === 'false') reference.required = false;
-  if (draft.referenceOverride_omitNull === true) reference.omitNull = true;
-  if (draft.referenceOverride_omitWhenHidden === true) {
-    reference.omitWhenHidden = true;
-  }
-  assignOptionalString(reference, 'hint', draft.referenceOverride_hint);
-  assignOptionalString(
-    reference,
-    'componentDataKey',
-    draft.referenceOverride_componentDataKey
-  );
-  assignOptionalJson(
-    reference,
-    'defaultValue',
-    draft.referenceOverride_defaultValueJson,
-    `${path}.referenceOverride_defaultValueJson`,
-    issues
-  );
-  assignOptionalJson(
-    reference,
-    'componentProperties',
-    draft.referenceOverride_componentPropertiesJson,
-    `${path}.referenceOverride_componentPropertiesJson`,
-    issues
-  );
-  assignOptionalJson(
-    reference,
-    'componentData',
-    draft.referenceOverride_componentDataJson,
-    `${path}.referenceOverride_componentDataJson`,
-    issues
-  );
-  const rules = mapRules(
-    draft.referenceOverride_rules,
-    `${path}.referenceOverride_rules`,
-    issues
-  );
-  if (rules.length > 0) reference.rules = rules;
-  const binds = mapRecordArray(
-    draft.referenceOverride_binds
-  ) as unknown as FieldBinding[];
-  if (binds.length > 0) reference.binds = binds;
-  const subscriptions = mapRecordArray(
-    draft.referenceOverride_eventSubscriptions
-  );
-  if (subscriptions.length > 0) {
-    reference.eventSubscriptions = subscriptions as unknown as FormField['eventSubscriptions'];
-  }
+  assignSharedFieldDraftProperties(reference, draft);
   return reference;
+}
+
+/** 将内联与引用节点共用的可选属性从设计器草稿写入目标字段。 */
+function assignSharedFieldDraftProperties(
+  target: FormField | FormFieldReference,
+  draft: CreatorFormValue
+): void {
+  assignBooleanProperty(target, 'required', draft.required);
+  assignBooleanProperty(target, 'optional', draft.optional);
+  assignBooleanProperty(target, 'omitNull', draft.omitNull);
+  assignBooleanProperty(target, 'omitWhenHidden', draft.omitWhenHidden);
+  assignStringProperty(target, 'hint', draft.hint);
+  assignStringProperty(target, 'componentDataKey', draft.componentDataKey);
+  assignOptionalValue(target, 'defaultValue', draft);
+  assignOptionalValue(target, 'componentProperties', draft);
+  assignOptionalValue(target, 'componentData', draft);
+  if (Array.isArray(draft.rules)) {
+    target.rules = mapRules(draft.rules);
+  }
+  if (Array.isArray(draft.binds)) {
+    target.binds = mapRecordArray(draft.binds) as unknown as FieldBinding[];
+  }
+  if (Array.isArray(draft.eventSubscriptions)) {
+    target.eventSubscriptions = mapRecordArray(
+      draft.eventSubscriptions
+    ) as unknown as FormField['eventSubscriptions'];
+  }
 }
 
 /** 向设计器映射结果追加一个可定位的输入错误。 */
@@ -485,19 +466,16 @@ function addMappingIssue(
 
 /** 将 creator 的规则草稿数组转换为同步校验规则。 */
 function mapRules(
-  value: unknown,
-  path: string,
-  issues: FormSchemaValidationIssue[]
+  value: unknown
 ): FieldValidationRule[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item, index) => {
+  return value.map(item => {
     const ruleDraft = isRecord(item) ? item : {};
     const rule: FieldValidationRule = {
       type: readString(ruleDraft.type) as FieldValidationRule['type'],
-      value: undefined
+      value: cloneJsonValue(ruleDraft.value)
     };
     assignOptionalString(rule, 'message', ruleDraft.message);
-    assignOptionalJson(rule, 'value', ruleDraft.valueJson, `${path}[${index}].valueJson`, issues);
     return rule;
   });
 }
@@ -507,6 +485,28 @@ function mapRecordArray(value: unknown): CreatorFormValue[] {
   return Array.isArray(value)
     ? value.map(item => isRecord(item) ? { ...item } : {})
     : [];
+}
+
+/** 原样写入草稿中明确存在的布尔属性，包括 false。 */
+function assignBooleanProperty<T extends object>(
+  target: T,
+  property: keyof T,
+  value: unknown
+): void {
+  if (typeof value === 'boolean') {
+    target[property] = value as T[keyof T];
+  }
+}
+
+/** 原样写入草稿中明确存在的字符串属性，包括空字符串。 */
+function assignStringProperty<T extends object>(
+  target: T,
+  property: keyof T,
+  value: unknown
+): void {
+  if (typeof value === 'string') {
+    target[property] = value as T[keyof T];
+  }
 }
 
 /** 将非空字符串属性写入目标对象。 */
@@ -519,26 +519,15 @@ function assignOptionalString<T extends object>(
   if (stringValue !== undefined) target[property] = stringValue as T[keyof T];
 }
 
-/** 解析并写入一个可选 JSON 文本属性。 */
-function assignOptionalJson<T extends object>(
+/** 将草稿中明确存在的真实值深复制到目标对象。 */
+function assignOptionalValue<T extends object>(
   target: T,
   property: keyof T,
-  value: unknown,
-  path: string,
-  issues: FormSchemaValidationIssue[]
+  source: CreatorFormValue
 ): void {
-  if (typeof value !== 'string' || !value.trim()) return;
-  try {
-    target[property] = JSON.parse(value) as T[keyof T];
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    issues.push({
-      level: 'error',
-      code: 'invalid-value',
-      path,
-      message: `JSON 内容无法解析：${reason}`
-    });
-  }
+  const propertyName = String(property);
+  if (!hasOwn(source, propertyName)) return;
+  target[property] = cloneJsonValue(source[propertyName]) as T[keyof T];
 }
 
 /** 将未知值转换为字符串，其他类型返回空字符串。 */
@@ -552,9 +541,15 @@ function readOptionalString(value: unknown): string | undefined {
   return stringValue || undefined;
 }
 
-/** 将 JSON 值格式化为便于编辑的缩进文本。 */
-function stringifyJson(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? '';
+/** 深复制设计器维护的 JSON 值，避免草稿与输出共享可变引用。 */
+function cloneJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(item => cloneJsonValue(item));
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, cloneJsonValue(item)])
+    );
+  }
+  return value;
 }
 
 /** 判断未知值是否为可读取的对象记录。 */

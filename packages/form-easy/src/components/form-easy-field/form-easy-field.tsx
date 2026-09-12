@@ -33,8 +33,10 @@ import type {
   ComponentDataResolverParams,
   ComponentEventName,
   ComponentHandle,
+  ComponentValidationResult,
   EventFlowHistory,
   FieldBinding,
+  FieldPresenceChangeDetail,
   FieldVisibilityChangeDetail,
   FieldValidationErrorType,
   FormField,
@@ -51,6 +53,8 @@ export class FormEasyField implements HandleTarget {
   @Prop() fieldId!: string;
   /** 当前字段值。 */
   @Prop() value: unknown;
+  /** 当前命名字段是否存在于父级原始值对象中。 */
+  @Prop() valuePresent = true;
   /** 用于解析事件源标识的表单键。 */
   @Prop() formKey!: string;
   /** 字段标签相对于编辑器的位置。 */
@@ -80,11 +84,15 @@ export class FormEasyField implements HandleTarget {
   @Event() valueChange!: EventEmitter<unknown>;
   /** 向根表单通知当前字段的可见状态发生变化。 */
   @Event() fieldVisibilityChange!: EventEmitter<FieldVisibilityChangeDetail>;
+  /** 向根表单通知 optional 字段的输出存在状态发生变化。 */
+  @Event() fieldPresenceChange!: EventEmitter<FieldPresenceChangeDetail>;
 
   /** 当前可见状态。 */
   @State() private visible = true;
   /** 当前禁用状态。 */
   @State() private disabled = false;
+  /** 当前 optional 字段是否存在于最终输出对象中。 */
+  @State() private outputPresent = true;
   /** 本地维护的字段值。 */
   @State() private currentValue: unknown;
   /** 已为当前组件准备完成的数据。 */
@@ -97,6 +105,8 @@ export class FormEasyField implements HandleTarget {
   @State() private validationError?: string;
   /** 当前字段校验错误来自用户值还是 schema 配置。 */
   @State() private validationErrorType?: FieldValidationErrorType;
+  /** 当前基础字段渲染组件主动报告的内部校验结果。 */
+  private componentValidationResult?: ComponentValidationResult;
   /** 最近一次已经输出到控制台的规则配置错误。 */
   private lastLoggedValidationConfigurationError?: string;
   /** 是否已经允许向用户展示普通字段值校验错误。 */
@@ -122,12 +132,18 @@ export class FormEasyField implements HandleTarget {
   private componentDataResolverParams: ComponentDataResolverParams = {};
   /** 已经收到初始化值的动态参数名。 */
   private readonly readyComponentDataParameterNames = new Set<string>();
+  /** optional 字段是否已经拥有可恢复的真实值。 */
+  private hasRetainedValue = false;
   /** 组件数据动态参数事件订阅的清理函数。 */
   private componentDataParameterUnsubscribe: Array<() => void> = [];
 
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
     this.currentValue = this.value ?? null;
+    this.outputPresent = this.field.optional === true
+      ? this.valuePresent
+      : true;
+    this.hasRetainedValue = this.valuePresent;
     this.validateCurrentValue();
     this.registerSubscriptions();
     this.configureComponentData();
@@ -137,8 +153,19 @@ export class FormEasyField implements HandleTarget {
   @Watch('value')
   syncExternalValue(newValue: unknown): void {
     this.currentValue = newValue ?? null;
+    if (this.valuePresent) this.hasRetainedValue = true;
     this.synchronizeStoredValue(this.currentValue);
     this.validateCurrentValue();
+  }
+
+  /** 父级原始对象的属性存在状态变化后同步 optional 输出状态。 */
+  @Watch('valuePresent')
+  syncExternalPresence(valuePresent: boolean): void {
+    if (this.field.optional !== true) return;
+    this.outputPresent = valuePresent;
+    if (valuePresent) this.hasRetainedValue = true;
+    this.validateCurrentValue();
+    this.emitPresenceChange(true);
   }
 
   /**
@@ -148,6 +175,7 @@ export class FormEasyField implements HandleTarget {
   @Watch('fieldId')
   migrateFieldId(newFieldId: string, oldFieldId: string): void {
     if (oldFieldId) this.emitVisibilityChange(false, oldFieldId);
+    if (oldFieldId) this.emitPresenceChange(false, oldFieldId);
     oldFieldId && this.formValueStore?.deleteBranch(oldFieldId);
     this.synchronizeStoredValue(this.currentValue);
     this.unsubscribe.forEach(cleanup => cleanup());
@@ -156,11 +184,13 @@ export class FormEasyField implements HandleTarget {
     this.registerSubscriptions();
     this.configureComponentData();
     this.emitVisibilityChange(true, newFieldId);
+    this.emitPresenceChange(true, newFieldId);
   }
 
   /** 字段配置更新后重新解析组件数据。 */
   @Watch('field')
   reloadComponentData(): void {
+    this.componentValidationResult = undefined;
     this.validateCurrentValue();
     this.configureComponentData();
   }
@@ -200,6 +230,7 @@ export class FormEasyField implements HandleTarget {
   /** 当前字段被移除时释放事件订阅。 */
   disconnectedCallback(): void {
     this.emitVisibilityChange(false);
+    this.emitPresenceChange(false);
     this.unsubscribe.forEach(cleanup => cleanup());
     this.unsubscribe = [];
     this.clearComponentDataParameterSubscriptions();
@@ -211,6 +242,7 @@ export class FormEasyField implements HandleTarget {
   /** 字段完成首次挂载后调用已注册的框架渲染适配器。 */
   componentDidLoad(): void {
     this.emitVisibilityChange(true);
+    this.emitPresenceChange(true);
     this.renderWithAdapter();
   }
 
@@ -233,6 +265,7 @@ export class FormEasyField implements HandleTarget {
     }
     if (handle === 'hide' && this.visible) {
       this.visible = false;
+      this.componentValidationResult = undefined;
       this.emitVisibilityChange(true);
       this.publish('onHide', undefined, history);
     }
@@ -268,6 +301,27 @@ export class FormEasyField implements HandleTarget {
   private activateValidationFeedback = (): void => {
     this.validationFeedbackActive = true;
     this.validateCurrentValue();
+  };
+
+  /** 切换 optional 字段是否存在于最终输出对象中。 */
+  private toggleOutputPresence = (): void => {
+    if (this.effectiveDisabled || this.field.optional !== true) return;
+    const nextPresent = !this.outputPresent;
+    if (!nextPresent) this.componentValidationResult = undefined;
+    if (
+      nextPresent
+      && !this.hasRetainedValue
+      && Object.prototype.hasOwnProperty.call(this.field, 'defaultValue')
+    ) {
+      this.updateValue(
+        this.cloneDefaultValue(this.field.defaultValue),
+        'onChange'
+      );
+      this.hasRetainedValue = true;
+    }
+    this.outputPresent = nextPresent;
+    this.validateCurrentValue();
+    this.emitPresenceChange(true);
   };
 
   /** 处理嵌套对象或数组字段触发的值。 */
@@ -308,6 +362,19 @@ export class FormEasyField implements HandleTarget {
       visible: this.visible,
       connected,
       affectsOutput: this.field.omitWhenHidden === true
+    });
+  }
+
+  /** 发布 optional 字段当前是否应存在于最终输出对象中。 */
+  private emitPresenceChange(
+    connected: boolean,
+    fieldId = this.fieldId
+  ): void {
+    if (this.field.optional !== true) return;
+    this.fieldPresenceChange.emit({
+      fieldId,
+      present: this.outputPresent,
+      connected
     });
   }
 
@@ -403,9 +470,13 @@ export class FormEasyField implements HandleTarget {
     const result = this.resolveBindingBoolean(sourceFieldValue, binding);
     this.bindingStates.set(binding, result);
     const bindings = this.field.binds ?? [];
-    const effectiveResult = bindings
-      .filter(item => item.target === binding.target)
-      .every(item => this.bindingStates.get(item) ?? true);
+    const targetBindings = bindings.filter(
+      item => item.target === binding.target
+    );
+    const combine = targetBindings[0]?.combine ?? 'and';
+    const effectiveResult = combine === 'or'
+      ? targetBindings.some(item => this.bindingStates.get(item) ?? false)
+      : targetBindings.every(item => this.bindingStates.get(item) ?? true);
     const handle: ComponentHandle = binding.target === 'visible'
       ? effectiveResult ? 'show' : 'hide'
       : effectiveResult ? 'enable' : 'disable';
@@ -484,14 +555,28 @@ export class FormEasyField implements HandleTarget {
 
   /** 校验当前字段值；配置错误立即展示，值错误按交互状态展示。 */
   private validateCurrentValue(): boolean {
-    if (!this.visible || this.effectiveDisabled) {
+    if (
+      !this.visible
+      || this.effectiveDisabled
+      || (this.field.optional === true && !this.outputPresent)
+    ) {
       this.validationError = undefined;
       this.validationErrorType = undefined;
       this.lastLoggedValidationConfigurationError = undefined;
       return true;
     }
-    const result = validateFieldValue(this.field, this.currentValue);
+    const fieldResult = validateFieldValue(this.field, this.currentValue);
+    const result = fieldResult.errorType === 'configuration'
+      || this.componentValidationResult?.valid !== false
+      ? fieldResult
+      : {
+        valid: false,
+        errorType: 'component' as const,
+        message: this.componentValidationResult.message
+          ?? `字段“${this.fieldId}”的组件状态无效。`
+      };
     const shouldDisplayError = result.errorType === 'configuration'
+      || result.errorType === 'component'
       || this.validationFeedbackActive;
     this.validationError = shouldDisplayError ? result.message : undefined;
     this.validationErrorType = result.errorType;
@@ -698,6 +783,19 @@ export class FormEasyField implements HandleTarget {
     this.validateCurrentValue();
   }
 
+  /** 接收基础字段组件的内部校验结果并合并到字段校验状态。 */
+  private handleComponentValidationChange = (
+    result: ComponentValidationResult
+  ): void => {
+    this.componentValidationResult = result.valid
+      ? undefined
+      : {
+        valid: false,
+        message: result.message
+      };
+    this.validateCurrentValue();
+  };
+
   /** 保存适配器宿主元素的引用。 */
   private setRendererHost = (host?: HTMLDivElement): void => {
     if (!host && this.rendererHost && this.activeRenderer) {
@@ -733,7 +831,8 @@ export class FormEasyField implements HandleTarget {
       componentData: this.componentData,
       endpointManager: this.endpointManager ?? getGlobalEndpointManager(),
       formKey: this.formKey,
-      onChange: value => this.updateValue(value, 'onChange')
+      onChange: value => this.updateValue(value, 'onChange'),
+      onValidationChange: this.handleComponentValidationChange
     });
   }
 
@@ -832,36 +931,60 @@ export class FormEasyField implements HandleTarget {
       && this.field.name.trim().length > 0;
     const hasHint = typeof this.field.hint === 'string'
       && this.field.hint.trim().length > 0;
-    const metadataClass = hasName || hasHint
+    const metadataClass = hasName || hasHint || this.field.optional === true
       ? ''
       : ' field--editor-only';
+    const optionalClass = this.field.optional === true
+      ? this.outputPresent
+        ? ' field--optional-present'
+        : ' field--optional-omitted'
+      : '';
 
     return (
       <section
-        class={`field field--${this.labelPosition}${metadataClass}`}
+        class={`field field--${this.labelPosition}${metadataClass}${optionalClass}`}
         part="field"
       >
-        {hasName && (
-          <label>
-            {this.field.name}
-            {this.field.required && <span class="required"> *</span>}
-          </label>
+        {(hasName || this.field.optional === true) && (
+          <div class="field-label">
+            {hasName && (
+              <span class="field-label-text">
+                {this.field.name}
+                {this.field.required && <span class="required"> *</span>}
+              </span>
+            )}
+            {this.field.optional === true && (
+              <button
+                class="field-presence-toggle"
+                type="button"
+                aria-pressed={String(this.outputPresent)}
+                disabled={this.effectiveDisabled}
+                title={this.outputPresent ? '从结果对象中移除该字段' : '在结果对象中设置该字段'}
+                onClick={this.toggleOutputPresence}
+              >
+                <span aria-hidden="true" />
+                {this.outputPresent ? '已设置' : '未设置'}
+              </button>
+            )}
+          </div>
         )}
         {hasHint && <small>{this.field.hint}</small>}
-        <div class="editor" onFocusout={this.activateValidationFeedback}>
-          {this.renderEditor()}
-          {this.validationError && (
-            <p
-              class={{
-                'validation-error': true,
-                'validation-error--configuration': this.validationErrorType === 'configuration'
-              }}
-              role="alert"
-            >
-              {this.validationError}
-            </p>
-          )}
-        </div>
+        {this.outputPresent && (
+          <div class="editor" onFocusout={this.activateValidationFeedback}>
+            {this.renderEditor()}
+            {this.validationError && (
+              <p
+                class={{
+                  'validation-error': true,
+                  'validation-error--configuration': this.validationErrorType === 'configuration'
+                }}
+                role="alert"
+              >
+                {this.validationError}
+              </p>
+            )}
+          </div>
+        )}
       </section>
     );
   }

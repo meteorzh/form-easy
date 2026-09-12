@@ -24,6 +24,10 @@ defineCustomElements();
 
 字段通过 `required` 配置必填，通过 `rules` 配置 `minLength`、`maxLength`、`min`、`max`、`pattern` 和 `enum` 同步校验；表单元素提供 `validate()` 与 `validateField(fieldId)` 方法。
 
+拥有 `key` 的命名字段可配置 `optional: true`。用户可以在字段 label 区域控制该属性是否存在于最终输出；未设置时 label 显示删除线并隐藏真实值控件。存在状态独立于字段值，因此属性不存在与属性明确等于 `null` 可以被准确区分。未设置的 optional 字段跳过值校验。
+
+同一字段存在多个相同的 `visible` 或 `enable` 绑定目标时，可使用 `combine: 'and' | 'or'` 选择全部满足或任一满足，默认使用 `and`。同一目标的组合方式必须一致，`value` 目标仍然只允许配置一个绑定源。
+
 拥有 `key` 的顶层字段或对象子字段可配置 `omitNull: true`。字段的 null 状态、初始化事件、校验和 `FormValueStore` 不受影响，仅在父级对外输出对象中省略该属性。第一阶段不支持在 definitions 模板、数组匿名元素或 Record 匿名 value 定义中使用此配置。
 
 命名字段还支持 `omitWhenHidden: true`。字段隐藏后仅从对外表单数据中省略，内部值和 `FormValueStore` 保持不变；重新显示时会恢复输出。该配置同样不允许用于 definitions 模板、数组匿名元素或 Record 匿名 value。

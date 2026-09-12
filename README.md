@@ -565,9 +565,23 @@ Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部�
 
 ## 默认值、预设值与联动 🔄
 
-- 未传 `value` 时：字段按 `defaultValue` 初始化，没有默认值则为 `null`。
-- 传入 `value` 时：只按预设值初始化，未提供的字段为 `null`。
+- 未传 `value` 时：普通字段按 `defaultValue` 初始化，没有默认值则为 `null`；`optional: true` 的字段默认不输出。
+- 传入 `value` 时：普通字段只按预设值初始化，未提供的字段为 `null`；`optional: true` 的字段使用属性是否真实存在来初始化输出状态。
 - 每次初始化赋值都会发布 `onChange`，因此绑定状态在首屏即可正确生效。
+
+拥有 `key` 的命名字段可以配置 `optional: true`，允许用户在字段 label 区域控制该属性是否存在于最终 `formData`。未设置时字段名称显示删除线且隐藏值控件；重新设置后恢复原组件和值。存在状态与字段值彼此独立，因此可以区分属性不存在和属性明确等于 `null`：
+
+```ts
+{
+  key: 'defaultValue',
+  name: '默认值',
+  category: 'basic',
+  dataType: 'string',
+  optional: true
+}
+```
+
+`required` 控制字段值校验，`optional` 控制字段是否写入结果对象。optional 字段处于未设置状态时跳过值校验；设置后再执行 `required` 和 `rules`。`optional` 仅支持拥有 `key` 的命名字段，不适用于 definitions 模板、数组匿名元素和 Record 匿名 value。
 
 拥有 `key` 的顶层字段或对象子字段可以配置 `omitNull: true`。字段值为 `null` 或 `undefined` 时，它仍会进入组件内部状态和 `FormValueStore`，并正常触发初始化事件、绑定与校验，但不会出现在父级对外输出对象中。`false`、`0`、空字符串、空数组和空对象不会被省略：
 
@@ -583,6 +597,8 @@ Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部�
 
 第一阶段仅支持命名字段使用 `omitNull`；definitions 模板、数组匿名元素以及 Record 的匿名 value 定义中配置它会被 Schema 校验器报告为错误。definitions 被普通命名字段引用时，可以在引用位置通过 `omitNull: true` 覆盖配置。
 
+`optional` 与 `omitNull` 的侧重点不同：前者保存独立的属性存在状态，可以明确输出 `null`；后者直接根据当前值是否为空决定省略。需要区分“继承/未设置”和“明确为 null”时应使用 `optional`。
+
 命名字段还可以配置 `omitWhenHidden: true`。字段通过 `hide` 或 `visible` 绑定进入隐藏状态后，其值仍保留在组件内部和 `FormValueStore` 中，但会从对外 `formData` 中省略；字段重新显示后，原值会再次进入输出。该配置与 `omitNull` 一样，仅支持顶层字段、对象子字段等拥有 `key` 的命名位置：
 
 ```ts
@@ -597,7 +613,7 @@ Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部�
 
 字段事件支持 `onShow`、`onHide`、`onDisabled`、`onEnabled`、`onClear`、`onChange`；可调用的 handle 为 `show`、`hide`、`disable`、`enable`、`clear`、`change`。
 
-`binds` 支持 `visible`、`enable`、`value` 三种目标。`visible` 与 `enable` 默认将 `null` / `undefined` / `0` / 空字符串视为 `false`，也可通过 `resolver` 提供只引用 `sourceFieldValue` 的 JavaScript 代码。
+`binds` 支持 `visible`、`enable`、`value` 三种目标。`visible` 与 `enable` 默认将 `null` / `undefined` / `0` / 空字符串视为 `false`，也可通过 `resolver` 提供只引用 `sourceFieldValue` 的 JavaScript 代码。同一字段配置多个相同的 `visible` 或 `enable` 目标时，可使用 `combine: 'and' | 'or'` 指定全部满足或任一满足，默认值为 `and`；同一目标的全部绑定必须使用一致的组合方式。`value` 目标仍然只允许配置一个绑定源。
 
 数组对象或嵌套对象中的字段可以使用 `./字段key` 引用当前结构的同级字段。运行时会保留当前数组下标，例如目标字段 `order.items[2].detail` 中的 `./type` 会解析为 `order.items[2].type`：
 

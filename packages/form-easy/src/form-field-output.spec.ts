@@ -3,7 +3,7 @@ import {
   createFormOutputData
 } from './form-field-output';
 import { FormValueStore, synchronizeFormFieldValue } from './managers/form-value-store';
-import type { FormField } from './types';
+import type { FormField, NamedFormField } from './types';
 import { validateFormSchema } from './validation/schema';
 
 describe('命名字段输出省略策略', () => {
@@ -27,7 +27,7 @@ describe('命名字段输出省略策略', () => {
   });
 
   it('递归省略对象、数组对象元素和 record value 内的命名字段', () => {
-    const optionalChild: FormField = {
+    const optionalChild: NamedFormField = {
       key: 'optional',
       name: '可选值',
       category: 'basic',
@@ -120,6 +120,31 @@ describe('命名字段输出省略策略', () => {
     expect(createOutput()).toEqual({ conditional: '保留的值' });
   });
 
+  it('根据 optional 字段的独立存在状态输出或省略 null 值', () => {
+    const field: FormField = {
+      key: 'nullable',
+      name: '可空配置',
+      category: 'basic',
+      dataType: 'string',
+      optional: true
+    };
+    const formData = { nullable: null };
+    let present = false;
+    const createOutput = () => createFormOutputData(
+      [field],
+      formData,
+      'form',
+      {
+        isFieldPresent: () => present
+      }
+    );
+
+    expect(createOutput()).toEqual({});
+
+    present = true;
+    expect(createOutput()).toEqual({ nullable: null });
+  });
+
   it('仅允许拥有 key 的命名字段配置输出省略策略', () => {
     const namedResult = validateFormSchema({
       key: 'form',
@@ -131,7 +156,8 @@ describe('命名字段输出省略策略', () => {
           category: 'basic',
           dataType: 'string',
           omitNull: true,
-          omitWhenHidden: true
+          omitWhenHidden: true,
+          optional: true
         }
       ]
     });
@@ -147,7 +173,8 @@ describe('命名字段输出省略策略', () => {
             category: 'basic',
             dataType: 'string',
             omitNull: true,
-            omitWhenHidden: true
+            omitWhenHidden: true,
+            optional: true
           }
         }
       ]
@@ -162,6 +189,10 @@ describe('命名字段输出省略策略', () => {
       expect.objectContaining({
         code: 'forbidden-property',
         path: '$.fields[0].element.omitWhenHidden'
+      }),
+      expect.objectContaining({
+        code: 'forbidden-property',
+        path: '$.fields[0].element.optional'
       })
     ]));
   });

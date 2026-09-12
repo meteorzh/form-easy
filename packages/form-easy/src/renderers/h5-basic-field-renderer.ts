@@ -69,6 +69,9 @@ export class H5BasicFieldRenderer extends AbstractBasicFieldRenderer<RegisteredC
     component.addEventListener('valueChange', event => {
       this.handleComponentChange(component, event);
     });
+    component.addEventListener('componentValidationChange', event => {
+      this.handleComponentValidationChange(component, event);
+    });
     return component;
   }
 
@@ -183,6 +186,15 @@ export class H5BasicFieldRenderer extends AbstractBasicFieldRenderer<RegisteredC
   private handleComponentChange(component: HTMLElement, event: Event): void {
     if (!(event instanceof CustomEvent)) return;
     this.fieldContexts.get(component)?.onChange(event.detail);
+  }
+
+  /** 将 Web Component 的内部校验结果交给最新字段上下文处理。 */
+  private handleComponentValidationChange(
+    component: HTMLElement,
+    event: Event
+  ): void {
+    if (!(event instanceof CustomEvent)) return;
+    this.fieldContexts.get(component)?.onValidationChange(event.detail);
   }
 
   /** 处理复选框或开关类型原生输入控件的值变化。 */

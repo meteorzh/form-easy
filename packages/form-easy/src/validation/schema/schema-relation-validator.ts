@@ -19,7 +19,13 @@ import {
 } from './schema-validation-utils';
 
 /** 字段绑定对象允许配置的属性。 */
-const bindingProperties = new Set(['sourceFormKey', 'sourceFieldId', 'target', 'resolver']);
+const bindingProperties = new Set([
+  'sourceFormKey',
+  'sourceFieldId',
+  'target',
+  'combine',
+  'resolver'
+]);
 /** 事件订阅对象允许配置的属性。 */
 const eventSubscriptionProperties = new Set([
   'sourceFormKey',
@@ -29,6 +35,11 @@ const eventSubscriptionProperties = new Set([
 ]);
 /** 支持的字段绑定目标。 */
 const bindingTargets = new Set<FieldBinding['target']>(['visible', 'enable', 'value']);
+/** 支持的同目标绑定组合方式。 */
+const bindingCombinations = new Set<NonNullable<FieldBinding['combine']>>([
+  'and',
+  'or'
+]);
 /** 支持的组件事件。 */
 const componentEventNames = new Set<ComponentEventName>([
   'onShow',
@@ -59,7 +70,12 @@ export function validateBindings(
     context.addError('invalid-type', path, '字段 binds 必须是数组。');
     return;
   }
-  const targetIndexes = new Map<FieldBinding['target'], number>();
+  const targetBindings = new Map<FieldBinding['target'], {
+    /** 第一个相同目标绑定的索引。 */
+    index: number;
+    /** 该目标统一使用的组合方式。 */
+    combine: NonNullable<FieldBinding['combine']>;
+  }>();
   bindingsValue.forEach((bindingValue, index) => {
     const bindingPath = indexPath(path, index);
     if (!isPlainRecord(bindingValue)) {
@@ -98,16 +114,39 @@ export function validateBindings(
       context.addError('invalid-value', propertyPath(bindingPath, 'target'), '绑定 target 必须是 visible、enable 或 value。');
     } else {
       const target = bindingValue.target as FieldBinding['target'];
-      const previousIndex = targetIndexes.get(target);
-      if (previousIndex !== undefined) {
+      const combine = bindingCombinations.has(
+        bindingValue.combine as NonNullable<FieldBinding['combine']>
+      )
+        ? bindingValue.combine as NonNullable<FieldBinding['combine']>
+        : 'and';
+      const previous = targetBindings.get(target);
+      if (target === 'value' && previous) {
         context.addError(
           'duplicate-binding',
           propertyPath(bindingPath, 'target'),
-          `绑定目标 ${target} 与 ${indexPath(path, previousIndex)} 重复。`
+          `绑定目标 value 与 ${indexPath(path, previous.index)} 重复。`
+        );
+      } else if (previous && previous.combine !== combine) {
+        context.addError(
+          'conflicting-configuration',
+          propertyPath(bindingPath, 'combine'),
+          `相同绑定目标 ${target} 必须使用一致的 combine。`
         );
       } else {
-        targetIndexes.set(target, index);
+        targetBindings.set(target, { index, combine });
       }
+    }
+    if (
+      hasOwn(bindingValue, 'combine')
+      && !bindingCombinations.has(
+        bindingValue.combine as NonNullable<FieldBinding['combine']>
+      )
+    ) {
+      context.addError(
+        'invalid-value',
+        propertyPath(bindingPath, 'combine'),
+        '绑定 combine 必须是 and 或 or。'
+      );
     }
     validateBindingResolver(bindingValue, bindingPath, context);
   });

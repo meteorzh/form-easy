@@ -1,4 +1,4 @@
-import type { FormField } from '../types';
+import type { ComponentValidationResult, FormField } from '../types';
 import type { EndpointManager } from '../managers/endpoint-manager';
 
 /** 基础字段渲染器接收的运行时上下文。 */
@@ -19,6 +19,8 @@ export interface BasicFieldRenderContext {
   formKey: string;
   /** 将渲染器中的值变更同步回表单字段。 */
   onChange: (value: unknown) => void;
+  /** 将渲染组件内部的校验状态同步给表单字段。 */
+  onValidationChange: (result: ComponentValidationResult) => void;
 }
 
 /** 基础字段渲染适配器的生命周期约定。 */

@@ -5,7 +5,7 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentHandle, EventFlowHistory, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+import { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
@@ -14,7 +14,8 @@ import { FormValueStore } from "./managers/form-value-store";
 import { FormFieldDefinitions } from "./form-field-definition-resolver";
 import { FormEasyCreatorChangeDetail } from "./components/creator/types";
 import { FormSchemaValidationResult } from "./validation/schema";
-export { ComponentHandle, EventFlowHistory, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+import { CreatorEditorMode } from "./components/creator/form-easy-creator-json-editor";
+export { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
@@ -23,6 +24,7 @@ export { FormValueStore } from "./managers/form-value-store";
 export { FormFieldDefinitions } from "./form-field-definition-resolver";
 export { FormEasyCreatorChangeDetail } from "./components/creator/types";
 export { FormSchemaValidationResult } from "./validation/schema";
+export { CreatorEditorMode } from "./components/creator/form-easy-creator-json-editor";
 export namespace Components {
     /**
      * 根据 JSON schema 渲染完整动态表单。
@@ -163,7 +165,7 @@ export namespace Components {
         "value"?: FormSchema;
     }
     /**
-     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
      */
     interface FormEasyCreatorJsonEditor {
         /**
@@ -171,6 +173,11 @@ export namespace Components {
           * @default false
          */
         "disabled": boolean;
+        /**
+          * 编辑内容的处理模式，默认解析并输出 JSON 值。
+          * @default 'json'
+         */
+        "mode": CreatorEditorMode;
         /**
           * 输入占位提示。
          */
@@ -181,7 +188,7 @@ export namespace Components {
          */
         "rows": number;
         /**
-          * 当前文本值。
+          * JSON 模式下为解析后的值，文本模式下为原始字符串。
          */
         "value": unknown;
     }
@@ -259,6 +266,11 @@ export namespace Components {
           * 当前字段值。
          */
         "value": unknown;
+        /**
+          * 当前命名字段是否存在于父级原始值对象中。
+          * @default true
+         */
+        "valuePresent": boolean;
     }
     /**
      * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
@@ -565,10 +577,11 @@ declare global {
         new (): HTMLFormEasyCreatorElement;
     };
     interface HTMLFormEasyCreatorJsonEditorElementEventMap {
-        "valueChange": string;
+        "valueChange": unknown;
+        "componentValidationChange": ComponentValidationResult;
     }
     /**
-     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
      */
     interface HTMLFormEasyCreatorJsonEditorElement extends Components.FormEasyCreatorJsonEditor, HTMLStencilElement {
         addEventListener<K extends keyof HTMLFormEasyCreatorJsonEditorElementEventMap>(type: K, listener: (this: HTMLFormEasyCreatorJsonEditorElement, ev: FormEasyCreatorJsonEditorCustomEvent<HTMLFormEasyCreatorJsonEditorElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
@@ -587,6 +600,7 @@ declare global {
     interface HTMLFormEasyFieldElementEventMap {
         "valueChange": unknown;
         "fieldVisibilityChange": FieldVisibilityChangeDetail;
+        "fieldPresenceChange": FieldPresenceChangeDetail;
     }
     /**
      * 渲染单个字段，并提供通用的 form-easy 组件操作。
@@ -831,7 +845,7 @@ declare namespace LocalJSX {
         "value"?: FormSchema;
     }
     /**
-     * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+     * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
      */
     interface FormEasyCreatorJsonEditor {
         /**
@@ -840,9 +854,18 @@ declare namespace LocalJSX {
          */
         "disabled"?: boolean;
         /**
-          * 文本变更时向动态表单回传新值。
+          * 编辑内容的处理模式，默认解析并输出 JSON 值。
+          * @default 'json'
          */
-        "onValueChange"?: (event: FormEasyCreatorJsonEditorCustomEvent<string>) => void;
+        "mode"?: CreatorEditorMode;
+        /**
+          * JSON 解析状态发生变化时向字段容器报告校验结果。
+         */
+        "onComponentValidationChange"?: (event: FormEasyCreatorJsonEditorCustomEvent<ComponentValidationResult>) => void;
+        /**
+          * 内容解析成功后向动态表单回传真实值。
+         */
+        "onValueChange"?: (event: FormEasyCreatorJsonEditorCustomEvent<unknown>) => void;
         /**
           * 输入占位提示。
          */
@@ -853,7 +876,7 @@ declare namespace LocalJSX {
          */
         "rows"?: number;
         /**
-          * 当前文本值。
+          * JSON 模式下为解析后的值，文本模式下为原始字符串。
          */
         "value"?: unknown;
     }
@@ -910,6 +933,10 @@ declare namespace LocalJSX {
          */
         "maxRenderDepth"?: number;
         /**
+          * 向根表单通知 optional 字段的输出存在状态发生变化。
+         */
+        "onFieldPresenceChange"?: (event: FormEasyFieldCustomEvent<FieldPresenceChangeDetail>) => void;
+        /**
           * 向根表单通知当前字段的可见状态发生变化。
          */
         "onFieldVisibilityChange"?: (event: FormEasyFieldCustomEvent<FieldVisibilityChangeDetail>) => void;
@@ -931,6 +958,11 @@ declare namespace LocalJSX {
           * 当前字段值。
          */
         "value"?: unknown;
+        /**
+          * 当前命名字段是否存在于父级原始值对象中。
+          * @default true
+         */
+        "valuePresent"?: boolean;
     }
     /**
      * 将对象字段渲染为不含独立表单键和名称的嵌套表单。
@@ -1163,12 +1195,14 @@ declare namespace LocalJSX {
         "disabled": boolean;
     }
     interface FormEasyCreatorJsonEditorAttributes {
+        "mode": CreatorEditorMode;
         "placeholder": string;
         "rows": number;
         "disabled": boolean;
     }
     interface FormEasyFieldAttributes {
         "fieldId": string;
+        "valuePresent": boolean;
         "formKey": string;
         "labelPosition": LabelPosition;
         "parentDisabled": boolean;
@@ -1233,7 +1267,7 @@ declare module "@stencil/core" {
              */
             "form-easy-creator": LocalJSX.IntrinsicElements["form-easy-creator"] & JSXBase.HTMLAttributes<HTMLFormEasyCreatorElement>;
             /**
-             * creator 内部用于输入多行 JSON 或 JavaScript 代码的文本编辑器。
+             * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
              */
             "form-easy-creator-json-editor": LocalJSX.IntrinsicElements["form-easy-creator-json-editor"] & JSXBase.HTMLAttributes<HTMLFormEasyCreatorJsonEditorElement>;
             /**

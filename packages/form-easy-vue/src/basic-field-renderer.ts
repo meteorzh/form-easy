@@ -94,7 +94,8 @@ export class VueBasicFieldRenderer extends AbstractBasicFieldRenderer<Component>
       fieldId: context.fieldId,
       formKey: context.formKey,
       'onUpdate:modelValue': onChange,
-      onChange
+      onChange,
+      onComponentValidationChange: context.onValidationChange
     }), host);
   }
 

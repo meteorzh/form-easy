@@ -25,6 +25,7 @@ import {
   createFormOutputData
 } from '../../form-field-output';
 import type {
+  FieldPresenceChangeDetail,
   FieldVisibilityChangeDetail,
   FormChangeDetail,
   FormField,
@@ -71,6 +72,8 @@ export class FormEasy {
   private readonly internalFormValueStore = new FormValueStore();
   /** 按字段完整唯一标识保存当前可见状态。 */
   private readonly fieldVisibility = new Map<string, boolean>();
+  /** 按字段完整唯一标识保存 optional 字段当前的输出存在状态。 */
+  private readonly fieldPresence = new Map<string, boolean>();
   /** 标记初始表单数据是否已经完成加载。 */
   private initialized = false;
 
@@ -166,6 +169,25 @@ export class FormEasy {
     );
   }
 
+  /** optional 字段存在状态变化后重新生成表单输出。 */
+  @Listen('fieldPresenceChange')
+  handleFieldPresenceChange(
+    event: CustomEvent<FieldPresenceChangeDetail>
+  ): void {
+    event.stopPropagation();
+    const detail = event.detail;
+    if (detail.connected) {
+      this.fieldPresence.set(detail.fieldId, detail.present);
+    } else {
+      this.fieldPresence.delete(detail.fieldId);
+    }
+    if (!this.initialized) return;
+    this.emitFormChange(
+      detail.fieldId,
+      this.activeFormValueStore.getValue(detail.fieldId)
+    );
+  }
+
   /** 发送保留原始字段值、但按输出策略过滤后的表单变化事件。 */
   private emitFormChange(fieldId: string, value: unknown): void {
     this.formChange.emit({
@@ -179,7 +201,9 @@ export class FormEasy {
           definitions: this.fieldDefinitions,
           maxDepth: this.maxRenderDepth,
           isFieldVisible: currentFieldId =>
-            this.fieldVisibility.get(currentFieldId) ?? true
+            this.fieldVisibility.get(currentFieldId) ?? true,
+          isFieldPresent: currentFieldId =>
+            this.fieldPresence.get(currentFieldId) ?? true
         }
       )
     });
@@ -211,6 +235,7 @@ export class FormEasy {
       fields
         .map(fieldNode => this.resolveField(fieldNode))
         .filter((field): field is FormField => Boolean(field?.key))
+        .filter(field => field.optional !== true)
         .map(field => [field.key!, this.createDefaultFieldValue(field)])
     );
   }
@@ -225,11 +250,12 @@ export class FormEasy {
       fields
         .map(fieldNode => this.resolveField(fieldNode))
         .filter((field): field is FormField => Boolean(field?.key))
-        .map(field => {
+        .flatMap(field => {
           const hasPresetValue = Object.prototype.hasOwnProperty.call(presetData, field.key!);
+          if (field.optional === true && !hasPresetValue) return [];
           const presetValue = hasPresetValue ? presetData[field.key!] : null;
           const value = this.createPresetFieldValue(field, presetValue, depth);
-          return [field.key!, value];
+          return [[field.key!, value] as const];
         })
     );
   }
@@ -353,10 +379,12 @@ export class FormEasy {
   render() {
     const schema = this.schema;
     const fields = Array.isArray(schema?.fields) ? schema.fields : [];
+    const hasFormName = typeof schema?.name === 'string'
+      && schema.name.trim().length > 0;
 
     return (
       <form part="form" novalidate>
-        <h2>{schema?.name}</h2>
+        {hasFormName ? <h2>{schema.name}</h2> : null}
         {fields.map(fieldNode => {
           const field = this.resolveField(fieldNode);
           if (!field) {
@@ -380,6 +408,10 @@ export class FormEasy {
               componentDataManager={this.componentDataManager}
               endpointManager={this.endpointManager}
               value={this.formData[field.key]}
+              valuePresent={Object.prototype.hasOwnProperty.call(
+                this.formData,
+                field.key
+              )}
               eventCenter={this.activeEventCenter}
               formValueStore={this.activeFormValueStore}
               fieldDefinitions={this.fieldDefinitions}

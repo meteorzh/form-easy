@@ -81,6 +81,7 @@ export class FormEasyObject {
     const initialValue = Object.fromEntries(
       this.resolvedFields
         .filter(field => field.key)
+        .filter(field => field.optional !== true)
         .map(field => [field.key!, this.createFieldInitialValue(field)])
     );
     this.objectValue = initialValue;
@@ -214,6 +215,10 @@ export class FormEasyObject {
                 componentDataManager={this.componentDataManager}
                 endpointManager={this.endpointManager}
                 value={objectValue[field.key]}
+                valuePresent={Object.prototype.hasOwnProperty.call(
+                  objectValue,
+                  field.key
+                )}
                 eventCenter={this.eventCenter}
                 formValueStore={this.formValueStore}
                 fieldDefinitions={this.fieldDefinitions}

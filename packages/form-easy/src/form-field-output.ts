@@ -16,18 +16,22 @@ export interface FormFieldOutputOptions {
   fieldId?: string;
   /** 按完整唯一标识读取字段当前是否可见。 */
   isFieldVisible?: (fieldId: string) => boolean;
+  /** 按完整唯一标识读取 optional 字段当前是否存在于输出中。 */
+  isFieldPresent?: (fieldId: string) => boolean;
 }
 
 /** 判断命名字段是否应从父级输出对象中省略。 */
 export function shouldOmitNamedFieldOutput(
   field: FormField,
   value: unknown,
-  visible = true
+  visible = true,
+  present = true
 ): boolean {
+  const omitOptional = field.optional === true && !present;
   const omitNull = field.omitNull === true
     && (value === null || value === undefined);
   const omitHidden = field.omitWhenHidden === true && !visible;
-  return omitNull || omitHidden;
+  return omitOptional || omitNull || omitHidden;
 }
 
 /**
@@ -45,7 +49,10 @@ export function assignNamedFieldValue(
   const visible = options.fieldId && options.isFieldVisible
     ? options.isFieldVisible(options.fieldId)
     : true;
-  if (shouldOmitNamedFieldOutput(field, value, visible)) {
+  const present = options.fieldId && options.isFieldPresent
+    ? options.isFieldPresent(options.fieldId)
+    : true;
+  if (shouldOmitNamedFieldOutput(field, value, visible, present)) {
     delete output[field.key];
     return;
   }

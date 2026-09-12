@@ -54,6 +54,7 @@ const formFieldProperties = new Set([
   'name',
   'category',
   'required',
+  'optional',
   'omitNull',
   'omitWhenHidden',
   'rules',
@@ -76,6 +77,7 @@ const formFieldReferenceProperties = new Set([
   'key',
   'name',
   'required',
+  'optional',
   'omitNull',
   'omitWhenHidden',
   'rules',
@@ -409,6 +411,7 @@ function validateOptionalPropertyTypes(
   context: SchemaValidationContext
 ): void {
   validateOptionalType(field, 'required', 'boolean', path, context);
+  validateOptionalType(field, 'optional', 'boolean', path, context);
   validateOptionalType(field, 'omitNull', 'boolean', path, context);
   validateOptionalType(field, 'omitWhenHidden', 'boolean', path, context);
   validateOptionalType(field, 'hint', 'string', path, context);
@@ -433,7 +436,7 @@ function validateOutputOmissionScope(
   context: SchemaValidationContext
 ): void {
   if (requiresIdentity) return;
-  (['omitNull', 'omitWhenHidden'] as const).forEach(property => {
+  (['optional', 'omitNull', 'omitWhenHidden'] as const).forEach(property => {
     if (!hasOwn(field, property)) return;
     context.addError(
       'forbidden-property',

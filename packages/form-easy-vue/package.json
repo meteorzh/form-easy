@@ -20,6 +20,8 @@
   },
   "files": [
     "dist/",
+    "element-plus.d.ts",
+    "element-plus.js",
     "README.md"
   ],
   "keywords": [

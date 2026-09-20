@@ -6,7 +6,6 @@ import {
   registerGlobalComponentDataManager,
   registerGlobalEndpointManager
 } from '@wenzhencn/form-easy';
-import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 import 'element-plus/dist/index.css';
 
 /** 为 Playground 示例注册按数据键加载的下拉选项。 */
@@ -42,5 +41,4 @@ playgroundEndpointManager.register<File, string>('upload', async ({ input, signa
 });
 registerGlobalEndpointManager(playgroundEndpointManager);
 
-defineCustomElements();
 createApp(App).mount('#app');

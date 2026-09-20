@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue';
 import type { FormSchema } from '@wenzhencn/form-easy';
+import { FormEasy, FormEasyCreator } from '@wenzhencn/form-easy-vue';
 import { elementPlusRenderer } from './element-plus-renderer';
 import { playgroundVueRenderer } from './playground-vue-renderer';
 
@@ -849,11 +850,11 @@ const rendererTitle = computed(() =>
                   <span>{{ activeRenderer === 'h5' ? '01 / H5 DEFAULT' : activeRenderer === 'vue' ? '02 / VUE ADAPTER' : '03 / ELEMENT PLUS' }}</span>
                   <p>{{ activeScenario === 'default' ? '未传入预设值，字段按 schema 的默认值或 null 初始化。' : '传入预设值后，未出现在预设中的字段统一初始化为 null。' }}</p>
                 </div>
-                <form-easy
+                <FormEasy
                   :key="`${activeRenderer}-${activeScenario}-${labelPosition}`"
-                  :schema.prop="activeSchema"
-                  :value.prop="activeScenario === 'preset' ? presetValue : undefined"
-                  :basicFieldRenderer.prop="selectedRenderer"
+                  :schema="activeSchema"
+                  :value="activeScenario === 'preset' ? presetValue : undefined"
+                  :basic-field-renderer="selectedRenderer"
                 />
               </div>
             </section>
@@ -916,9 +917,9 @@ const rendererTitle = computed(() =>
           </div>
         </div>
       </div>
-      <form-easy-creator
-        :value.prop="creatorSchemaValue"
-        :basicFieldRenderer.prop="creatorRenderer"
+      <FormEasyCreator
+        :value="creatorSchemaValue"
+        :basic-field-renderer="creatorRenderer"
       />
     </section>
     <ReadmeDocument v-else />

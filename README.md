@@ -38,6 +38,10 @@ npm install @wenzhencn/form-easy
 npm install @wenzhencn/form-easy @wenzhencn/form-easy-vue vue
 ```
 
+Vue 项目推荐使用 `form-easy-vue` 提供的 `FormEasy` 和 `FormEasyCreator` 包装组件。
+它们会自动注册底层 Web Components，因此不需要配置 Vite 的 `isCustomElement`，
+也不需要在应用入口手动调用 `defineCustomElements()`。
+
 ### Vue 3 + Element Plus
 
 `form-easy-vue` 不会安装或打包 Element Plus。请由业务项目自行选择版本、安装组件库与引入样式：
@@ -145,7 +149,7 @@ const recursiveSchema = {
 <form-easy-creator></form-easy-creator>
 ```
 
-在 Vue 3 中，可传入已有 schema 继续编辑，并监听实时输出。对象属性需要使用 `.prop` 传递：
+在 Vue 3 中，可传入已有 schema 继续编辑，并监听实时输出：
 
 ```vue
 <script setup lang="ts">
@@ -153,6 +157,7 @@ import type {
   FormEasyCreatorChangeDetail,
   FormSchema
 } from '@wenzhencn/form-easy';
+import { FormEasyCreator } from '@wenzhencn/form-easy-vue';
 
 const existingSchema: FormSchema = {
   key: 'profile',
@@ -168,10 +173,10 @@ function handleSchemaChange(event: CustomEvent<FormEasyCreatorChangeDetail>) {
 </script>
 
 <template>
-  <form-easy-creator
-    :value.prop="existingSchema"
-    :basicFieldRenderer.prop="renderer"
-    @schemaChange="handleSchemaChange"
+  <FormEasyCreator
+    :value="existingSchema"
+    :basic-field-renderer="renderer"
+    @schema-change="handleSchemaChange"
   />
 </template>
 ```
@@ -193,13 +198,11 @@ const valid = await creator.validate();
 
 ## Vue 3 使用方式 💚
 
-Vue 模板中请使用 `.prop`，将对象和渲染器实例作为 DOM Property 而非字符串属性传入：
+Vue 模板中直接使用包装组件即可：
 
 ```vue
 <script setup lang="ts">
-import { defineCustomElements } from '@wenzhencn/form-easy/loader';
-
-defineCustomElements();
+import { FormEasy } from '@wenzhencn/form-easy-vue';
 
 const schema = {
   key: 'profile',
@@ -209,9 +212,21 @@ const schema = {
 </script>
 
 <template>
-  <form-easy :schema.prop="schema" />
+  <FormEasy v-model="formValue" :schema="schema" />
 </template>
 ```
+
+也可以全局安装两个入口组件：
+
+```ts
+import { createApp } from 'vue';
+import { installFormEasyVue } from '@wenzhencn/form-easy-vue';
+
+createApp(App).use(installFormEasyVue).mount('#app');
+```
+
+`FormEasy` 和 `FormEasyCreator` 只是 Vue 适配层，不会复制一套字段循环逻辑；
+字段分类渲染、数组和对象递归、校验、事件中心等仍由核心 Web Component 负责。
 
 ### 创建独立 Vue 渲染器
 
@@ -226,9 +241,9 @@ userRenderer.registerFieldComponent('userNameInput', UserNameInput);
 ```
 
 ```vue
-<form-easy
-  :schema.prop="schema"
-  :basicFieldRenderer.prop="userRenderer"
+<FormEasy
+  :schema="schema"
+  :basic-field-renderer="userRenderer"
 />
 ```
 

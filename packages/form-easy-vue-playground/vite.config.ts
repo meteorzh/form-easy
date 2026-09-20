@@ -1,15 +1,7 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
-/** Vite 配置：将 form-easy 系列标签识别为原生自定义元素。 */
+/** Playground 使用 form-easy-vue 的 Vue 包装组件，无需配置自定义元素识别。 */
 export default defineConfig({
-  plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          isCustomElement: tag => tag.startsWith('form-easy')
-        }
-      }
-    })
-  ]
+  plugins: [vue()]
 });

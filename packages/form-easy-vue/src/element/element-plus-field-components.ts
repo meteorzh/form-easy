@@ -1,4 +1,4 @@
-import { defineComponent, h, ref, type Component } from 'vue';
+import { defineComponent, h, ref, withCtx, type Component } from 'vue';
 import {
   formEasyFieldPropOptions,
   useFormEasyField,
@@ -105,9 +105,9 @@ export function createElementSelectField(selectComponent: Component, optionCompo
         disabled: disabled.value,
         'onUpdate:modelValue': updateValue
       }, {
-        default: () => getOptions().map(option => h(optionComponent, {
+        default: withCtx(() => getOptions().map(option => h(optionComponent, {
           key: String(option.value), label: option.label, value: option.value, disabled: option.disabled
-        }))
+        })))
       });
     }
   });
@@ -181,12 +181,12 @@ export function createElementUploadField(
         httpRequest,
         onSuccess: handleSuccess
       }, {
-        default: () => h(buttonComponent, {
+        default: withCtx(() => h(buttonComponent, {
           type: 'primary',
           disabled: disabled.value
         }, {
-          default: () => '选择文件并上传'
-        })
+          default: withCtx(() => '选择文件并上传')
+        }))
       });
     }
   });

@@ -49,7 +49,7 @@
     "dev": "tsc -p tsconfig.build.json --watch"
   },
   "peerDependencies": {
-    "@wenzhencn/form-easy": "^0.1.0",
+    "@wenzhencn/form-easy": "^1.0.0",
     "element-plus": "^2.0.0",
     "vue": "^3.4.0"
   },

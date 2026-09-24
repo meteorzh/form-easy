@@ -1,6 +1,7 @@
 import {
   defineComponent,
   h,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -90,11 +91,12 @@ export const FormEasy = defineComponent({
   },
   setup(props, { emit, attrs, expose }) {
     const element = ref<FormEasyElement>();
+    const customElementReady = ref(false);
     let formChangeListener: ((event: Event) => void) | undefined;
 
     const syncProperties = (): void => {
       const target = element.value;
-      if (!target) return;
+      if (!target || !customElementReady.value) return;
       target.schema = props.schema;
       target.value = props.modelValue ?? props.value;
       target.basicFieldRenderer = props.basicFieldRenderer;
@@ -107,13 +109,15 @@ export const FormEasy = defineComponent({
 
     onMounted(async () => {
       await ensureFormEasyCustomElements();
-      syncProperties();
+      customElementReady.value = true;
+      await nextTick();
       formChangeListener = (event: Event): void => {
         const detail = (event as CustomEvent<FormChangeDetail>).detail;
         emit('formChange', detail);
         emit('update:modelValue', detail.formData);
       };
       element.value?.addEventListener('formChange', formChangeListener);
+      syncProperties();
     });
 
     watch(
@@ -145,10 +149,12 @@ export const FormEasy = defineComponent({
       element
     });
 
-    return () => h('form-easy', {
-      ...attrs,
-      ref: element
-    });
+    return () => customElementReady.value
+      ? h('form-easy', {
+        ...attrs,
+        ref: element
+      })
+      : null;
   }
 });
 

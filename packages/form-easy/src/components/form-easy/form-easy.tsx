@@ -7,7 +7,8 @@ import {
   Listen,
   Method,
   Prop,
-  State
+  State,
+  Watch
 } from '@stencil/core';
 import { globalEventCenter, type EventCenter } from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
@@ -104,10 +105,26 @@ export class FormEasy {
 
   /** 初始化第二阶段：按预设值或默认值写入字段数据。 */
   componentDidLoad(): void {
-    const initialData = this.value === undefined
+    this.initializeFormData();
+  }
+
+  @Watch('schema')
+  reloadSchema(): void {
+    if (!this.isSchemaReady()) return;
+    this.initialized = false;
+    this.fieldVisibility.clear();
+    this.fieldPresence.clear();
+    this.initializeFormData();
+  }
+
+  @Watch('value')
+  reloadValue(): void {
+    if (!this.isSchemaReady()) return;
+    const nextData = this.value === undefined
       ? this.createDefaultFormData(this.schema.fields)
       : this.createPresetFormData(this.schema.fields, this.value, 0);
-    this.applyFormData(initialData);
+    if (this.initialized && this.areValuesEqual(nextData, this.formData)) return;
+    this.applyFormData(nextData);
   }
 
   /** 校验表单中当前挂载的全部字段，并返回是否全部通过。 */
@@ -332,6 +349,42 @@ export class FormEasy {
       return this.createPresetFieldValue(field, field.defaultValue, 0);
     }
     return null;
+  }
+
+  /** 判断 schema 是否已经具备可初始化表单的最小结构。 */
+  private isSchemaReady(): boolean {
+    return Boolean(this.schema && Array.isArray(this.schema.fields));
+  }
+
+  /** 在 schema 和自定义元素生命周期均就绪后初始化当前表单。 */
+  private initializeFormData(): void {
+    if (!this.isSchemaReady()) return;
+    const initialData = this.value === undefined
+      ? this.createDefaultFormData(this.schema.fields)
+      : this.createPresetFormData(this.schema.fields, this.value, 0);
+    this.applyFormData(initialData);
+  }
+
+  /** 比较规范化后的表单值，避免 v-model 回写触发重复初始化。 */
+  private areValuesEqual(left: unknown, right: unknown): boolean {
+    if (Object.is(left, right)) return true;
+    if (Array.isArray(left) || Array.isArray(right)) {
+      if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+        return false;
+      }
+      return left.every((value, index) => this.areValuesEqual(value, right[index]));
+    }
+    if (this.isRecord(left) || this.isRecord(right)) {
+      if (!this.isRecord(left) || !this.isRecord(right)) return false;
+      const leftKeys = Object.keys(left);
+      const rightKeys = Object.keys(right);
+      if (leftKeys.length !== rightKeys.length) return false;
+      return leftKeys.every(key => (
+        Object.prototype.hasOwnProperty.call(right, key)
+        && this.areValuesEqual(left[key], right[key])
+      ));
+    }
+    return false;
   }
 
   /** 深复制 JSON 结构的数组或对象值。 */

@@ -28,6 +28,8 @@ import { FormEasy } from '@wenzhencn/form-easy-vue';
 </template>
 ```
 
+`schema` 和 `value` 可以在组件挂载后异步更新。包装器会等待底层 Web Component 注册完成再创建表单，核心组件也会在收到新的 `schema` 或预设 `value` 后重新同步字段数据。
+
 设计器使用 `FormEasyCreator`：
 
 ```ts

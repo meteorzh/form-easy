@@ -154,7 +154,9 @@ function validateSchemaRoot(
 
   validateUnknownProperties(schema, formSchemaProperties, path, context);
   validateRequiredIdentifier(schema, 'key', path, '表单 key', context);
-  validateRequiredNonEmptyString(schema, 'name', path, '表单名称', context);
+  if (hasOwn(schema, 'name')) {
+    validateRequiredNonEmptyString(schema, 'name', path, '表单名称', context);
+  }
   if (hasOwn(schema, 'labelPosition') && !labelPositions.has(schema.labelPosition as LabelPosition)) {
     context.addError(
       'invalid-value',

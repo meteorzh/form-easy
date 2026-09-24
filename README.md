@@ -422,7 +422,7 @@ result.warnings.forEach(issue => {
 | 属性 | 说明 |
 | --- | --- |
 | `key` | 表单唯一标识。 |
-| `name` | 表单标题。 |
+| `name` | 可选的表单标题；未配置时不渲染标题。 |
 | `fields` | 字段配置列表。 |
 | `definitions` | 可通过 `$ref` 引用的可复用字段模板。 |
 | `labelPosition` | 标签位置：`left`（默认）、`top`、`right`。 |

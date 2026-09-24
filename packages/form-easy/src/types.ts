@@ -72,8 +72,8 @@ export type ComponentDataResolver = (
 export interface FormSchema {
   /** 全局有意义的表单键。 */
   key: string;
-  /** 表单标题。 */
-  name: string;
+  /** 可选的表单标题；未配置时不渲染标题区域。 */
+  name?: string;
   /** 字段标签位置；未配置时默认使用 left。 */
   labelPosition?: LabelPosition;
   /** 可通过 $ref 按需引用的字段模板。 */

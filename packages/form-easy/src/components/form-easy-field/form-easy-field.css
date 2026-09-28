@@ -65,8 +65,12 @@ small { color: #64748b; }
 .field-presence-toggle:disabled { cursor: not-allowed; opacity: 0.55; }
 .required { color: #dc2626; }
 .framework-renderer { width: 100%; }
-.framework-renderer > * { width: 100%; }
-.editor input { box-sizing: border-box; min-height: 36px; padding: 6px 8px; }
+.framework-renderer > .form-easy-h5-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+}
 .framework-renderer > .form-easy-h5-boolean {
   appearance: none;
   position: relative;

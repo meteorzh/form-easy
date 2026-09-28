@@ -168,7 +168,7 @@ export class H5BasicFieldRenderer extends AbstractBasicFieldRenderer<RegisteredC
       input.checked = Boolean(context.value);
       return;
     }
-    input.className = '';
+    input.className = 'form-easy-h5-input';
     input.removeAttribute('role');
     const value = String(context.value ?? '');
     if (input.value !== value) input.value = value;

@@ -32,7 +32,7 @@ defineCustomElements();
 
 命名字段还支持 `omitWhenHidden: true`。字段隐藏后仅从对外表单数据中省略，内部值和 `FormValueStore` 保持不变；重新显示时会恢复输出。该配置同样不允许用于 definitions 模板、数组匿名元素或 Record 匿名 value。
 
-`ComponentDataResolver` 接收 `(context, params)` 两个参数；`ComponentDataManager.resolve()` 的第三个参数可传入只读的命名参数对象，省略时使用空对象。
+`ComponentDataResolver` 接收 `(context, params)` 两个参数；`ComponentDataManager.resolve()` 的第三个参数可传入只读的命名参数对象，省略时使用空对象。管理器会按 `componentDataKey + params` 缓存成功结果；调用 `register()` 替换 resolver 时会清理该 key 的缓存，也可以通过 `clearCache()` 主动清理。
 
 渲染服务端或其他外部来源的 JSON 前，可使用 `validateFormSchema(schema)` 深度校验表单、递归字段、分类专属属性、默认值、rules、binds 和事件订阅。返回结果包含 `valid`、`issues`、`errors` 与 `warnings`，每个问题都提供稳定 `code`、JSON 风格 `path` 和中文 `message`。
 

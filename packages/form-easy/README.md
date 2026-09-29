@@ -12,6 +12,8 @@ import { defineCustomElements } from '@wenzhencn/form-easy/loader';
 defineCustomElements();
 ```
 
+该包的 lazy `dist` 构建已启用 Stencil 的 `enableImportInjection`，会将组件懒加载路径注入为 bundler 可分析的静态分支；使用 Vite、Parcel 等 bundler 时，构建产物应包含对应的 `.entry.js` 文件。
+
 ```html
 <form-easy></form-easy>
 ```

@@ -1,4 +1,4 @@
-import { defineComponent, h, ref, withCtx, type Component } from 'vue';
+import { defineComponent, h, nextTick, ref, withCtx, type Component } from 'vue';
 import {
   formEasyFieldPropOptions,
   useFormEasyField,
@@ -13,7 +13,13 @@ function getForwardedAttributes(attributes: Record<string, unknown>): Record<str
 
 /** 创建 Element Plus 文本输入框适配器。 */
 export function createElementInputField(component: Component): Component {
-  return createValueField('FormEasyElementInputField', component, value => String(value ?? ''));
+  return createValueField(
+    'FormEasyElementInputField',
+    component,
+    value => String(value ?? ''),
+    {},
+    true
+  );
 }
 
 /** 创建 Element Plus 数字输入框适配器。 */
@@ -41,7 +47,8 @@ function createValueField(
   name: string,
   component: Component,
   resolveValue: (value: unknown) => unknown,
-  extraProperties: Record<string, unknown> = {}
+  extraProperties: Record<string, unknown> = {},
+  preserveSelection = false
 ): Component {
   return defineComponent({
     name,
@@ -53,12 +60,29 @@ function createValueField(
         props as FormEasyFieldProps,
         emit
       );
+      const componentRef = ref<unknown>();
+      let selectionRestoreVersion = 0;
+      const handleModelValueUpdate = (nextValue: unknown): void => {
+        const restoreVersion = ++selectionRestoreVersion;
+        const selection = preserveSelection
+          ? readActiveTextSelection(componentRef.value)
+          : undefined;
+        updateValue(nextValue);
+        if (!selection) return;
+        void nextTick(() => {
+          setTimeout(() => {
+            if (restoreVersion !== selectionRestoreVersion) return;
+            restoreTextSelection(componentRef.value, selection);
+          }, 0);
+        });
+      };
       return () => h(component, {
         ...getForwardedAttributes(attrs),
         ...extraProperties,
+        ref: componentRef,
         modelValue: resolveValue(value.value),
         disabled: disabled.value,
-        'onUpdate:modelValue': updateValue
+        'onUpdate:modelValue': handleModelValueUpdate
       });
     }
   });
@@ -72,6 +96,57 @@ interface ElementSelectOption {
   value: string | number;
   /** 是否禁用当前选项。 */
   disabled?: boolean;
+}
+
+interface TextSelection {
+  start: number;
+  end: number;
+  direction: 'forward' | 'backward' | 'none';
+}
+
+type TextControl = HTMLInputElement | HTMLTextAreaElement;
+
+/** 从 Element Plus 组件实例中查找其公开的原生文本控件。 */
+function findTextControl(value: unknown, visited = new Set<object>()): TextControl | undefined {
+  if (typeof HTMLInputElement !== 'undefined' && value instanceof HTMLInputElement) return value;
+  if (typeof HTMLTextAreaElement !== 'undefined' && value instanceof HTMLTextAreaElement) return value;
+  if (!value || typeof value !== 'object') return undefined;
+  if (visited.has(value)) return undefined;
+  visited.add(value);
+  const instance = value as Record<string, unknown>;
+  for (const property of ['input', 'textarea', 'ref']) {
+    const control = findTextControl(instance[property], visited);
+    if (control) return control;
+  }
+  return undefined;
+}
+
+/** 读取当前获得焦点的 Element Plus 文本控件选区。 */
+function readActiveTextSelection(value: unknown): TextSelection | undefined {
+  const control = findTextControl(value);
+  if (!control || typeof document === 'undefined' || document.activeElement !== control) {
+    return undefined;
+  }
+  const start = control.selectionStart;
+  const end = control.selectionEnd;
+  if (start === null || end === null) return undefined;
+  return {
+    start,
+    end,
+    direction: control.selectionDirection ?? 'none'
+  };
+}
+
+/** 在 Element Plus 完成受控值更新后恢复文本控件选区。 */
+function restoreTextSelection(value: unknown, selection: TextSelection): void {
+  const control = findTextControl(value);
+  if (!control || typeof document === 'undefined' || document.activeElement !== control) return;
+  const valueLength = control.value.length;
+  control.setSelectionRange(
+    Math.min(selection.start, valueLength),
+    Math.min(selection.end, valueLength),
+    selection.direction
+  );
 }
 
 /** 创建使用 componentData 渲染 ElSelect 与 ElOption 的适配器。 */
@@ -181,12 +256,12 @@ export function createElementUploadField(
         httpRequest,
         onSuccess: handleSuccess
       }, {
-        default: withCtx(() => h(buttonComponent, {
+        default: withCtx(() => [h(buttonComponent, {
           type: 'primary',
           disabled: disabled.value
         }, {
-          default: withCtx(() => '选择文件并上传')
-        }))
+          default: withCtx(() => ['选择文件并上传'])
+        })])
       });
     }
   });

@@ -1992,6 +1992,55 @@
         }
       ]
     },
+    "fieldAffixEvent": {
+      "category": "object",
+      "fields": [
+        {
+          "key": "event",
+          "name": "原生事件",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "required": true,
+          "componentData": [
+            { "label": "单击 click", "value": "click" },
+            { "label": "双击 dblclick", "value": "dblclick" },
+            { "label": "鼠标按下 mousedown", "value": "mousedown" },
+            { "label": "鼠标松开 mouseup", "value": "mouseup" },
+            { "label": "鼠标进入 mouseenter", "value": "mouseenter" },
+            { "label": "鼠标离开 mouseleave", "value": "mouseleave" },
+            { "label": "右键 contextmenu", "value": "contextmenu" }
+          ]
+        },
+        {
+          "key": "name",
+          "name": "用户事件名",
+          "category": "basic",
+          "dataType": "string",
+          "required": true,
+          "rules": [
+            {
+              "type": "pattern",
+              "value": "^[A-Za-z][A-Za-z0-9_-]*$",
+              "message": "事件名称必须以字母开头，并且只包含字母、数字、下划线或连字符。"
+            }
+          ]
+        },
+        {
+          "key": "payload",
+          "name": "事件数据 JSON",
+          "category": "basic",
+          "dataType": "string",
+          "component": "creator-json-editor",
+          "componentProperties": {
+            "placeholder": "例如：{ \"topic\": \"price\" }",
+            "rows": 3
+          },
+          "optional": true,
+          "omitNull": true
+        }
+      ]
+    },
     "fieldAffix": {
       "category": "object",
       "fields": [
@@ -2046,7 +2095,7 @@
           "optional": true,
           "omitNull": true,
           "omitWhenHidden": true,
-          "hint": "与自定义事件至少配置一个。允许 http、https、mailto、tel 或相对路径。",
+          "hint": "与用户事件至少配置一个。允许 http、https、mailto、tel 或相对路径。",
           "binds": [
             {
               "target": "visible",
@@ -2087,50 +2136,14 @@
           ]
         },
         {
-          "key": "action",
-          "name": "自定义事件",
-          "category": "object",
+          "key": "events",
+          "name": "用户事件",
+          "category": "array",
           "optional": true,
-          "omitWhenHidden": true,
-          "hint": "点击后派发用户事件，由使用表单的一方响应。",
-          "binds": [
-            {
-              "target": "visible",
-              "params": {
-                "type": "./type"
-              },
-              "resolver": "return type === 'link';"
-            }
-          ],
-          "fields": [
-            {
-              "key": "name",
-              "name": "事件名称",
-              "category": "basic",
-              "dataType": "string",
-              "required": true,
-              "rules": [
-                {
-                  "type": "pattern",
-                  "value": "^[A-Za-z][A-Za-z0-9_-]*$",
-                  "message": "事件名称必须以字母开头，并且只包含字母、数字、下划线或连字符。"
-                }
-              ]
-            },
-            {
-              "key": "payload",
-              "name": "事件数据 JSON",
-              "category": "basic",
-              "dataType": "string",
-              "component": "creator-json-editor",
-              "componentProperties": {
-                "placeholder": "例如：{ \"topic\": \"price\" }",
-                "rows": 3
-              },
-              "optional": true,
-              "omitNull": true
-            }
-          ]
+          "hint": "把 click、dblclick、mousedown 等原生事件映射成自己的事件名。文本、链接、图片和图标都可以配置。",
+          "element": {
+            "$ref": "fieldAffixEvent"
+          }
         },
         {
           "key": "src",

@@ -78,10 +78,13 @@ type FieldAffix =
       {
         "type": "link",
         "text": "计价说明",
-        "action": {
-          "name": "openPriceHelp",
-          "payload": { "topic": "price" }
-        }
+        "events": [
+          {
+            "event": "click",
+            "name": "openPriceHelp",
+            "payload": { "topic": "price" }
+          }
+        ]
       }
     ],
     "controlBefore": [
@@ -125,16 +128,18 @@ interface FieldAffixLink {
   text: string;
   href?: string;
   target?: '_self' | '_blank';
-  action?: FieldAffixAction;
+  events?: FieldAffixEventBinding[];
 }
 
-interface FieldAffixAction {
+interface FieldAffixEventBinding {
+  /** click、dblclick、mousedown、mouseup、mouseenter、mouseleave、contextmenu。 */
+  event: string;
   name: string;
   payload?: unknown;
 }
 ```
 
-`text` 规则与普通文本相同。`href` 和 `action` 至少要有一个。
+`text` 规则与普通文本相同。`href` 和 `events` 至少要有一个。文本、图标、图片和链接都可以配置 `events`。
 
 `href` 只允许以下形式：
 
@@ -144,15 +149,15 @@ interface FieldAffixAction {
 
 拒绝 `javascript:`、`data:`、`blob:`、`file:` 以及以 `//` 开头的协议相对地址。`target` 只能是 `_self` 或 `_blank`，并且只有存在 `href` 时才能写。缺省是 `_self`，schema 里不必写出。`_blank` 渲染时固定加上 `rel="noopener noreferrer"`。
 
-`action` 是展示位当前声明用户事件的方式。`action.name` 会成为用户事件的 `name`。格式为 `^[A-Za-z][A-Za-z0-9_-]*$`，最长 64 个字符。它和 `onChange` 这些字段事件不是同一个命名空间，允许字符串相同，但不会进入字段订阅。
+`events` 把原生事件映射成使用者自己的事件名。`event` 只能是 `click`、`dblclick`、`mousedown`、`mouseup`、`mouseenter`、`mouseleave`、`contextmenu`。双击的 DOM 名称是 `dblclick`。`name` 格式为 `^[A-Za-z][A-Za-z0-9_-]*$`，最长 64 个字符。它和 `onChange` 这些字段事件不是同一个命名空间，允许字符串相同，但不会进入字段订阅。同一个原生事件不能重复绑定同一个 `name`。
 
 `payload` 可选，必须是纯 JSON：`null`、布尔、有限数字、字符串、数组或普通对象。不允许函数、`undefined`、`Symbol`、`bigint`、类实例和循环引用。嵌套最多 8 层。payload 是 schema 中的静态数据，点击时不会读取字段当前值。
 
 渲染分三种：
 
 - 只有 `href`：渲染 `<a>`，不拦截点击，修饰键和中键保持浏览器默认行为。
-- 只有 `action`：渲染 `type="button"` 的按钮，外观与链接一致。不能使用 `href="#"`。
-- 两者都有：渲染 `<a>`。普通主键点击先派发用户事件；事件被取消则停留在当前页，否则继续导航。带 Ctrl、Meta、Shift、Alt 的点击以及中键不派发事件，交给浏览器处理 `href`。
+- 只有 `events`：渲染 `type="button"` 的按钮，外观与链接一致。不能使用 `href="#"`。
+- 两者都有：渲染 `<a>`。普通主键的 `click` 先派发对应用户事件；事件被取消则停留在当前页，否则继续导航。带 Ctrl、Meta、Shift、Alt 的点击以及中键不派发 `click`，交给浏览器处理 `href`。`mousedown` 等其他原生事件不受修饰键影响。
 
 导航由展示位自己完成。`_self` 设置 `window.location.href`，`_blank` 使用 `window.open(url, '_blank', 'noopener,noreferrer')`。
 
@@ -176,7 +181,7 @@ schema 不提供 `width` 或 `height`。缩略图是正方形，宽高比 1:1，
 - 控件前、控件后的图片，边长等于控件高度，并与控件垂直居中对齐。对象、数组、record 编辑器变高时，这一侧的图片跟着变高，而不是固定成标签行高。
 - 图片在正方形盒子内使用 `object-fit: contain`。
 
-图片渲染为按钮里的 `<img>`。点击、Enter 和 Space 打开当前字段内的大图，不派发用户事件。加载失败时隐藏破损图标，改为显示 `alt`。
+图片渲染为按钮里的 `<img>`。点击、Enter 和 Space 打开大图。如果配置了 `click` 用户事件，先派发该事件；监听器取消后不再打开大图。其他原生事件只派发对应的用户事件。加载失败时隐藏破损图标，改为显示 `alt`。
 
 大图层使用 `role="dialog"`、`aria-modal="true"` 和 `aria-label="查看图片"`。大图恢复图片自身比例，最大不超过视口的 90%。点击遮罩、关闭按钮或 Escape 关闭，关闭后焦点回到原来的缩略图按钮。蒙层直接挂到 `document.body`，避免表单祖先上的 `transform` 或滚动容器把 `position: fixed` 限制在表单范围内。同一字段同时只打开一张大图。
 
@@ -190,7 +195,7 @@ interface FieldAffixIcon {
 }
 ```
 
-`src` 规则与图片相同。图标固定绘制为 16×16，不能打开大图。图标对象上不允许出现 `width`、`height`、`href` 或 `action`。
+`src` 规则与图片相同。图标固定绘制为 16×16，不能打开大图。图标对象上不允许出现 `width`、`height` 或 `href`。配置 `events` 后可以响应原生事件。
 
 `alt` 省略或为空时，图标 `aria-hidden="true"`。写了 `alt` 时按说明文字暴露给辅助技术。图标没有点击行为。
 
@@ -275,7 +280,7 @@ type UserEventListener = (event: UserEvent) => void | false;
 - `addUserEventListener(listener)`：注册用户事件监听，返回取消注册的函数。
 - `dispatchUserEvent(event)`：同步调用当前监听器，返回是否允许入口继续自己的默认行为。任一监听器返回 `false` 时结果为取消。
 
-展示位链接把 `action.name` 和 `action.payload` 放进 `UserEvent`，并把 `source.type` 设为 `'affix'`。以后新增入口时只扩展 `UserEventSource`，不再给事件中心加一套新的注册方法。
+展示位把匹配的 `events` 放进 `UserEvent`：`name` 和 `payload` 来自绑定，`source.type` 为 `'affix'`，`source.event` 是实际发生的原生事件名。以后新增入口时只扩展 `UserEventSource`，不再给事件中心加一套新的注册方法。
 
 用户事件的隔离边界和字段事件相同。表单没有传入 `eventCenter` 时使用全局中心，监听器会收到所有使用全局中心的用户事件。传入独立 `EventCenter` 时，只有共享该实例的表单会互相看见。设计器预览已经使用单独的事件中心，因此预览里的链接不会触发设计器内部表单的用户事件。
 
@@ -292,7 +297,7 @@ userEvent: CustomEvent<UserEvent>
 链接点击的顺序是：
 
 1. 只有 `href` 时不进入事件中心。
-2. 存在 `action` 时调用 `dispatchUserEvent`。
+2. 该原生事件存在 `events` 绑定时调用 `dispatchUserEvent`。图片的 `click` 若被取消，则不再打开大图。
 3. `dispatchUserEvent` 先通知用户事件监听器；其中的表单桥接再同步发出 `userEvent`。
 4. 返回取消，或链接没有 `href` 时，停在当前页。
 5. 未取消且存在 `href` 时，按 `target` 导航。
@@ -343,12 +348,12 @@ Vue 包装组件追加 `userEvent` 转发，不改变 `v-model` 和 `formChange`
 
 | type | 允许的属性 |
 | --- | --- |
-| `text` | `type`、`text` |
-| `link` | `type`、`text`、`href`、`target`、`action` |
-| `image` | `type`、`src`、`alt` |
-| `icon` | `type`、`src`、`alt` |
+| `text` | `type`、`text`、`events` |
+| `link` | `type`、`text`、`href`、`target`、`events` |
+| `image` | `type`、`src`、`alt`、`events` |
+| `icon` | `type`、`src`、`alt`、`events` |
 
-`action` 只允许 `name` 和 `payload`。图片或图标上的 `width`、`height` 按未知属性处理。未知属性使用 `unknown-property`，类型错误使用 `invalid-type`，枚举、URL 和长度使用 `invalid-value`，链接缺少 `href` 与 `action` 时使用 `missing-property`。不新增问题代码。
+`events` 的每一项只允许 `event`、`name` 和 `payload`。图片或图标上的 `width`、`height` 按未知属性处理。未知属性使用 `unknown-property`，类型错误使用 `invalid-type`，枚举、URL 和长度使用 `invalid-value`，链接缺少 `href` 与 `events` 时使用 `missing-property`。不新增问题代码。
 
 URL 校验失败的消息要写明允许的协议，不要只写“格式错误”。
 
@@ -356,7 +361,7 @@ URL 校验失败的消息要写明允许的协议，不要只写“格式错误�
 
 `creator-schema.json` 的 `definitions` 属于设计器自己的模板，不会进入用户 schema。在其中增加：
 
-- `fieldAffix`：一个对象。`type` 使用 select，可选文本、超链接、图片、图标。其余属性按类型用 `visible` 绑定控制显示，并设置 `omitWhenHidden`，避免隐藏项仍输出到 schema。链接的 `action` 是可选对象，未设置时不输出。图片和图标都不提供尺寸输入。
+- `fieldAffix`：一个对象。`type` 使用 select，可选文本、超链接、图片、图标。其余属性按类型用 `visible` 绑定控制显示，并设置 `omitWhenHidden`，避免隐藏项仍输出到 schema。`events` 对所有类型可选，每一项选择原生事件并填写用户事件名。图片和图标都不提供尺寸输入。
 - `fieldAffixes`：包含四个可选数组，元素引用 `fieldAffix`。四个数组本身也设为 optional，没有条目时不输出对应的键。控件前和控件后在字段分类为数组、对象或 record 时隐藏，并用 `omitWhenHidden` 避免写入 schema。
 
 只在命名字段编辑对象，以及 record value 的字段编辑对象上，增加可选的 `affixes`，引用 `fieldAffixes`。不要加到数组 `element` 的编辑对象上，也不要加到 record key 的编辑对象上。不要把这组配置复制到每一处字段编辑块中。
@@ -381,12 +386,12 @@ URL 校验失败的消息要写明允许的协议，不要只写“格式错误�
 - 没有字段名但有标签展示位时保留标签列；只有控件展示位时保持单列。
 - optional 收起后，控件两侧消失，标签两侧仍可点击。
 - 字段隐藏时不渲染展示位。禁用字段时链接和图片预览仍可用。
-- 非法 URL、过长文本、图片上的 `width` 或 `height`、图标上的尺寸属性、链接同时缺少 `href` 和 `action`，都产生对应校验问题。
+- 非法 URL、过长文本、图片上的 `width` 或 `height`、图标上的尺寸属性、链接同时缺少 `href` 和 `events`、无法识别的原生事件名，都产生对应校验问题。
 - 数组 `element` 及其 `$ref` 覆盖写了 `affixes` 时校验失败。模板带有 `affixes` 而被数组元素引用时，元素不渲染这些展示位，同名模板用于命名字段时仍然渲染。
 - 对象类型的数组元素内部，命名子字段的 `affixes` 正常渲染。
 - record key 写了 `affixes` 时校验失败，key 编辑器不显示展示位。record value 的展示位会显示在每个动态值上。
 - `$ref` 在命名位置整份替换 `affixes`。
-- 只有 `action` 的链接渲染按钮并派发 `source.type === 'affix'` 的用户事件。`href` 与 `action` 同时存在时，监听器返回 `false` 或 DOM `preventDefault()` 都会阻止导航。修饰键点击不派发事件。
+- 只有 `events` 的链接渲染按钮，并按原生事件派发 `source.type === 'affix'` 的用户事件，`source.event` 是 `click` 或 `mousedown` 等实际事件。`href` 与 `click` 绑定同时存在时，监听器返回 `false` 或 DOM `preventDefault()` 都会阻止导航。修饰键点击不派发 `click`。
 - 独立 `EventCenter` 收不到使用全局中心的用户事件；同一用户事件的同步重入会停止并报告错误。
 - 标签侧图片使用标签高度，控件侧图片使用控件高度，两侧都保持 1:1 并与对应内容对齐。schema 不能改变尺寸。点击只打开大图，不产生 `userEvent`。Escape 关闭后焦点回到缩略图。
 - Vue 包装组件能收到 `userEvent`，并且不改变 `formChange` 的载荷。

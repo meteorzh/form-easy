@@ -1,4 +1,4 @@
-import type { FieldAffixSlot } from '../form-field-types';
+import type { FieldAffixNativeEvent, FieldAffixSlot } from '../form-field-types';
 import type {
   ComponentEventName,
   ComponentHandle,
@@ -6,7 +6,7 @@ import type {
   HandleTarget
 } from '../types';
 
-/** 展示位链接发出的用户事件来源。 */
+/** 展示位元素发出的用户事件来源。 */
 export interface AffixUserEventSource {
   /** 用户事件入口类型。当前只有展示位。 */
   type: 'affix';
@@ -16,6 +16,8 @@ export interface AffixUserEventSource {
   slot: FieldAffixSlot;
   /** 展示元素在该位置中的序号。 */
   index: number;
+  /** 触发这次用户事件的原生事件名。 */
+  event: FieldAffixNativeEvent;
 }
 
 /** 用户事件入口。以后可以在此增加 affix 以外的类型。 */
@@ -46,6 +48,7 @@ function userEventIdentity(event: UserEvent): string {
       source.fieldId,
       source.slot,
       String(source.index),
+      source.event,
       event.name
     ].join('::');
   }

@@ -27,6 +27,7 @@
   align-self: stretch;
   min-height: 0;
 }
+.field-affix--interactive { cursor: pointer; }
 .field-affix-text,
 .field-affix-link {
   color: #64748b;

@@ -37,7 +37,9 @@ function createPriceSchema(): FormSchema {
             {
               type: 'link',
               text: '计价说明',
-              action: { name: 'openPriceHelp', payload: { topic: 'price' } }
+              events: [
+                { event: 'click', name: 'openPriceHelp', payload: { topic: 'price' } }
+              ]
             }
           ],
           controlBefore: [
@@ -172,7 +174,11 @@ describe('字段展示位', () => {
           dataType: 'number',
           affixes: {
             labelAfter: [
-              { type: 'link', text: '说明', action: { name: 'openPriceHelp' } }
+              {
+                type: 'link',
+                text: '说明',
+                events: [{ event: 'click', name: 'openPriceHelp' }]
+              }
             ]
           }
         }
@@ -333,11 +339,22 @@ describe('字段展示位', () => {
                 text: '外部说明',
                 href: 'https://example.com/help',
                 target: '_blank',
-                action: { name: 'openPriceHelp', payload: { topic: 'price' } }
+                events: [
+                  { event: 'click', name: 'openPriceHelp', payload: { topic: 'price' } }
+                ]
               }
             ],
             controlAfter: [
-              { type: 'link', text: '只发事件', action: { name: 'showUnit' } }
+              {
+                type: 'link',
+                text: '只发事件',
+                events: [{ event: 'click', name: 'showUnit' }]
+              },
+              {
+                type: 'text',
+                text: '按下',
+                events: [{ event: 'mousedown', name: 'pressUnit' }]
+              }
             ]
           }
         }
@@ -352,6 +369,8 @@ describe('字段展示位', () => {
 
     const primaryClick = new MouseEvent('click', { bubbles: true, cancelable: true });
     links[1].dispatchEvent(primaryClick);
+    page.root!.querySelector<HTMLElement>('.field-affix-text')!
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     links[0].dispatchEvent(new MouseEvent('click', {
       bubbles: true,
       cancelable: true,
@@ -359,9 +378,9 @@ describe('字段展示位', () => {
     }));
     links[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(events.map(event => event.source.type)).toEqual(['affix', 'affix']);
-    expect(events.map(event => event.name)).toEqual(['showUnit', 'openPriceHelp']);
-    expect(domEvents).toHaveLength(2);
+    expect(events.map(event => event.source.event)).toEqual(['click', 'mousedown', 'click']);
+    expect(events.map(event => event.name)).toEqual(['showUnit', 'pressUnit', 'openPriceHelp']);
+    expect(domEvents).toHaveLength(3);
     expect(open).not.toHaveBeenCalled();
     open.mockRestore();
   });
@@ -434,7 +453,8 @@ describe('字段展示位', () => {
         type: 'affix' as const,
         fieldId: 'order.price',
         slot: 'labelAfter' as const,
-        index: 0
+        index: 0,
+        event: 'click' as const
       }
     };
 

@@ -405,10 +405,13 @@ const schema: FormSchema = {
           {
             type: 'link',
             text: '填写说明',
-            action: {
-              name: 'openFieldHelp',
-              payload: { field: 'stringDefault' }
-            }
+            events: [
+              {
+                event: 'click',
+                name: 'openFieldHelp',
+                payload: { field: 'stringDefault' }
+              }
+            ]
           }
         ]
       }

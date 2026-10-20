@@ -1,6 +1,7 @@
 import type {
   FieldAffix,
-  FieldAffixAction,
+  FieldAffixEventBinding,
+  FieldAffixNativeEvent,
   FieldAffixSlot,
   FieldAffixes,
   FormField
@@ -23,12 +24,22 @@ export const fieldAffixSlots: readonly FieldAffixSlot[] = [
 ];
 /** 展示元素类型。 */
 const fieldAffixTypes = new Set(['text', 'link', 'image', 'icon']);
+/** 展示元素可以绑定的原生事件。 */
+export const fieldAffixNativeEvents: readonly FieldAffixNativeEvent[] = [
+  'click',
+  'dblclick',
+  'mousedown',
+  'mouseup',
+  'mouseenter',
+  'mouseleave',
+  'contextmenu'
+];
 /** 各展示元素允许配置的属性。 */
 const fieldAffixProperties: Record<FieldAffix['type'], readonly string[]> = {
-  text: ['type', 'text'],
-  link: ['type', 'text', 'href', 'target', 'action'],
-  image: ['type', 'src', 'alt'],
-  icon: ['type', 'src', 'alt']
+  text: ['type', 'text', 'events'],
+  link: ['type', 'text', 'href', 'target', 'events'],
+  image: ['type', 'src', 'alt', 'events'],
+  icon: ['type', 'src', 'alt', 'events']
 };
 /** 超链接允许的绝对地址协议。 */
 const linkProtocols = new Set(['http:', 'https:', 'mailto:', 'tel:']);
@@ -54,17 +65,28 @@ export interface FieldAffixIssue {
 }
 
 /** 渲染时已经确认有效的展示元素。 */
+/** 渲染时已经确认有效的一条用户事件绑定。 */
+export interface RenderedFieldAffixEvent {
+  /** 原生事件名。 */
+  event: FieldAffixNativeEvent;
+  /** 用户事件名。 */
+  name: string;
+  /** 静态 JSON 数据。 */
+  payload?: unknown;
+}
+
+/** 渲染时已经确认有效的展示元素。 */
 export type RenderedFieldAffix =
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; events?: RenderedFieldAffixEvent[] }
   | {
     type: 'link';
     text: string;
     href?: string;
     target: '_self' | '_blank';
-    action?: FieldAffixAction;
+    events?: RenderedFieldAffixEvent[];
   }
-  | { type: 'image'; src: string; alt: string }
-  | { type: 'icon'; src: string; alt?: string };
+  | { type: 'image'; src: string; alt: string; events?: RenderedFieldAffixEvent[] }
+  | { type: 'icon'; src: string; alt?: string; events?: RenderedFieldAffixEvent[] };
 
 /** 判断值是否为普通对象。 */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -259,6 +281,9 @@ function validateAffixItem(value: unknown, path: string): FieldAffixIssue[] {
       message: '图标替代文本必须是不超过 200 个字符的非空字符串。'
     });
   }
+  if (hasOwn(value, 'events')) {
+    issues.push(...validateAffixEvents(value.events, propertyPath(path, 'events')));
+  }
   return issues;
 }
 
@@ -270,12 +295,12 @@ function validateAffixLink(
   const issues: FieldAffixIssue[] = [];
   const hrefPath = propertyPath(path, 'href');
   const hasHref = hasOwn(value, 'href');
-  const hasAction = hasOwn(value, 'action');
-  if (!hasHref && !hasAction) {
+  const hasEvents = Array.isArray(value.events) && value.events.length > 0;
+  if (!hasHref && !hasEvents) {
     issues.push({
       code: 'missing-property',
       path,
-      message: '超链接必须配置 href 或 action。'
+      message: '超链接必须配置 href 或 events。'
     });
   }
   if (hasHref && !isAllowedAffixLinkHref(typeof value.href === 'string' ? value.href : '')) {
@@ -300,50 +325,85 @@ function validateAffixLink(
       });
     }
   }
-  if (hasAction) issues.push(...validateAffixAction(value.action, propertyPath(path, 'action')));
   return issues;
 }
 
-/** 校验链接声明的用户事件。 */
-function validateAffixAction(value: unknown, path: string): FieldAffixIssue[] {
-  if (!isPlainRecord(value)) {
+/** 校验展示元素上的原生事件映射。 */
+function validateAffixEvents(value: unknown, path: string): FieldAffixIssue[] {
+  if (!Array.isArray(value)) {
     return [{
       code: 'invalid-type',
       path,
-      message: '链接 action 必须是普通对象。'
+      message: 'events 必须是数组。'
     }];
   }
   const issues: FieldAffixIssue[] = [];
-  Object.keys(value).forEach(property => {
-    if (property !== 'name' && property !== 'payload') {
+  const seen = new Set<string>();
+  value.forEach((item, index) => {
+    const itemPath = indexPath(path, index);
+    if (!isPlainRecord(item)) {
       issues.push({
-        code: 'unknown-property',
-        path: propertyPath(path, property),
-        message: `不支持的配置属性“${property}”。`
+        code: 'invalid-type',
+        path: itemPath,
+        message: '用户事件绑定必须是普通对象。'
+      });
+      return;
+    }
+    Object.keys(item).forEach(property => {
+      if (property !== 'event' && property !== 'name' && property !== 'payload') {
+        issues.push({
+          code: 'unknown-property',
+          path: propertyPath(itemPath, property),
+          message: `不支持的配置属性“${property}”。`
+        });
+      }
+    });
+    if (!hasOwn(item, 'event')) {
+      issues.push({
+        code: 'missing-property',
+        path: propertyPath(itemPath, 'event'),
+        message: '用户事件绑定缺少必需的 event。'
+      });
+    } else if (!fieldAffixNativeEvents.includes(item.event as FieldAffixNativeEvent)) {
+      issues.push({
+        code: 'invalid-value',
+        path: propertyPath(itemPath, 'event'),
+        message: `event 必须是 ${fieldAffixNativeEvents.join('、')} 之一。双击请使用 dblclick。`
       });
     }
+    const name = readTrimmedString(item.name);
+    if (!hasOwn(item, 'name')) {
+      issues.push({
+        code: 'missing-property',
+        path: propertyPath(itemPath, 'name'),
+        message: '用户事件绑定缺少必需的 name。'
+      });
+    } else if (!name || !isAffixActionName(name)) {
+      issues.push({
+        code: 'invalid-value',
+        path: propertyPath(itemPath, 'name'),
+        message: '事件名称必须以字母开头，只包含字母、数字、下划线或连字符，并且不超过 64 个字符。'
+      });
+    }
+    if (hasOwn(item, 'payload') && !isJsonPayload(item.payload)) {
+      issues.push({
+        code: 'invalid-value',
+        path: propertyPath(itemPath, 'payload'),
+        message: '事件 payload 必须是嵌套不超过 8 层的纯 JSON 数据。'
+      });
+    }
+    if (typeof item.event === 'string' && name) {
+      const identity = `${item.event}::${name}`;
+      if (seen.has(identity)) {
+        issues.push({
+          code: 'invalid-value',
+          path: itemPath,
+          message: `原生事件 ${item.event} 不能重复绑定用户事件“${name}”。`
+        });
+      }
+      seen.add(identity);
+    }
   });
-  const name = readTrimmedString(value.name);
-  if (!hasOwn(value, 'name')) {
-    issues.push({
-      code: 'missing-property',
-      path: propertyPath(path, 'name'),
-      message: '链接 action 缺少必需的 name。'
-    });
-  } else if (!name || !isAffixActionName(name)) {
-    issues.push({
-      code: 'invalid-value',
-      path: propertyPath(path, 'name'),
-      message: '事件名称必须以字母开头，只包含字母、数字、下划线或连字符，并且不超过 64 个字符。'
-    });
-  }
-  if (hasOwn(value, 'payload') && !isJsonPayload(value.payload)) {
-    issues.push({
-      code: 'invalid-value',
-      path: propertyPath(path, 'payload'),
-      message: '事件 payload 必须是嵌套不超过 8 层的纯 JSON 数据。'
-    });
-  }
   return issues;
 }
 
@@ -401,35 +461,48 @@ export function readRenderableAffixes(value: unknown): Record<FieldAffixSlot, Re
 
 /** 规范化一个已经通过校验的展示元素。 */
 function readAffixItem(item: FieldAffix): RenderedFieldAffix {
+  const events = readAffixEvents(item.events);
   if (item.type === 'text') {
-    return { type: 'text', text: item.text.trim() };
+    return { type: 'text', text: item.text.trim(), ...(events ? { events } : {}) };
   }
   if (item.type === 'image') {
-    return { type: 'image', src: item.src.trim(), alt: item.alt.trim() };
+    return {
+      type: 'image',
+      src: item.src.trim(),
+      alt: item.alt.trim(),
+      ...(events ? { events } : {})
+    };
   }
   if (item.type === 'icon') {
     const alt = readDisplayText(item.alt);
-    return alt
-      ? { type: 'icon', src: item.src.trim(), alt }
-      : { type: 'icon', src: item.src.trim() };
+    return {
+      type: 'icon',
+      src: item.src.trim(),
+      ...(alt ? { alt } : {}),
+      ...(events ? { events } : {})
+    };
   }
-  const actionSource = item.action;
-  const actionName = actionSource?.name.trim();
-  const action = actionSource && actionName
-    ? {
-      name: actionName,
-      ...(Object.prototype.hasOwnProperty.call(actionSource, 'payload')
-        ? { payload: actionSource.payload }
-        : {})
-    }
-    : undefined;
   return {
     type: 'link',
     text: item.text.trim(),
     ...(item.href ? { href: item.href.trim() } : {}),
     target: item.target ?? '_self',
-    ...(action ? { action } : {})
+    ...(events ? { events } : {})
   };
+}
+
+/** 读取已经通过校验的用户事件绑定。 */
+function readAffixEvents(
+  events: FieldAffixEventBinding[] | undefined
+): RenderedFieldAffixEvent[] | undefined {
+  if (!events?.length) return undefined;
+  return events.map(binding => ({
+    event: binding.event,
+    name: binding.name.trim(),
+    ...(Object.prototype.hasOwnProperty.call(binding, 'payload')
+      ? { payload: binding.payload }
+      : {})
+  }));
 }
 
 /** 返回去掉展示位后的字段。数组元素渲染时使用，避免重复模板上的 affixes。 */
@@ -438,6 +511,17 @@ export function omitFieldAffixes<T extends Pick<FormField, 'affixes'>>(field: T)
   const { affixes: _affixes, ...rest } = field;
   return rest as T;
 }
+
+/** 原生事件名对应的 Stencil 事件属性。 */
+export const affixNativeEventProp: Record<FieldAffixNativeEvent, string> = {
+  click: 'onClick',
+  dblclick: 'onDblClick',
+  mousedown: 'onMouseDown',
+  mouseup: 'onMouseUp',
+  mouseenter: 'onMouseEnter',
+  mouseleave: 'onMouseLeave',
+  contextmenu: 'onContextMenu'
+};
 
 /** 判断点击是否应保留浏览器自己的链接行为。 */
 export function isModifiedAffixClick(event: MouseEvent): boolean {

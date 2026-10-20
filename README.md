@@ -155,7 +155,9 @@ const priceSchema = {
       {
         type: 'link',
         text: '计价说明',
-        action: { name: 'openPriceHelp', payload: { topic: 'price' } }
+        events: [
+          { event: 'click', name: 'openPriceHelp', payload: { topic: 'price' } }
+        ]
       }
     ],
     controlBefore: [{ type: 'text', text: '¥' }],

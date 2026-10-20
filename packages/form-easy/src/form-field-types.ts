@@ -99,16 +99,34 @@ export type FieldAffixSlot =
 /** 展示元素支持的类型。 */
 export type FieldAffixType = 'text' | 'link' | 'image' | 'icon';
 
-/** 超链接触发的用户事件声明。 */
-export interface FieldAffixAction {
+/** 展示元素可以绑定的原生事件。双击的 DOM 名称是 dblclick。 */
+export type FieldAffixNativeEvent =
+  | 'click'
+  | 'dblclick'
+  | 'mousedown'
+  | 'mouseup'
+  | 'mouseenter'
+  | 'mouseleave'
+  | 'contextmenu';
+
+/** 把一个原生事件映射成使用者自己的事件名。 */
+export interface FieldAffixEventBinding {
+  /** 触发用户事件的原生事件名。 */
+  event: FieldAffixNativeEvent;
   /** 使用者识别事件的稳定名称。 */
   name: string;
   /** 随事件原样传出的静态 JSON 数据。 */
   payload?: unknown;
 }
 
+/** 所有展示元素都可以配置的用户事件。 */
+interface FieldAffixEvents {
+  /** 原生事件到用户事件名的映射。 */
+  events?: FieldAffixEventBinding[];
+}
+
 /** 普通展示文本。 */
-export interface FieldAffixText {
+export interface FieldAffixText extends FieldAffixEvents {
   /** 展示元素类型。 */
   type: 'text';
   /** 展示文本，按纯文本渲染。 */
@@ -116,21 +134,19 @@ export interface FieldAffixText {
 }
 
 /** 可导航或派发用户事件的展示链接。 */
-export interface FieldAffixLink {
+export interface FieldAffixLink extends FieldAffixEvents {
   /** 展示元素类型。 */
   type: 'link';
   /** 链接可见文本。 */
   text: string;
-  /** 可选的导航地址。与 action 至少配置一个。 */
+  /** 可选的导航地址。与 events 至少配置一个。 */
   href?: string;
   /** 导航目标。只有存在 href 时才能配置。 */
   target?: '_self' | '_blank';
-  /** 点击后派发的用户事件。 */
-  action?: FieldAffixAction;
 }
 
 /** 可打开大图的展示图片。尺寸由字段壳决定。 */
-export interface FieldAffixImage {
+export interface FieldAffixImage extends FieldAffixEvents {
   /** 展示元素类型。 */
   type: 'image';
   /** 图片地址。 */
@@ -139,8 +155,8 @@ export interface FieldAffixImage {
   alt: string;
 }
 
-/** 固定尺寸、不可点击的展示图标。 */
-export interface FieldAffixIcon {
+/** 固定尺寸的展示图标。配置 events 后可以响应原生事件。 */
+export interface FieldAffixIcon extends FieldAffixEvents {
   /** 展示元素类型。 */
   type: 'icon';
   /** 图标地址。 */

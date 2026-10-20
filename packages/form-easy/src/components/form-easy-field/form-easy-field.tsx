@@ -4,14 +4,17 @@ import {
   type ComponentDataExpression
 } from '../../component-data-expression';
 import {
+  affixNativeEventProp,
+  fieldAffixNativeEvents,
   fieldAffixPart,
   fieldAffixSide,
   isModifiedAffixClick,
   isTallFieldCategory,
   readFieldAffixes,
-  type RenderedFieldAffix
+  type RenderedFieldAffix,
+  type RenderedFieldAffixEvent
 } from '../../field-affix';
-import type { FieldAffixSlot } from '../../form-field-types';
+import type { FieldAffixNativeEvent, FieldAffixSlot } from '../../form-field-types';
 import {
   isRelativeFieldReference,
   resolveRelativeFieldId
@@ -940,36 +943,64 @@ export class FormEasyField implements HandleTarget {
     return this.renderBasicField();
   }
 
-  /** 派发展示链接的用户事件，并在未被取消时继续导航。 */
-  private activateAffixLink = (
-    link: Extract<RenderedFieldAffix, { type: 'link' }>,
+  /** 派发展示元素上匹配的用户事件。返回 false 表示默认行为被取消。 */
+  private dispatchAffixEvents(
+    bindings: RenderedFieldAffixEvent[] | undefined,
+    nativeEvent: FieldAffixNativeEvent,
     slot: FieldAffixSlot,
     index: number,
-    event: MouseEvent
-  ): void => {
-    if (!link.action) return;
-    if (link.href && isModifiedAffixClick(event)) return;
-    event.preventDefault();
-    const allowed = this.eventCenter.dispatchUserEvent({
-      name: link.action.name,
+    domEvent: Event
+  ): boolean {
+    const matched = (bindings ?? []).filter(binding => binding.event === nativeEvent);
+    if (matched.length === 0) return true;
+    const allowed = matched.every(binding => this.eventCenter.dispatchUserEvent({
+      name: binding.name,
       formKey: this.formKey,
       source: {
         type: 'affix',
         fieldId: this.fieldId,
         slot,
-        index
+        index,
+        event: nativeEvent
       },
-      ...(Object.prototype.hasOwnProperty.call(link.action, 'payload')
-        ? { payload: link.action.payload }
+      ...(Object.prototype.hasOwnProperty.call(binding, 'payload')
+        ? { payload: binding.payload }
         : {})
+    }) !== false);
+    if (!allowed) domEvent.preventDefault();
+    return allowed;
+  }
+
+  /** 为展示元素挂上已配置的原生事件，并保留链接导航和图片预览。 */
+  private createAffixEventHandlers(
+    item: RenderedFieldAffix,
+    slot: FieldAffixSlot,
+    index: number
+  ): Record<string, (event: MouseEvent) => void> {
+    const handlers: Record<string, (event: MouseEvent) => void> = {};
+    fieldAffixNativeEvents.forEach(nativeEvent => {
+      const bindings = (item.events ?? []).filter(binding => binding.event === nativeEvent);
+      const opensPreview = item.type === 'image' && nativeEvent === 'click';
+      const navigates = item.type === 'link' && nativeEvent === 'click' && Boolean(item.href);
+      if (bindings.length === 0 && !opensPreview && !navigates) return;
+      handlers[affixNativeEventProp[nativeEvent]] = (event: MouseEvent) => {
+        if (navigates && isModifiedAffixClick(event)) return;
+        if (navigates) event.preventDefault();
+        const allowed = this.dispatchAffixEvents(bindings, nativeEvent, slot, index, event);
+        if (!allowed) return;
+        if (opensPreview && item.type === 'image') {
+          this.openAffixPreview(item.src, item.alt, event);
+        }
+        if (item.type !== 'link' || !item.href || nativeEvent !== 'click') return;
+        if (item.target === '_blank') {
+          window.open(item.href, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        window.location.assign(item.href);
+      };
     });
-    if (!allowed || !link.href) return;
-    if (link.target === '_blank') {
-      window.open(link.href, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    window.location.assign(link.href);
-  };
+    return handlers;
+  }
 
   /** 在页面根节点打开展示图片，避免被表单内部的定位上下文截断。 */
   private openAffixPreview = (src: string, alt: string, event: MouseEvent): void => {
@@ -1072,24 +1103,44 @@ export class FormEasyField implements HandleTarget {
   /** 渲染文本、链接、图片或图标。 */
   private renderAffix(slot: FieldAffixSlot, item: RenderedFieldAffix, index: number) {
     const part = fieldAffixPart(slot);
+    const interactive = Boolean(item.events?.length);
+    const eventHandlers = this.createAffixEventHandlers(item, slot, index);
+    const interactiveClass = interactive ? ' field-affix--interactive' : '';
     if (item.type === 'text') {
-      return <span class="field-affix field-affix-text" part={part}>{item.text}</span>;
+      return (
+        <span
+          class={`field-affix field-affix-text${interactiveClass}`}
+          part={part}
+          {...eventHandlers}
+        >
+          {item.text}
+        </span>
+      );
     }
     if (item.type === 'icon') {
       return (
         <img
-          class="field-affix field-affix-icon"
+          class={`field-affix field-affix-icon${interactiveClass}`}
           part={part}
           src={item.src}
           alt={item.alt ?? ''}
           aria-hidden={item.alt ? undefined : 'true'}
+          {...eventHandlers}
         />
       );
     }
     if (item.type === 'image') {
       const imageId = `${slot}:${index}:${item.src}`;
       if (this.brokenAffixImages.includes(imageId)) {
-        return <span class="field-affix field-affix-text" part={part}>{item.alt}</span>;
+        return (
+          <span
+            class={`field-affix field-affix-text${interactiveClass}`}
+            part={part}
+            {...eventHandlers}
+          >
+            {item.alt}
+          </span>
+        );
       }
       return (
         <button
@@ -1097,7 +1148,7 @@ export class FormEasyField implements HandleTarget {
           part={part}
           type="button"
           aria-label={`查看图片：${item.alt}`}
-          onClick={event => this.openAffixPreview(item.src, item.alt, event)}
+          {...eventHandlers}
         >
           <img
             src={item.src}
@@ -1110,10 +1161,10 @@ export class FormEasyField implements HandleTarget {
     if (!item.href) {
       return (
         <button
-          class="field-affix field-affix-link"
+          class={`field-affix field-affix-link${interactiveClass}`}
           part={part}
           type="button"
-          onClick={event => this.activateAffixLink(item, slot, index, event)}
+          {...eventHandlers}
         >
           {item.text}
         </button>
@@ -1121,12 +1172,12 @@ export class FormEasyField implements HandleTarget {
     }
     return (
       <a
-        class="field-affix field-affix-link"
+        class={`field-affix field-affix-link${interactiveClass}`}
         part={part}
         href={item.href}
         target={item.target}
         rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-        onClick={event => this.activateAffixLink(item, slot, index, event)}
+        {...eventHandlers}
       >
         {item.text}
       </a>

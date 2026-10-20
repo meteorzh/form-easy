@@ -39,6 +39,7 @@ import type {
   LabelPosition
 } from '../../types';
 
+
 /** 根据 JSON schema 渲染完整动态表单。 */
 @Component({
   tag: 'form-easy',

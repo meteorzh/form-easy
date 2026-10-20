@@ -24,6 +24,7 @@ import type {
   LabelPosition
 } from '../../types';
 
+
 /** 将对象字段渲染为不含独立表单键和名称的嵌套表单。 */
 @Component({ tag: 'form-easy-object', styleUrl: 'form-easy-object.css' })
 export class FormEasyObject {

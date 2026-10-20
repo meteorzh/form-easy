@@ -218,8 +218,9 @@ export class FormEasyCreator {
   /** 接收内部动态表单直接输出的目标 Schema。 */
   private handleCreatorFormChange = (event: CustomEvent<FormChangeDetail>): void => {
     event.stopPropagation();
-    this.creatorFormValue = event.detail.formData;
-    this.refreshCreatedSchema(this.creatorFormValue, true);
+    // 只更新对外 schema。把省略 optional 字段后的输出再写回 value，
+    // 会让这些字段的存在状态在 true/false 之间来回翻转。
+    this.refreshCreatedSchema(event.detail.formData, true);
   };
 
   /** 校验当前设计数据，并按需向使用方发送变化事件。 */

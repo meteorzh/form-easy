@@ -422,9 +422,13 @@ export interface FormFieldReference extends FormFieldReferenceCommonOverrides {
   key?: string;
   /** 命名位置覆盖后的字段名称。 */
   name?: string;
-  /** 是否允许用户控制命名字段是否存在于最终输出对象中。 */
+  /**
+   * 仅命名引用位置有效，不是 required 的反义。
+   * 为 true 时，该属性是否写入父级输出由独立的存在状态决定，使用方可以在标签区域切换，就是让用户可以明确指定这个字段值是否设值；
+   * 未设置表示属性不存在，和值明确为 null 不是一回事。匿名引用不允许配置。
+   */
   optional?: boolean;
-  /** 值为空时是否省略命名字段。 */
+  /** 值为 null 或 undefined 时是否从父级输出对象中省略该命名字段。匿名引用不允许配置。 */
   omitNull?: boolean;
   /** 字段隐藏时是否省略命名字段。 */
   omitWhenHidden?: boolean;

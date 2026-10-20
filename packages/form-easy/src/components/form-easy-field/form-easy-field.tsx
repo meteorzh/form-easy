@@ -175,7 +175,7 @@ export class FormEasyField implements HandleTarget {
   /** 父级原始对象的属性存在状态变化后同步 optional 输出状态。 */
   @Watch('valuePresent')
   syncExternalPresence(valuePresent: boolean): void {
-    if (this.field.optional !== true) return;
+    if (this.field.optional !== true || this.outputPresent === valuePresent) return;
     this.outputPresent = valuePresent;
     if (valuePresent) this.hasRetainedValue = true;
     this.validateCurrentValue();

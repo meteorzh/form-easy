@@ -8,7 +8,99 @@
   min-width: 0;
   font-weight: 600;
 }
+.field-label-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
 .field-label-text { min-width: 0; }
+.field-affixes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  max-width: 100%;
+}
+.field-affixes--control {
+  align-self: stretch;
+  min-height: 0;
+}
+.field-affix-text,
+.field-affix-link {
+  color: #64748b;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.field-affix-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+}
+.field-affix-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  object-fit: contain;
+}
+.field-affix-image {
+  display: inline-flex;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.field-affix-image--label {
+  width: 1lh;
+  height: 1lh;
+}
+.field-affix-image--control {
+  position: relative;
+  align-self: stretch;
+  flex: none;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.field-affix-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* 图片不参与高度计算，避免无宽高的 SVG 用固有尺寸撑开控件行。 */
+.field-affix-image--control img {
+  position: absolute;
+  inset: 0;
+}
+.editor-line {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.editor-control { flex: 1 1 auto; min-width: 0; }
+/* 基础字段的控件前后展示位要紧挨控件，不能把剩余宽度塞进控件和后置内容之间。 */
+.field:not(.field--tall) .editor-line:has(.field-affixes--control) > .editor-control {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+}
+.field:not(.field--tall) .editor-line:has(.field-affixes--control) > .editor-control > .framework-renderer {
+  width: auto;
+  max-width: 100%;
+}
 small { color: #64748b; }
 .field--left { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
 .field--left > .field-label { grid-column: 1; grid-row: 1; }
@@ -20,6 +112,18 @@ small { color: #64748b; }
 .field--right > .editor { grid-column: 1; grid-row: 1 / span 2; }
 .field--top { grid-template-columns: 1fr; }
 .field--top > .field-label { justify-content: flex-start; }
+.field-meta {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+.field--tall.field--left,
+.field--tall.field--right { align-items: start; }
+.field--tall.field--left > .field-meta { grid-column: 1; grid-row: 1; }
+.field--tall.field--left > .editor { grid-column: 2; grid-row: 1; }
+.field--tall.field--right > .field-meta { grid-column: 2; grid-row: 1; }
+.field--tall.field--right > .editor { grid-column: 1; grid-row: 1; }
 .field--editor-only { grid-template-columns: minmax(0, 1fr); }
 .field--editor-only > .editor { grid-column: 1; grid-row: 1; }
 .field--optional-omitted .field-label-text {
@@ -134,7 +238,11 @@ small { color: #64748b; }
   .field--left > small,
   .field--right > small,
   .field--left > .editor,
-  .field--right > .editor { grid-column: 1; grid-row: auto; }
+  .field--right > .editor,
+  .field--tall.field--left > .field-meta,
+  .field--tall.field--right > .field-meta,
+  .field--tall.field--left > .editor,
+  .field--tall.field--right > .editor { grid-column: 1; grid-row: auto; }
   .field-label { justify-content: flex-start; }
 }
 

@@ -4,6 +4,15 @@ import {
   type ComponentDataExpression
 } from '../../component-data-expression';
 import {
+  fieldAffixPart,
+  fieldAffixSide,
+  isModifiedAffixClick,
+  isTallFieldCategory,
+  readFieldAffixes,
+  type RenderedFieldAffix
+} from '../../field-affix';
+import type { FieldAffixSlot } from '../../form-field-types';
+import {
   isRelativeFieldReference,
   resolveRelativeFieldId
 } from '../../field-reference';
@@ -132,6 +141,12 @@ export class FormEasyField implements HandleTarget {
   private hasRetainedValue = false;
   /** 组件数据动态参数事件订阅的清理函数。 */
   private componentDataParameterUnsubscribe: Array<() => void> = [];
+  /** 加载失败的展示图片标识。 */
+  @State() private brokenAffixImages: string[] = [];
+  /** 挂在 document.body 上的大图蒙层。 */
+  private previewRoot?: HTMLDivElement;
+  /** 打开大图的缩略图按钮，关闭后恢复焦点。 */
+  private previewOpener?: HTMLElement;
 
   /** 初始化本地字段值和事件订阅。 */
   componentWillLoad(): void {
@@ -238,6 +253,7 @@ export class FormEasyField implements HandleTarget {
     this.componentDataAbortController?.abort();
     this.formValueStore?.deleteBranch(this.fieldId);
     if (this.rendererHost) this.activeRenderer?.unmount(this.rendererHost);
+    this.closeAffixPreview();
   }
 
   /** 字段完成首次挂载后调用已注册的框架渲染适配器。 */
@@ -924,6 +940,199 @@ export class FormEasyField implements HandleTarget {
     return this.renderBasicField();
   }
 
+  /** 派发展示链接的用户事件，并在未被取消时继续导航。 */
+  private activateAffixLink = (
+    link: Extract<RenderedFieldAffix, { type: 'link' }>,
+    slot: FieldAffixSlot,
+    index: number,
+    event: MouseEvent
+  ): void => {
+    if (!link.action) return;
+    if (link.href && isModifiedAffixClick(event)) return;
+    event.preventDefault();
+    const allowed = this.eventCenter.dispatchUserEvent({
+      name: link.action.name,
+      formKey: this.formKey,
+      source: {
+        type: 'affix',
+        fieldId: this.fieldId,
+        slot,
+        index
+      },
+      ...(Object.prototype.hasOwnProperty.call(link.action, 'payload')
+        ? { payload: link.action.payload }
+        : {})
+    });
+    if (!allowed || !link.href) return;
+    if (link.target === '_blank') {
+      window.open(link.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.assign(link.href);
+  };
+
+  /** 在页面根节点打开展示图片，避免被表单内部的定位上下文截断。 */
+  private openAffixPreview = (src: string, alt: string, event: MouseEvent): void => {
+    this.closeAffixPreview();
+    this.previewOpener = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : undefined;
+    this.ensureAffixPreviewStyle();
+    const preview = document.createElement('div');
+    preview.className = 'form-easy-affix-preview';
+    preview.setAttribute('role', 'dialog');
+    preview.setAttribute('aria-modal', 'true');
+    preview.setAttribute('aria-label', '查看图片');
+    preview.addEventListener('click', clickEvent => {
+      if (clickEvent.target === preview) this.closeAffixPreview();
+    });
+    preview.addEventListener('keydown', keyEvent => {
+      if (keyEvent.key !== 'Escape') return;
+      keyEvent.stopPropagation();
+      this.closeAffixPreview();
+    });
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'form-easy-affix-preview-close';
+    closeButton.type = 'button';
+    closeButton.textContent = '关闭';
+    closeButton.addEventListener('click', () => this.closeAffixPreview());
+
+    const image = document.createElement('img');
+    image.src = src;
+    image.alt = alt;
+    preview.append(closeButton, image);
+    document.body.append(preview);
+    this.previewRoot = preview;
+    closeButton.focus();
+  };
+
+  /** 关闭页面级大图，并把焦点还给缩略图。 */
+  private closeAffixPreview = (): void => {
+    const opener = this.previewOpener;
+    this.previewRoot?.remove();
+    this.previewRoot = undefined;
+    this.previewOpener = undefined;
+    opener?.focus();
+  };
+
+  /** 为大图蒙层注入一次页面级样式。Shadow DOM 样式无法作用到 body 上的节点。 */
+  private ensureAffixPreviewStyle(): void {
+    if (document.getElementById('form-easy-affix-preview-style')) return;
+    const style = document.createElement('style');
+    style.id = 'form-easy-affix-preview-style';
+    style.textContent = `
+      .form-easy-affix-preview {
+        position: fixed;
+        z-index: 10000;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgb(15 23 42 / 72%);
+      }
+      .form-easy-affix-preview img {
+        max-width: 90vw;
+        max-height: 90vh;
+        object-fit: contain;
+      }
+      .form-easy-affix-preview-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        min-height: 32px;
+        padding: 6px 12px;
+        border: 0;
+        border-radius: 999px;
+        color: #0f172a;
+        background: #fff;
+        cursor: pointer;
+      }
+    `;
+    document.head.append(style);
+  }
+
+  /** 记录加载失败的展示图片，改为显示替代文本。 */
+  private markAffixImageBroken = (imageId: string): void => {
+    if (this.brokenAffixImages.includes(imageId)) return;
+    this.brokenAffixImages = [...this.brokenAffixImages, imageId];
+  };
+
+  /** 渲染一个展示位中的全部元素。 */
+  private renderAffixGroup(slot: FieldAffixSlot, items: RenderedFieldAffix[]) {
+    if (items.length === 0) return null;
+    return (
+      <span class={`field-affixes field-affixes--${fieldAffixSide(slot)}`}>
+        {items.map((item, index) => this.renderAffix(slot, item, index))}
+      </span>
+    );
+  }
+
+  /** 渲染文本、链接、图片或图标。 */
+  private renderAffix(slot: FieldAffixSlot, item: RenderedFieldAffix, index: number) {
+    const part = fieldAffixPart(slot);
+    if (item.type === 'text') {
+      return <span class="field-affix field-affix-text" part={part}>{item.text}</span>;
+    }
+    if (item.type === 'icon') {
+      return (
+        <img
+          class="field-affix field-affix-icon"
+          part={part}
+          src={item.src}
+          alt={item.alt ?? ''}
+          aria-hidden={item.alt ? undefined : 'true'}
+        />
+      );
+    }
+    if (item.type === 'image') {
+      const imageId = `${slot}:${index}:${item.src}`;
+      if (this.brokenAffixImages.includes(imageId)) {
+        return <span class="field-affix field-affix-text" part={part}>{item.alt}</span>;
+      }
+      return (
+        <button
+          class={`field-affix field-affix-image field-affix-image--${fieldAffixSide(slot)}`}
+          part={part}
+          type="button"
+          aria-label={`查看图片：${item.alt}`}
+          onClick={event => this.openAffixPreview(item.src, item.alt, event)}
+        >
+          <img
+            src={item.src}
+            alt={item.alt}
+            onError={() => this.markAffixImageBroken(imageId)}
+          />
+        </button>
+      );
+    }
+    if (!item.href) {
+      return (
+        <button
+          class="field-affix field-affix-link"
+          part={part}
+          type="button"
+          onClick={event => this.activateAffixLink(item, slot, index, event)}
+        >
+          {item.text}
+        </button>
+      );
+    }
+    return (
+      <a
+        class="field-affix field-affix-link"
+        part={part}
+        href={item.href}
+        target={item.target}
+        rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+        onClick={event => this.activateAffixLink(item, slot, index, event)}
+      >
+        {item.text}
+      </a>
+    );
+  }
+
   /** 渲染字段名称和编辑器。 */
   render() {
     if (!this.visible) return null;
@@ -941,7 +1150,9 @@ export class FormEasyField implements HandleTarget {
       && this.field.name.trim().length > 0;
     const hasHint = typeof this.field.hint === 'string'
       && this.field.hint.trim().length > 0;
-    const metadataClass = hasName || hasHint || this.field.optional === true
+    const affixes = readFieldAffixes(this.field);
+    const hasLabelAffix = affixes.labelBefore.length > 0 || affixes.labelAfter.length > 0;
+    const metadataClass = hasName || hasHint || hasLabelAffix || this.field.optional === true
       ? ''
       : ' field--editor-only';
     const optionalClass = this.field.optional === true
@@ -949,19 +1160,20 @@ export class FormEasyField implements HandleTarget {
         ? ' field--optional-present'
         : ' field--optional-omitted'
       : '';
-
-    return (
-      <section
-        class={`field field--${this.labelPosition}${metadataClass}${optionalClass}`}
-        part="field"
-      >
-        {(hasName || this.field.optional === true) && (
-          <div class="field-label">
-            {hasName && (
-              <span class="field-label-text">
-                {this.field.name}
-                {this.field.required && <span class="required"> *</span>}
-              </span>
+    const tallField = isTallFieldCategory(this.field.category);
+    const label = (hasName || hasLabelAffix || this.field.optional === true) && (
+      <div class="field-label">
+            {(hasName || hasLabelAffix) && (
+              <div class="field-label-main">
+                {this.renderAffixGroup('labelBefore', affixes.labelBefore)}
+                {hasName && (
+                  <span class="field-label-text">
+                    {this.field.name}
+                    {this.field.required && <span class="required"> *</span>}
+                  </span>
+                )}
+                {this.renderAffixGroup('labelAfter', affixes.labelAfter)}
+              </div>
             )}
             {this.field.optional === true && (
               <button
@@ -976,12 +1188,27 @@ export class FormEasyField implements HandleTarget {
                 {this.outputPresent ? '已设置' : '未设置'}
               </button>
             )}
-          </div>
-        )}
-        {hasHint && <small>{this.field.hint}</small>}
+      </div>
+    );
+    const hint = hasHint && <small>{this.field.hint}</small>;
+
+    return (
+      <section
+        class={`field field--${this.labelPosition}${tallField ? ' field--tall' : ''}${metadataClass}${optionalClass}`}
+        part="field"
+      >
+        {tallField && (label || hint) ? <div class="field-meta">{label}{hint}</div> : null}
+        {!tallField && label}
+        {!tallField && hint}
         {this.outputPresent && (
           <div class="editor" onFocusout={this.activateValidationFeedback}>
-            {this.renderEditor()}
+            <div class="editor-line">
+              {this.renderAffixGroup('controlBefore', affixes.controlBefore)}
+              <div class="editor-control">
+                {this.renderEditor()}
+              </div>
+              {this.renderAffixGroup('controlAfter', affixes.controlAfter)}
+            </div>
             {this.validationError && (
               <p
                 class={{

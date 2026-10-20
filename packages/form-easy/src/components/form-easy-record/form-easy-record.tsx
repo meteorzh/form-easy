@@ -45,7 +45,10 @@ export class FormEasyRecord {
   @Prop() fieldId!: string;
   /** 所属表单的键。 */
   @Prop() formKey!: string;
-  /** 字段标签相对于编辑器的位置。 */
+  /**
+   * 外层表单的标签位置。
+   * 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
+   */
   @Prop() labelPosition: LabelPosition = 'left';
   /** 当前表单指定的基础字段渲染器。 */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
@@ -76,6 +79,8 @@ export class FormEasyRecord {
   @State() private initialized = false;
   /** record 内容是否处于展开状态。 */
   @State() private expanded = true;
+  /** 当前处于收起状态的键值条目内部标识。 */
+  @State() private collapsedEntryIds: number[] = [];
   /** 下一个键值条目使用的内部标识。 */
   private nextEntryId = 0;
   /** 最近一次向父级发送的对象，用于忽略值事件回写。 */
@@ -112,7 +117,7 @@ export class FormEasyRecord {
     this.shouldPublishInitialValues = true;
   }
 
-  /** 校验所有动态 key 是否非空、唯一且安全。 */
+  /** 校验所有动态 key 是否唯一且安全。空属性名由 key 字段自己的校验负责。 */
   @Method()
   async validateEntries(): Promise<boolean> {
     return this.entries.every((_, index) => !this.getKeyError(index));
@@ -139,8 +144,37 @@ export class FormEasyRecord {
   /** 删除指定内部标识对应的键值条目。 */
   private removeEntry = (entryId: number): void => {
     this.entries = this.entries.filter(entry => entry.id !== entryId);
+    this.collapsedEntryIds = this.collapsedEntryIds.filter(id => id !== entryId);
     this.shouldPublishInitialValues = true;
     this.emitCurrentValueIfValid();
+  };
+
+  /** 判断指定键值条目是否展开。 */
+  private isEntryExpanded(entryId: number): boolean {
+    return !this.collapsedEntryIds.includes(entryId);
+  }
+
+  /** 切换单个键值条目的展开状态。 */
+  private toggleEntryExpanded = (entryId: number): void => {
+    if (this.isEntryExpanded(entryId)) {
+      this.collapsedEntryIds = [...this.collapsedEntryIds, entryId];
+      return;
+    }
+    this.collapsedEntryIds = this.collapsedEntryIds.filter(id => id !== entryId);
+  };
+
+  /** 判断当前是否所有键值条目均已展开。 */
+  private areAllEntriesExpanded(): boolean {
+    return this.entries.every(entry => this.isEntryExpanded(entry.id));
+  }
+
+  /** 统一展开或收起当前 record 的所有键值条目。 */
+  private toggleAllEntriesExpanded = (): void => {
+    const shouldExpand = !this.areAllEntriesExpanded();
+    this.expanded = true;
+    this.collapsedEntryIds = shouldExpand
+      ? []
+      : this.entries.map(entry => entry.id);
   };
 
   /** 更新一个动态属性名，并在全部 key 合法时同步对象值。 */
@@ -183,6 +217,7 @@ export class FormEasyRecord {
       return;
     }
     this.initialized = true;
+    this.collapsedEntryIds = [];
     this.entries = Object.entries(value).map(([key, item]) => ({
       id: this.nextEntryId++,
       key,
@@ -241,7 +276,6 @@ export class FormEasyRecord {
   /** 返回指定条目的动态 key 错误提示。 */
   private getKeyError(index: number): string | undefined {
     const key = this.entries[index]?.key ?? '';
-    if (!key.trim()) return '属性名不能为空。';
     if (unsafeRecordKeys.has(key)) return `属性名“${key}”不安全，请使用其他名称。`;
     const duplicate = this.entries.some((entry, entryIndex) =>
       entryIndex !== index && entry.key === key
@@ -251,9 +285,11 @@ export class FormEasyRecord {
 
   /** 获取固定为 string 类型且必填的动态 key 字段配置。 */
   private get keyField(): FormField {
+    const key = { ...(this.field.kvDef?.key ?? {}) };
+    delete (key as { affixes?: unknown }).affixes;
     return {
-      ...(this.field.kvDef?.key ?? {}),
-      name: this.field.kvDef?.key.name ?? '属性名',
+      ...key,
+      name: key.name ?? '属性名',
       category: 'basic',
       dataType: 'string',
       required: true
@@ -314,66 +350,121 @@ export class FormEasyRecord {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
 
+  /** 生成收起后展示在条目标题中的键值摘要。 */
+  private formatEntrySummary(entry: FormRecordEntry): string {
+    const key = entry.key.trim() || '未填写属性名';
+    const value = this.formatEntryValue(entry.value);
+    return value ? `${key}：${value}` : key;
+  }
+
+  /** 将当前属性值压缩成适合标题展示的文本。 */
+  private formatEntryValue(value: unknown): string {
+    if (value == null || value === '') return '';
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return value ? '是' : '否';
+    if (Array.isArray(value)) return `${value.length} 项`;
+    if (this.isRecordValue(value)) return '对象';
+    return '';
+  }
+
   /** 渲染单个动态键值条目。 */
   private renderEntry(entry: FormRecordEntry, index: number, valueField: FormField) {
     const keyError = this.getKeyError(index);
+    const entryExpanded = this.isEntryExpanded(entry.id);
+    const contentId = `${this.fieldId}-record-entry-${entry.id}-content`;
+    const summary = this.formatEntrySummary(entry);
     return (
-      <section class="record-entry" key={entry.id}>
-        <div class="record-entry-fields">
-          <div class="record-entry-key">
-            <form-easy-field
-              field={this.keyField}
-              fieldId={`${this.fieldId}[${index}].key`}
-              formKey={this.formKey}
-              labelPosition="top"
-              basicFieldRenderer={this.basicFieldRenderer}
-              componentDataManager={this.componentDataManager}
-              endpointManager={this.endpointManager}
-              value={entry.key}
-              eventCenter={this.eventCenter}
-              formValueStore={this.formValueStore}
-              fieldDefinitions={this.fieldDefinitions}
-              renderDepth={this.renderDepth + 1}
-              maxRenderDepth={this.maxRenderDepth}
-              parentDisabled={this.disabled}
-              onValueChange={(event: CustomEvent<unknown>) =>
-                this.changeEntryKey(entry.id, event)
-              }
-            />
-            {keyError && <p class="record-key-error" role="alert">{keyError}</p>}
-          </div>
-          <div class="record-entry-value">
-            <form-easy-field
-              field={valueField}
-              fieldId={`${this.fieldId}[${index}].value`}
-              formKey={this.formKey}
-              labelPosition={this.labelPosition}
-              basicFieldRenderer={this.basicFieldRenderer}
-              componentDataManager={this.componentDataManager}
-              endpointManager={this.endpointManager}
-              value={entry.value}
-              eventCenter={this.eventCenter}
-              formValueStore={this.formValueStore}
-              fieldDefinitions={this.fieldDefinitions}
-              renderDepth={this.renderDepth + 1}
-              maxRenderDepth={this.maxRenderDepth}
-              parentDisabled={this.disabled}
-              onValueChange={(event: CustomEvent<unknown>) =>
-                this.changeEntryValue(entry.id, event)
-              }
-            />
+      <section
+        class={{ 'record-entry': true, 'is-collapsed': !entryExpanded }}
+        key={entry.id}
+      >
+        <header class="record-entry-header">
+          <button
+            class="record-entry-toggle"
+            type="button"
+            aria-expanded={String(entryExpanded)}
+            aria-controls={contentId}
+            aria-label={`${entryExpanded ? '收起' : '展开'}键值项 ${summary}`}
+            title={keyError ?? summary}
+            onClick={() => this.toggleEntryExpanded(entry.id)}
+          >
+            <svg
+              class={{
+                'record-entry-toggle-icon': true,
+                'is-expanded': entryExpanded
+              }}
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+            >
+              <path d="m7 5 5 5-5 5" />
+            </svg>
+            <span class="record-entry-summary">{summary}</span>
+          </button>
+          <button
+            class="record-remove"
+            type="button"
+            disabled={this.disabled}
+            aria-label={`删除第 ${index + 1} 个键值项`}
+            title={`删除第 ${index + 1} 个键值项`}
+            onClick={() => this.removeEntry(entry.id)}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <path d="M4 6h12M8 6V4h4v2m-6 0 1 10h6l1-10M8.5 9v4M11.5 9v4" />
+            </svg>
+            <span>删除</span>
+          </button>
+        </header>
+        <div
+          class="record-entry-content"
+          id={contentId}
+          hidden={!entryExpanded}
+        >
+          <div class="record-entry-fields">
+            <div class="record-entry-key">
+              <form-easy-field
+                field={this.keyField}
+                fieldId={`${this.fieldId}[${index}].key`}
+                formKey={this.formKey}
+                labelPosition="top"
+                basicFieldRenderer={this.basicFieldRenderer}
+                componentDataManager={this.componentDataManager}
+                endpointManager={this.endpointManager}
+                value={entry.key}
+                eventCenter={this.eventCenter}
+                formValueStore={this.formValueStore}
+                fieldDefinitions={this.fieldDefinitions}
+                renderDepth={this.renderDepth + 1}
+                maxRenderDepth={this.maxRenderDepth}
+                parentDisabled={this.disabled}
+                onValueChange={(event: CustomEvent<unknown>) =>
+                  this.changeEntryKey(entry.id, event)
+                }
+              />
+              {keyError && <p class="record-key-error" role="alert">{keyError}</p>}
+            </div>
+            <div class="record-entry-value">
+              <form-easy-field
+                field={valueField}
+                fieldId={`${this.fieldId}[${index}].value`}
+                formKey={this.formKey}
+                labelPosition="top"
+                basicFieldRenderer={this.basicFieldRenderer}
+                componentDataManager={this.componentDataManager}
+                endpointManager={this.endpointManager}
+                value={entry.value}
+                eventCenter={this.eventCenter}
+                formValueStore={this.formValueStore}
+                fieldDefinitions={this.fieldDefinitions}
+                renderDepth={this.renderDepth + 1}
+                maxRenderDepth={this.maxRenderDepth}
+                parentDisabled={this.disabled}
+                onValueChange={(event: CustomEvent<unknown>) =>
+                  this.changeEntryValue(entry.id, event)
+                }
+              />
+            </div>
           </div>
         </div>
-        <button
-          class="record-remove"
-          type="button"
-          disabled={this.disabled}
-          aria-label={`删除第 ${index + 1} 个键值项`}
-          title={`删除第 ${index + 1} 个键值项`}
-          onClick={() => this.removeEntry(entry.id)}
-        >
-          删除
-        </button>
       </section>
     );
   }
@@ -383,6 +474,7 @@ export class FormEasyRecord {
     if (!this.field.kvDef) return <p class="record-error">record 字段缺少 kvDef。</p>;
     const valueField = this.valueField;
     if (!valueField) return <p class="record-error">record 的 value 定义无法解析。</p>;
+    const allEntriesExpanded = this.areAllEntriesExpanded();
 
     return (
       <div class="record" part="record">
@@ -402,18 +494,35 @@ export class FormEasyRecord {
             </svg>
             共 {this.entries.length} 项
           </button>
-          <button
-            class="record-add"
-            type="button"
-            disabled={this.disabled}
-            aria-label="添加一个键值项"
-            onClick={this.addEntry}
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20">
-              <path d="M10 4v12M4 10h12" />
-            </svg>
-            添加键值项
-          </button>
+          <div class="record-toolbar-actions">
+            <button
+              class="record-items-toggle"
+              type="button"
+              disabled={this.entries.length === 0}
+              aria-label={allEntriesExpanded ? '收起全部键值项' : '展开全部键值项'}
+              title={allEntriesExpanded ? '收起全部键值项' : '展开全部键值项'}
+              onClick={this.toggleAllEntriesExpanded}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                {allEntriesExpanded
+                  ? <path d="m6 8 4-4 4 4M6 12l4 4 4-4" />
+                  : <path d="m6 5 4 4 4-4M6 15l4-4 4 4" />}
+              </svg>
+              {allEntriesExpanded ? '收起各项' : '展开各项'}
+            </button>
+            <button
+              class="record-add"
+              type="button"
+              disabled={this.disabled}
+              aria-label="添加一个键值项"
+              onClick={this.addEntry}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M10 4v12M4 10h12" />
+              </svg>
+              添加键值项
+            </button>
+          </div>
         </div>
         <div class="record-content" hidden={!this.expanded}>
           {this.entries.length === 0 ? (

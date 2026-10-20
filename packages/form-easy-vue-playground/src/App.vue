@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue';
-import type { FormSchema } from '@wenzhencn/form-easy';
+import type { FormSchema, UserEvent } from '@wenzhencn/form-easy';
 import { FormEasy, FormEasyCreator } from '@wenzhencn/form-easy-vue';
 import { elementPlusRenderer } from './element-plus-renderer';
 import { playgroundVueRenderer } from './playground-vue-renderer';
@@ -110,6 +110,16 @@ const comprehensiveCreatorSchema: FormSchema = {
       required: true,
       defaultValue: '综合动态表单',
       hint: '覆盖 required、defaultValue、hint、rules 和组件属性。',
+      affixes: {
+        labelAfter: [
+          {
+            type: 'link',
+            text: '文档',
+            href: 'https://github.com/meteorzh/form-easy#readme',
+            target: '_blank'
+          }
+        ]
+      },
       rules: [
         { type: 'minLength', value: 2 },
         { type: 'maxLength', value: 30 }
@@ -131,6 +141,9 @@ const comprehensiveCreatorSchema: FormSchema = {
       componentProperties: {
         min: 1,
         max: 100
+      },
+      affixes: {
+        controlAfter: [{ type: 'text', text: '件' }]
       }
     },
     {
@@ -301,6 +314,9 @@ const comprehensiveCreatorSchema: FormSchema = {
           dataType: 'string',
           componentProperties: {
             placeholder: '请输入属性值'
+          },
+          affixes: {
+            controlBefore: [{ type: 'text', text: '值' }]
           }
         }
       }
@@ -379,8 +395,23 @@ const schema: FormSchema = {
         placeholder: 'Element Plus 输入框'
       },
       required: true,
-      hint: '展示 string、required、hint 和 defaultValue 配置。',
-      defaultValue: '默认字符串'
+      hint: '展示 string、required、hint 和 defaultValue 配置。标签后的链接会派发用户事件。',
+      defaultValue: '默认字符串',
+      affixes: {
+        labelBefore: [
+          { type: 'icon', src: '/favicon.svg', alt: '示例' }
+        ],
+        labelAfter: [
+          {
+            type: 'link',
+            text: '填写说明',
+            action: {
+              name: 'openFieldHelp',
+              payload: { field: 'stringDefault' }
+            }
+          }
+        ]
+      }
     },
     {
       key: 'numberField',
@@ -391,7 +422,14 @@ const schema: FormSchema = {
         min: 0,
         max: 9999
       },
-      defaultValue: 100
+      defaultValue: 100,
+      affixes: {
+        controlBefore: [{ type: 'text', text: '¥' }],
+        controlAfter: [
+          { type: 'text', text: '元' },
+          { type: 'image', src: '/favicon.svg', alt: '金额示意' }
+        ]
+      }
     },
     {
       key: 'rulesTextField',
@@ -576,6 +614,45 @@ const schema: FormSchema = {
       ]
     },
     {
+      key: 'recordField',
+      name: 'Record 字段：动态键值示例',
+      category: 'record',
+      hint: '键由用户输入，值使用统一的基础字段。这个字段只能在标签两侧放展示内容。',
+      defaultValue: {
+        environment: 'production',
+        owner: 'form-easy'
+      },
+      affixes: {
+        labelAfter: [{ type: 'text', text: '动态' }]
+      },
+      kvDef: {
+        key: {
+          name: '属性名',
+          hint: '不能为空或重复。',
+          rules: [
+            {
+              type: 'pattern',
+              value: '^[A-Za-z][A-Za-z0-9_-]*$',
+              message: '属性名需以字母开头，且只能包含字母、数字、下划线和连字符。'
+            }
+          ],
+          componentProperties: {
+            placeholder: '例如 environment'
+          }
+        },
+        value: {
+          category: 'basic',
+          dataType: 'string',
+          affixes: {
+            controlBefore: [{ type: 'text', text: '值' }]
+          },
+          componentProperties: {
+            placeholder: '请输入属性值'
+          }
+        }
+      }
+    },
+    {
       key: 'stringArray',
       name: '数组字段：基础字符串元素的增删示例',
       category: 'array',
@@ -597,7 +674,10 @@ const schema: FormSchema = {
             key: 'itemName',
             name: '数组对象元素：名称',
             category: 'basic',
-            dataType: 'string'
+            dataType: 'string',
+            affixes: {
+              controlAfter: [{ type: 'text', text: '项' }]
+            }
           },
           {
             key: 'itemEnabled',
@@ -718,6 +798,19 @@ const activeRenderer = ref<'h5' | 'vue' | 'elementPlus'>('h5');
 /** 当前选中的二级初始化场景。 */
 const activeScenario = ref<'default' | 'preset'>('default');
 
+/** 交互示例中最近一次展示位用户事件的说明。 */
+const affixEventNotice = ref('');
+
+/** 响应示例链接派发的用户事件。展示位不写字段值，只把动作交给使用方。 */
+function handleUserEvent(event: UserEvent): void {
+  if (event.name !== 'openFieldHelp') return;
+  const payload = event.payload;
+  const field = payload && typeof payload === 'object' && 'field' in payload
+    ? String(payload.field)
+    : event.name;
+  affixEventNotice.value = `已收到展示位用户事件 openFieldHelp，字段：${field}`;
+}
+
 /** 当前示例表单的字段标签位置。 */
 const labelPosition = ref<'left' | 'top' | 'right'>('left');
 
@@ -747,6 +840,10 @@ const presetValue = {
   selectField: 'enabled',
   objectField: {
     nickname: '预设昵称'
+  },
+  recordField: {
+    environment: 'preset',
+    owner: 'playground'
   },
   stringArray: ['预设标签 A', '预设标签 B'],
   valueBindingSource: '预设同步值'
@@ -855,6 +952,7 @@ const rendererTitle = computed(() =>
                   :schema="activeSchema"
                   :value="activeScenario === 'preset' ? presetValue : undefined"
                   :basic-field-renderer="selectedRenderer"
+                  @user-event="handleUserEvent"
                 />
               </div>
             </section>
@@ -864,6 +962,7 @@ const rendererTitle = computed(() =>
           <h2>{{ rendererTitle }}</h2>
           <p class="renderer-description">{{ activeRenderer === 'h5' ? '表单级传入 null，强制走 form-easy 内置 H5 控件与核心组件注册中心。' : activeRenderer === 'vue' ? '表单级传入 Vue renderer，组件名会从 Playground 的 Vue 专用注册中心解析。' : '表单级传入独立的 Element Plus renderer，会按数据类型自动解析 input、input-number、bool、date、datetime、time 等组件。' }}</p>
           <p class="current-position">当前标签位置：<strong>{{ labelPosition }}</strong></p>
+          <p v-if="affixEventNotice" class="affix-event-notice">{{ affixEventNotice }}</p>
           <ol v-if="activeScenario === 'default'">
             <li>挂载表单控件并注册字段订阅。</li>
             <li>读取每个字段的 defaultValue。</li>
@@ -1079,6 +1178,7 @@ h1 { margin-bottom: 12px; color: #101827; font-size: clamp(32px, 5vw, 52px); let
 .renderer-description { margin-bottom: 18px; color: #68758a; font-size: 13px; line-height: 1.55; }
 .current-position { margin-bottom: 20px; color: #718096; font-size: 13px; }
 .current-position strong { color: #27354f; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.affix-event-notice { margin: -8px 0 20px; color: #27500a; font-size: 13px; }
 .inspector ol { padding-left: 19px; margin: 0; color: #68758a; font-size: 13px; line-height: 1.7; }
 .inspector li + li { margin-top: 8px; }
 

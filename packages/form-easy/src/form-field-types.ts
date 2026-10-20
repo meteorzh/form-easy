@@ -89,6 +89,85 @@ export interface EventSubscription {
   handle: ComponentHandle;
 }
 
+/** 字段展示内容可以出现的四个位置。 */
+export type FieldAffixSlot =
+  | 'labelBefore'
+  | 'labelAfter'
+  | 'controlBefore'
+  | 'controlAfter';
+
+/** 展示元素支持的类型。 */
+export type FieldAffixType = 'text' | 'link' | 'image' | 'icon';
+
+/** 超链接触发的用户事件声明。 */
+export interface FieldAffixAction {
+  /** 使用者识别事件的稳定名称。 */
+  name: string;
+  /** 随事件原样传出的静态 JSON 数据。 */
+  payload?: unknown;
+}
+
+/** 普通展示文本。 */
+export interface FieldAffixText {
+  /** 展示元素类型。 */
+  type: 'text';
+  /** 展示文本，按纯文本渲染。 */
+  text: string;
+}
+
+/** 可导航或派发用户事件的展示链接。 */
+export interface FieldAffixLink {
+  /** 展示元素类型。 */
+  type: 'link';
+  /** 链接可见文本。 */
+  text: string;
+  /** 可选的导航地址。与 action 至少配置一个。 */
+  href?: string;
+  /** 导航目标。只有存在 href 时才能配置。 */
+  target?: '_self' | '_blank';
+  /** 点击后派发的用户事件。 */
+  action?: FieldAffixAction;
+}
+
+/** 可打开大图的展示图片。尺寸由字段壳决定。 */
+export interface FieldAffixImage {
+  /** 展示元素类型。 */
+  type: 'image';
+  /** 图片地址。 */
+  src: string;
+  /** 图片替代文本。 */
+  alt: string;
+}
+
+/** 固定尺寸、不可点击的展示图标。 */
+export interface FieldAffixIcon {
+  /** 展示元素类型。 */
+  type: 'icon';
+  /** 图标地址。 */
+  src: string;
+  /** 可选的图标替代文本。省略时对辅助技术隐藏。 */
+  alt?: string;
+}
+
+/** 一个展示位元素。 */
+export type FieldAffix =
+  | FieldAffixText
+  | FieldAffixLink
+  | FieldAffixImage
+  | FieldAffixIcon;
+
+/** 字段四个展示位的配置。 */
+export interface FieldAffixes {
+  /** 标签文本之前的展示元素。 */
+  labelBefore?: FieldAffix[];
+  /** 标签文本之后的展示元素。 */
+  labelAfter?: FieldAffix[];
+  /** 控件之前的展示元素。 */
+  controlBefore?: FieldAffix[];
+  /** 控件之后的展示元素。 */
+  controlAfter?: FieldAffix[];
+}
+
 /** 所有字段分类共享的实例配置。 */
 export interface FormFieldCommonConfiguration {
   /** 当前字段是否必填。 */
@@ -99,6 +178,8 @@ export interface FormFieldCommonConfiguration {
   defaultValue?: unknown;
   /** 展示在字段名称旁的提示文本。 */
   hint?: string;
+  /** 标签和控件两侧的只读展示内容。 */
+  affixes?: FieldAffixes;
   /** 当前字段拥有的事件订阅配置。 */
   eventSubscriptions?: EventSubscription[];
   /** 当前字段拥有的单向绑定配置。 */
@@ -250,6 +331,8 @@ export interface FormFieldReferenceCommonOverrides {
   defaultValue?: unknown;
   /** 覆盖模板的提示文本。 */
   hint?: string;
+  /** 整份替换模板的展示位配置。 */
+  affixes?: FieldAffixes;
   /** 覆盖模板的组件属性。 */
   componentProperties?: Record<string, unknown>;
   /** 覆盖模板的组件静态数据。 */

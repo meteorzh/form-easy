@@ -1,9 +1,56 @@
+import type { FieldAffixSlot } from '../form-field-types';
 import type {
   ComponentEventName,
   ComponentHandle,
   EventFlowHistory,
   HandleTarget
 } from '../types';
+
+/** 展示位链接发出的用户事件来源。 */
+export interface AffixUserEventSource {
+  /** 用户事件入口类型。当前只有展示位。 */
+  type: 'affix';
+  /** 触发事件的字段完整标识。 */
+  fieldId: string;
+  /** 展示元素所在的位置。 */
+  slot: FieldAffixSlot;
+  /** 展示元素在该位置中的序号。 */
+  index: number;
+}
+
+/** 用户事件入口。以后可以在此增加 affix 以外的类型。 */
+export type UserEventSource = AffixUserEventSource;
+
+/** 由展示位或其他入口派发、供表单使用者响应的事件。 */
+export interface UserEvent {
+  /** 使用者识别事件的稳定名称。 */
+  name: string;
+  /** 派发该事件的表单键。 */
+  formKey: string;
+  /** 事件从哪个入口发出。 */
+  source: UserEventSource;
+  /** 入口声明的静态数据。 */
+  payload?: unknown;
+}
+
+/** 用户事件监听器。返回 false 时取消入口的默认行为。 */
+export type UserEventListener = (event: UserEvent) => void | false;
+
+/** 生成用户事件在同步调用栈中的身份。 */
+function userEventIdentity(event: UserEvent): string {
+  const source = event.source;
+  if (source.type === 'affix') {
+    return [
+      event.formKey,
+      source.type,
+      source.fieldId,
+      source.slot,
+      String(source.index),
+      event.name
+    ].join('::');
+  }
+  return `${event.formKey}::${event.name}`;
+}
 
 /** 一条事件路由记录。 */
 interface SubscriptionRecord {
@@ -17,6 +64,10 @@ interface SubscriptionRecord {
 export class EventCenter {
   /** 按事件源和事件名称索引的订阅记录。 */
   private readonly subscriptions = new Map<string, Set<SubscriptionRecord>>();
+  /** 当前注册的用户事件监听器。 */
+  private readonly userEventListeners = new Set<UserEventListener>();
+  /** 正在同步派发的用户事件身份。 */
+  private readonly userEventStack: string[] = [];
 
   /** 添加事件订阅并返回清理函数。 */
   subscribe(
@@ -57,6 +108,38 @@ export class EventCenter {
     const nextHistory = [...history, eventId];
     const records = this.subscriptions.get(eventId);
     records?.forEach(({ target, handle }) => target.applyHandle(handle, value, nextHistory));
+  }
+
+  /** 注册用户事件监听器，并返回取消注册的函数。 */
+  addUserEventListener(listener: UserEventListener): () => void {
+    this.userEventListeners.add(listener);
+    return () => {
+      this.userEventListeners.delete(listener);
+    };
+  }
+
+  /**
+   * 同步派发一个用户事件。
+   * 任一监听器返回 false，或同一个事件身份发生同步重入时，返回 false。
+   */
+  dispatchUserEvent(event: UserEvent): boolean {
+    const identity = userEventIdentity(event);
+    if (this.userEventStack.includes(identity)) {
+      const chain = [...this.userEventStack, identity].join(' -> ');
+      console.error(new Error(`检测到 form-easy 用户事件重入，已停止事件传播：${chain}`));
+      return false;
+    }
+
+    this.userEventStack.push(identity);
+    try {
+      let cancelled = false;
+      [...this.userEventListeners].forEach(listener => {
+        if (listener(event) === false) cancelled = true;
+      });
+      return !cancelled;
+    } finally {
+      this.userEventStack.pop();
+    }
   }
 
   /** 创建避免冲突的事件映射键。 */

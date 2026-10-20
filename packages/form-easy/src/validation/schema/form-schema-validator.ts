@@ -28,6 +28,10 @@ import {
 import { validateSchemaRules } from './schema-rule-validator';
 import type { FormSchemaValidationResult } from './schema-validation-types';
 import {
+  validateFieldAffixes,
+  validateTallFieldControlAffixes
+} from '../../field-affix';
+import {
   enterSchemaNode,
   hasOwn,
   indexPath,
@@ -60,6 +64,7 @@ const formFieldProperties = new Set([
   'rules',
   'defaultValue',
   'hint',
+  'affixes',
   'dataType',
   'component',
   'element',
@@ -83,6 +88,7 @@ const formFieldReferenceProperties = new Set([
   'rules',
   'defaultValue',
   'hint',
+  'affixes',
   'componentProperties',
   'componentData',
   'componentDataKey',
@@ -254,7 +260,8 @@ function validateField(
   path: string,
   requiresIdentity: boolean,
   definitions: FormFieldDefinitions,
-  context: SchemaValidationContext
+  context: SchemaValidationContext,
+  allowAffixes = true
 ): void {
   if (!isPlainRecord(value)) {
     context.addError('invalid-type', path, '字段配置必须是普通对象。');
@@ -266,7 +273,8 @@ function validateField(
       path,
       requiresIdentity,
       definitions,
-      context
+      context,
+      allowAffixes
     );
     return;
   }
@@ -276,6 +284,7 @@ function validateField(
   validateFieldIdentity(value, path, requiresIdentity, context);
   validateOutputOmissionScope(value, path, requiresIdentity, context);
   validateOptionalPropertyTypes(value, path, context);
+  validateFieldAffixScope(value, path, allowAffixes, context);
   validateFieldConfigurationConflicts(value, path, context);
 
   const category = value.category;
@@ -323,7 +332,8 @@ function validateFieldReference(
   path: string,
   requiresIdentity: boolean,
   definitions: FormFieldDefinitions,
-  context: SchemaValidationContext
+  context: SchemaValidationContext,
+  allowAffixes = true
 ): void {
   const rawReference = reference as unknown as Record<string, unknown>;
   validateUnknownProperties(
@@ -342,6 +352,7 @@ function validateFieldReference(
   validateFieldIdentity(rawReference, path, requiresIdentity, context);
   validateOutputOmissionScope(rawReference, path, requiresIdentity, context);
   validateOptionalPropertyTypes(rawReference, path, context);
+  validateFieldAffixScope(rawReference, path, allowAffixes, context);
   validateFieldConfigurationConflicts(rawReference, path, context);
   validateBindings(reference.binds, propertyPath(path, 'binds'), context);
   validateEventSubscriptions(
@@ -368,6 +379,15 @@ function validateFieldReference(
       `${field.category} 字段引用`,
       context
     );
+  }
+  if (hasOwn(rawReference, 'affixes')) {
+    validateTallFieldControlAffixes(
+      field.category,
+      rawReference.affixes,
+      propertyPath(path, 'affixes')
+    ).forEach(issue => {
+      context.addError(issue.code, issue.path, issue.message);
+    });
   }
   if (Object.prototype.hasOwnProperty.call(reference, 'rules')) {
     validateSchemaRules(field, reference.rules, propertyPath(path, 'rules'), context);
@@ -428,6 +448,31 @@ function validateOptionalPropertyTypes(
       'componentProperties 必须是普通对象。'
     );
   }
+}
+
+/** 校验展示位：数组元素位置禁止配置，其余位置检查元素结构。 */
+function validateFieldAffixScope(
+  field: Record<string, unknown>,
+  path: string,
+  allowAffixes: boolean,
+  context: SchemaValidationContext
+): void {
+  if (!hasOwn(field, 'affixes')) return;
+  const affixesPath = propertyPath(path, 'affixes');
+  if (!allowAffixes) {
+    context.addError(
+      'forbidden-property',
+      affixesPath,
+      '数组元素不支持 affixes。'
+    );
+    return;
+  }
+  validateFieldAffixes(field.affixes, affixesPath).forEach(issue => {
+    context.addError(issue.code, issue.path, issue.message);
+  });
+  validateTallFieldControlAffixes(field.category, field.affixes, affixesPath).forEach(issue => {
+    context.addError(issue.code, issue.path, issue.message);
+  });
 }
 
 /** 限制输出省略策略仅用于拥有 key 和 name 的命名字段位置。 */
@@ -515,7 +560,8 @@ function validateFieldCategoryConfiguration(
         propertyPath(path, 'element'),
         false,
         definitions,
-        context
+        context,
+        false
       );
     }
     return;

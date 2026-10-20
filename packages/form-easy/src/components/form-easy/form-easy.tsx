@@ -10,7 +10,11 @@ import {
   State,
   Watch
 } from '@stencil/core';
-import { globalEventCenter, type EventCenter } from '../../managers/event-center';
+import {
+  globalEventCenter,
+  type EventCenter,
+  type UserEvent
+} from '../../managers/event-center';
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import {
@@ -67,6 +71,12 @@ export class FormEasy {
   @Prop() maxRenderDepth = 32;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
+  /** 当前表单收到的用户事件。监听器可以取消事件入口的默认行为。 */
+  @Event({
+    bubbles: true,
+    composed: true,
+    cancelable: true
+  }) userEvent!: EventEmitter<UserEvent>;
   /** 当前完整表单数据。 */
   @State() private formData: Record<string, unknown> = {};
   /** 当前表单未传入外部字段值存储时使用的内部实例。 */
@@ -77,6 +87,8 @@ export class FormEasy {
   private readonly fieldPresence = new Map<string, boolean>();
   /** 标记初始表单数据是否已经完成加载。 */
   private initialized = false;
+  /** 取消当前用户事件桥接的函数。 */
+  private removeUserEventListener?: () => void;
 
   /** 当前表单生效的字段标签位置。 */
   private get labelPosition(): LabelPosition {
@@ -86,6 +98,16 @@ export class FormEasy {
   /** 获取当前表单实际使用的事件中心。 */
   private get activeEventCenter(): EventCenter {
     return this.eventCenter ?? globalEventCenter;
+  }
+
+  /** 把属于当前表单的用户事件桥接成可取消的 DOM 事件。 */
+  private bindUserEvents(): void {
+    this.removeUserEventListener?.();
+    this.removeUserEventListener = this.activeEventCenter.addUserEventListener(event => {
+      if (!this.schema || event.formKey !== this.schema.key) return;
+      const domEvent = this.userEvent.emit(event);
+      if (domEvent.defaultPrevented) return false;
+    });
   }
 
   /** 获取当前表单实际使用的字段值存储。 */
@@ -105,7 +127,25 @@ export class FormEasy {
 
   /** 初始化第二阶段：按预设值或默认值写入字段数据。 */
   componentDidLoad(): void {
+    this.bindUserEvents();
     this.initializeFormData();
+  }
+
+  /** 元素重新连接到文档后恢复用户事件桥接。 */
+  connectedCallback(): void {
+    this.bindUserEvents();
+  }
+
+  /** 元素断开后停止把用户事件转发到宿主。 */
+  disconnectedCallback(): void {
+    this.removeUserEventListener?.();
+    this.removeUserEventListener = undefined;
+  }
+
+  /** 更换事件中心后，只监听新的用户事件通道。 */
+  @Watch('eventCenter')
+  resubscribeUserEvents(): void {
+    this.bindUserEvents();
   }
 
   @Watch('schema')

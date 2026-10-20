@@ -14,6 +14,7 @@
 - 🔄 内置事件流循环检测，避免订阅配置意外形成无限循环。
 - 🎨 支持表单级渲染器，默认 H5、Vue 与 Element Plus 实例可同时存在。
 - 📐 支持 `left`、`top`、`right` 三种标签位置。
+- 🏷️ 支持在标签和控件两侧展示文本、链接、图片和图标。链接可以派发由使用者响应的用户事件。
 - 🧰 内置由动态表单 JSON 驱动的可视化 schema 设计器。
 
 ## 包说明 📦
@@ -138,6 +139,40 @@ const recursiveSchema = {
 ```
 
 引用实例可以覆盖 `key`、`name`、`required`、`hint`、`defaultValue`、`rules`、绑定和组件数据等实例属性，但字段分类和嵌套结构始终来自模板。`validateFormSchema()` 会检查 definitions 结构与未知 `$ref`。`<form-easy>` 默认最多渲染 32 层，可通过 `maxRenderDepth` 调整保护上限；该限制不会修改原始表单值。
+
+## 字段展示位 🏷️
+
+`hint` 是控件下方的说明。`affixes` 则把只读内容贴在标签或控件两侧，不进入表单值。标签前后的图片与标签等高对齐，控件前后的图片与控件等高对齐，宽高比都是 1:1。基础字段可以使用四个位置。数组、对象和 record 字段只能使用标签前后，因为它们的控件比较高。数组元素和 record 的动态 key 不支持展示位；同一份内容重复出现在每一项上没有意义。数组元素内部的命名子字段，以及 record 的 value，仍然可以单独配置。
+
+```ts
+const priceSchema = {
+  key: 'price',
+  name: '价格',
+  category: 'basic',
+  dataType: 'number',
+  affixes: {
+    labelAfter: [
+      {
+        type: 'link',
+        text: '计价说明',
+        action: { name: 'openPriceHelp', payload: { topic: 'price' } }
+      }
+    ],
+    controlBefore: [{ type: 'text', text: '¥' }],
+    controlAfter: [{ type: 'text', text: '元' }]
+  }
+};
+```
+
+```ts
+form.addEventListener('userEvent', event => {
+  if (event.detail.name !== 'openPriceHelp') return;
+  openHelp(event.detail.payload);
+  event.preventDefault();
+});
+```
+
+监听器返回 `false`，或对 DOM 事件调用 `preventDefault()`，都会阻止链接继续跳转。展示位链接是用户事件的第一个入口，事件中心通过 `addUserEventListener()` 接收，和字段之间的 `subscribe()` / `publish()` 互相独立。
 
 ## 可视化表单设计器 🧰
 
@@ -576,7 +611,7 @@ const fieldValid = await form.validateField('profile.userName');
 
 `kvDef.key` 的字段分类和数据类型固定为 `basic/string`，并且始终必填；可以配置字符串规则、组件、组件数据和组件属性，但不需要重复声明 `category`、`dataType` 或 `required`。`kvDef.value` 与数组 `element` 一样，是不含 `key`、`name` 的匿名字段定义，也可以通过 `{ $ref: '定义名' }` 复用或递归引用 `definitions`。
 
-Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部使用稳定条目标识，因此连续修改 key 不会造成输入框失焦；空 key、重复 key 以及 `__proto__`、`constructor`、`prototype` 等危险属性名会阻止值提交并显示错误。动态条目的内部字段标识采用 `form.record[0].key` 和 `form.record[0].value` 形式，删除条目后索引会按当前顺序重新编号。Record 的 `required` 与对象字段一致：只有 `null` / `undefined` 不通过，已经创建的 `{}` 可以通过；如需限制动态属性数量，请使用 `minLength` / `maxLength`。
+Record 的运行值是普通对象 `Record<string, unknown>`。编辑器内部使用稳定条目标识，因此连续修改 key 不会造成输入框失焦。重复 key 以及 `__proto__`、`constructor`、`prototype` 等危险属性名会阻止值提交并显示错误；属性名为空只由 key 字段的必填校验提示，不会再被 record 组件单独拦截。动态条目的内部字段标识采用 `form.record[0].key` 和 `form.record[0].value` 形式，删除条目后索引会按当前顺序重新编号。Record 的 `required` 与对象字段一致：只有 `null` / `undefined` 不通过，已经创建的 `{}` 可以通过；如需限制动态属性数量，请使用 `minLength` / `maxLength`。
 
 ## 默认值、预设值与联动 🔄
 

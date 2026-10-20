@@ -15,7 +15,8 @@ import type {
   EventCenter,
   FormChangeDetail,
   FormSchema,
-  FormValueStore
+  FormValueStore,
+  UserEvent
 } from '@wenzhencn/form-easy';
 import { ensureFormEasyCustomElements } from './custom-elements';
 
@@ -87,12 +88,15 @@ export const FormEasy = defineComponent({
     /** 转发原生 formChange 事件。 */
     formChange: (_detail: FormChangeDetail) => true,
     /** Vue v-model 更新事件。 */
-    'update:modelValue': (_value: Record<string, unknown>) => true
+    'update:modelValue': (_value: Record<string, unknown>) => true,
+    /** 转发原生 userEvent 事件。 */
+    userEvent: (_detail: UserEvent) => true
   },
   setup(props, { emit, attrs, expose }) {
     const element = ref<FormEasyElement>();
     const customElementReady = ref(false);
     let formChangeListener: ((event: Event) => void) | undefined;
+    let userEventListener: ((event: Event) => void) | undefined;
 
     const syncProperties = (): void => {
       const target = element.value;
@@ -116,7 +120,11 @@ export const FormEasy = defineComponent({
         emit('formChange', detail);
         emit('update:modelValue', detail.formData);
       };
+      userEventListener = (event: Event): void => {
+        emit('userEvent', (event as CustomEvent<UserEvent>).detail);
+      };
       element.value?.addEventListener('formChange', formChangeListener);
+      element.value?.addEventListener('userEvent', userEventListener);
       syncProperties();
     });
 
@@ -139,6 +147,9 @@ export const FormEasy = defineComponent({
     onBeforeUnmount(() => {
       if (formChangeListener) {
         element.value?.removeEventListener('formChange', formChangeListener);
+      }
+      if (userEventListener) {
+        element.value?.removeEventListener('userEvent', userEventListener);
       }
     });
 

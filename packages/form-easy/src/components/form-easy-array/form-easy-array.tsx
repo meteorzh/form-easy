@@ -3,6 +3,7 @@ import { globalEventCenter, type EventCenter } from '../../managers/event-center
 import type { ComponentDataManager } from '../../managers/component-data-manager';
 import type { EndpointManager } from '../../managers/endpoint-manager';
 import type { FormValueStore } from '../../managers/form-value-store';
+import { omitFieldAffixes } from '../../field-affix';
 import {
   resolveFormFieldNode,
   type FormFieldDefinitions
@@ -169,10 +170,11 @@ export class FormEasyArray {
   render() {
     const elementNode = this.field.element;
     if (!elementNode) return <p class="error">数组字段缺少元素定义。</p>;
-    const element = resolveFormFieldNode(elementNode, this.fieldDefinitions);
-    if (!element) {
+    const resolvedElement = resolveFormFieldNode(elementNode, this.fieldDefinitions);
+    if (!resolvedElement) {
       return <p class="error">数组元素引用的字段定义不存在。</p>;
     }
+    const element = omitFieldAffixes(resolvedElement);
     const allItemsExpanded = this.areAllItemsExpanded();
 
     return (

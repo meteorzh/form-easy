@@ -112,6 +112,13 @@
               "defaultValue": ""
             },
             {
+              "key": "affixes",
+              "name": "展示内容",
+              "$ref": "fieldAffixes",
+              "optional": true,
+              "hint": "只展示，不写入表单值。未设置时不输出。"
+            },
+            {
               "key": "dataType",
               "name": "基础字段数据类型",
               "category": "basic",
@@ -429,7 +436,7 @@
                   ]
                 },
                 {
-                  "$ref": "arrayElementDefinition",
+                  "$ref": "recordValueDefinition",
                   "key": "value",
                   "name": "统一 Value 定义"
                 }
@@ -798,6 +805,13 @@
           "defaultValue": ""
         },
         {
+          "key": "affixes",
+          "name": "展示内容",
+          "$ref": "fieldAffixes",
+          "optional": true,
+          "hint": "只展示，不写入表单值。未设置时不输出。"
+        },
+        {
           "key": "dataType",
           "name": "基础字段数据类型",
           "category": "basic",
@@ -1122,7 +1136,7 @@
               ]
             },
             {
-              "$ref": "arrayElementDefinition",
+              "$ref": "recordValueDefinition",
               "key": "value",
               "name": "统一 Value 定义"
             }
@@ -1747,7 +1761,881 @@
               ]
             },
             {
-              "$ref": "arrayElementDefinition",
+              "$ref": "recordValueDefinition",
+              "key": "value",
+              "name": "统一 Value 定义"
+            }
+          ],
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'record') && ($ref === null);"
+            }
+          ],
+          "omitWhenHidden": true
+        },
+        {
+          "key": "rules",
+          "name": "校验规则列表",
+          "category": "array",
+          "element": {
+            "category": "object",
+            "fields": [
+              {
+                "key": "type",
+                "name": "规则类型",
+                "category": "basic",
+                "dataType": "string",
+                "component": "select",
+                "componentDataKey": "validation-rule-types(category:../../category, dataType:../../dataType, reference:../../$ref, definitions:formEasyCreator.definitions)",
+                "required": true
+              },
+              {
+                "key": "value",
+                "name": "规则值 JSON",
+                "category": "basic",
+                "dataType": "string",
+                "component": "creator-json-editor",
+                "componentProperties": {
+                  "placeholder": "例如：3、\"^[a-z]+$\" 或 [\"a\", \"b\"]",
+                  "rows": 1
+                },
+                "hint": "字符串和正则需要使用 JSON 双引号。"
+              },
+              {
+                "key": "message",
+                "name": "错误提示",
+                "category": "basic",
+                "dataType": "string",
+                "omitNull": true
+              }
+            ]
+          },
+          "optional": true,
+          "defaultValue": []
+        },
+        {
+          "key": "binds",
+          "name": "字段绑定列表",
+          "category": "array",
+          "element": {
+            "category": "object",
+            "fields": [
+              {
+                "key": "target",
+                "name": "绑定目标",
+                "category": "basic",
+                "dataType": "string",
+                "component": "select",
+                "componentData": [
+                  {
+                    "label": "visible",
+                    "value": "visible"
+                  },
+                  {
+                    "label": "enable",
+                    "value": "enable"
+                  },
+                  {
+                    "label": "value",
+                    "value": "value"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "key": "params",
+                "name": "绑定源参数",
+                "category": "record",
+                "required": true,
+                "hint": "参数名可在 resolver 中直接引用，参数值使用相对或完整字段标识。",
+                "kvDef": {
+                  "key": {
+                    "name": "参数名",
+                    "rules": [
+                      {
+                        "type": "pattern",
+                        "value": "^[A-Za-z_$][\\w$]*$",
+                        "message": "参数名必须是合法的 JavaScript 标识符。"
+                      }
+                    ],
+                    "componentProperties": {
+                      "placeholder": "例如 enabled"
+                    }
+                  },
+                  "value": {
+                    "category": "basic",
+                    "dataType": "string",
+                    "required": true,
+                    "componentProperties": {
+                      "placeholder": "例如 ./enabled 或 otherForm.enabled"
+                    }
+                  }
+                }
+              },
+              {
+                "key": "resolver",
+                "name": "绑定计算 resolver",
+                "category": "basic",
+                "dataType": "string",
+                "omitNull": true,
+                "component": "creator-json-editor",
+                "componentProperties": {
+                  "placeholder": "例如：return sourceFieldValue === 'enabled';",
+                  "rows": 3,
+                  "mode": "text"
+                },
+                "hint": "可直接引用 params 中声明的全部参数；多参数时必填。"
+              }
+            ]
+          },
+          "optional": true,
+          "defaultValue": []
+        },
+        {
+          "key": "eventSubscriptions",
+          "name": "事件订阅列表",
+          "category": "array",
+          "element": {
+            "category": "object",
+            "fields": [
+              {
+                "key": "sourceFormKey",
+                "name": "事件源表单 key",
+                "category": "basic",
+                "dataType": "string",
+                "required": true
+              },
+              {
+                "key": "sourceFieldKey",
+                "name": "事件源字段完整标识",
+                "category": "basic",
+                "dataType": "string",
+                "required": true
+              },
+              {
+                "key": "eventName",
+                "name": "事件名",
+                "category": "basic",
+                "dataType": "string",
+                "component": "select",
+                "componentData": [
+                  {
+                    "label": "onChange",
+                    "value": "onChange"
+                  },
+                  {
+                    "label": "onShow",
+                    "value": "onShow"
+                  },
+                  {
+                    "label": "onHide",
+                    "value": "onHide"
+                  },
+                  {
+                    "label": "onDisabled",
+                    "value": "onDisabled"
+                  },
+                  {
+                    "label": "onEnabled",
+                    "value": "onEnabled"
+                  },
+                  {
+                    "label": "onClear",
+                    "value": "onClear"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "key": "handle",
+                "name": "目标操作",
+                "category": "basic",
+                "dataType": "string",
+                "component": "select",
+                "componentData": [
+                  {
+                    "label": "show",
+                    "value": "show"
+                  },
+                  {
+                    "label": "hide",
+                    "value": "hide"
+                  },
+                  {
+                    "label": "disable",
+                    "value": "disable"
+                  },
+                  {
+                    "label": "enable",
+                    "value": "enable"
+                  },
+                  {
+                    "label": "clear",
+                    "value": "clear"
+                  },
+                  {
+                    "label": "change",
+                    "value": "change"
+                  }
+                ],
+                "required": true
+              }
+            ]
+          },
+          "optional": true,
+          "defaultValue": []
+        }
+      ]
+    },
+    "fieldAffix": {
+      "category": "object",
+      "fields": [
+        {
+          "key": "type",
+          "name": "展示类型",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "required": true,
+          "componentData": [
+            {
+              "label": "文本",
+              "value": "text"
+            },
+            {
+              "label": "超链接",
+              "value": "link"
+            },
+            {
+              "label": "图片",
+              "value": "image"
+            },
+            {
+              "label": "图标",
+              "value": "icon"
+            }
+          ]
+        },
+        {
+          "key": "text",
+          "name": "文本",
+          "category": "basic",
+          "dataType": "string",
+          "required": true,
+          "omitWhenHidden": true,
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'text' || type === 'link';"
+            }
+          ]
+        },
+        {
+          "key": "href",
+          "name": "链接地址",
+          "category": "basic",
+          "dataType": "string",
+          "optional": true,
+          "omitNull": true,
+          "omitWhenHidden": true,
+          "hint": "与自定义事件至少配置一个。允许 http、https、mailto、tel 或相对路径。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'link';"
+            }
+          ]
+        },
+        {
+          "key": "target",
+          "name": "打开方式",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "componentData": [
+            {
+              "label": "当前页",
+              "value": "_self"
+            },
+            {
+              "label": "新页面",
+              "value": "_blank"
+            }
+          ],
+          "optional": true,
+          "omitNull": true,
+          "omitWhenHidden": true,
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'link';"
+            }
+          ]
+        },
+        {
+          "key": "action",
+          "name": "自定义事件",
+          "category": "object",
+          "optional": true,
+          "omitWhenHidden": true,
+          "hint": "点击后派发用户事件，由使用表单的一方响应。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'link';"
+            }
+          ],
+          "fields": [
+            {
+              "key": "name",
+              "name": "事件名称",
+              "category": "basic",
+              "dataType": "string",
+              "required": true,
+              "rules": [
+                {
+                  "type": "pattern",
+                  "value": "^[A-Za-z][A-Za-z0-9_-]*$",
+                  "message": "事件名称必须以字母开头，并且只包含字母、数字、下划线或连字符。"
+                }
+              ]
+            },
+            {
+              "key": "payload",
+              "name": "事件数据 JSON",
+              "category": "basic",
+              "dataType": "string",
+              "component": "creator-json-editor",
+              "componentProperties": {
+                "placeholder": "例如：{ \"topic\": \"price\" }",
+                "rows": 3
+              },
+              "optional": true,
+              "omitNull": true
+            }
+          ]
+        },
+        {
+          "key": "src",
+          "name": "资源地址",
+          "category": "basic",
+          "dataType": "string",
+          "required": true,
+          "omitWhenHidden": true,
+          "hint": "只允许 http、https 或相对路径。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'image' || type === 'icon';"
+            }
+          ]
+        },
+        {
+          "key": "alt",
+          "name": "替代文本",
+          "category": "basic",
+          "dataType": "string",
+          "optional": true,
+          "omitNull": true,
+          "omitWhenHidden": true,
+          "hint": "图片必须填写。图标留空时不暴露给辅助技术。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "type": "./type"
+              },
+              "resolver": "return type === 'image' || type === 'icon';"
+            }
+          ]
+        }
+      ]
+    },
+    "fieldAffixes": {
+      "category": "object",
+      "fields": [
+        {
+          "key": "labelBefore",
+          "name": "标签前",
+          "category": "array",
+          "optional": true,
+          "element": {
+            "$ref": "fieldAffix"
+          }
+        },
+        {
+          "key": "labelAfter",
+          "name": "标签后",
+          "category": "array",
+          "optional": true,
+          "element": {
+            "$ref": "fieldAffix"
+          }
+        },
+        {
+          "key": "controlBefore",
+          "name": "控件前",
+          "category": "array",
+          "optional": true,
+          "omitWhenHidden": true,
+          "hint": "数组、对象和 record 字段的控件较高，不能使用控件前后的展示位。",
+          "element": {
+            "$ref": "fieldAffix"
+          },
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "../category"
+              },
+              "resolver": "return category !== 'array' && category !== 'object' && category !== 'record';"
+            }
+          ]
+        },
+        {
+          "key": "controlAfter",
+          "name": "控件后",
+          "category": "array",
+          "optional": true,
+          "omitWhenHidden": true,
+          "hint": "数组、对象和 record 字段的控件较高，不能使用控件前后的展示位。",
+          "element": {
+            "$ref": "fieldAffix"
+          },
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "../category"
+              },
+              "resolver": "return category !== 'array' && category !== 'object' && category !== 'record';"
+            }
+          ]
+        }
+      ]
+    },
+    "recordValueDefinition": {
+      "category": "object",
+      "fields": [
+        {
+          "key": "$ref",
+          "name": "引用定义",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "componentDataKey": "creator-definition-options(definitions:formEasyCreator.definitions)",
+          "componentProperties": {
+            "clearable": true,
+            "placeholder": "不引用，使用内联配置"
+          },
+          "omitNull": true,
+          "hint": "不选择时使用同级内联配置；选择后生成 $ref 引用。"
+        },
+        {
+          "key": "category",
+          "name": "字段分类",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "componentData": [
+            {
+              "label": "基础字段",
+              "value": "basic"
+            },
+            {
+              "label": "数组字段",
+              "value": "array"
+            },
+            {
+              "label": "对象字段",
+              "value": "object"
+            },
+            {
+              "label": "Record 字段",
+              "value": "record"
+            }
+          ],
+          "required": true,
+          "omitWhenHidden": true,
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "sourceFieldValue": "./$ref"
+              },
+              "resolver": "return sourceFieldValue === null;"
+            }
+          ]
+        },
+        {
+          "key": "required",
+          "name": "是否必填",
+          "category": "basic",
+          "dataType": "boolean",
+          "optional": true,
+          "defaultValue": false
+        },
+        {
+          "key": "hint",
+          "name": "字段提示",
+          "category": "basic",
+          "dataType": "string",
+          "optional": true,
+          "defaultValue": ""
+        },
+        {
+          "key": "affixes",
+          "name": "展示内容",
+          "$ref": "fieldAffixes",
+          "optional": true,
+          "hint": "只展示，不写入表单值。未设置时不输出。"
+        },
+        {
+          "key": "dataType",
+          "name": "基础字段数据类型",
+          "category": "basic",
+          "dataType": "string",
+          "component": "select",
+          "componentData": [
+            {
+              "label": "字符串",
+              "value": "string"
+            },
+            {
+              "label": "数字",
+              "value": "number"
+            },
+            {
+              "label": "布尔",
+              "value": "boolean"
+            },
+            {
+              "label": "日期",
+              "value": "date"
+            },
+            {
+              "label": "日期时间",
+              "value": "datetime"
+            },
+            {
+              "label": "时间",
+              "value": "time"
+            }
+          ],
+          "hint": "仅 category 为 basic 时生效。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
+            }
+          ],
+          "omitWhenHidden": true
+        },
+        {
+          "key": "defaultValue",
+          "name": "默认值 JSON",
+          "category": "basic",
+          "dataType": "string",
+          "component": "creator-json-editor",
+          "componentProperties": {
+            "placeholder": "例如：\"默认文本\"、18、true 或 null",
+            "rows": 1
+          },
+          "optional": true,
+          "defaultValue": null
+        },
+        {
+          "key": "componentDataKey",
+          "name": "组件数据 key",
+          "category": "basic",
+          "dataType": "string",
+          "hint": "仅 category 为 basic 时生效。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
+            }
+          ],
+          "optional": true,
+          "defaultValue": "",
+          "omitWhenHidden": true
+        },
+        {
+          "key": "componentData",
+          "name": "组件静态数据 JSON",
+          "category": "basic",
+          "dataType": "string",
+          "component": "creator-json-editor",
+          "componentProperties": {
+            "placeholder": "例如：[{ \"label\": \"启用\", \"value\": \"enabled\" }]",
+            "rows": 4
+          },
+          "hint": "仅 category 为 basic 时生效。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
+            }
+          ],
+          "optional": true,
+          "defaultValue": null,
+          "omitWhenHidden": true
+        },
+        {
+          "key": "component",
+          "name": "自定义组件 key",
+          "category": "basic",
+          "dataType": "string",
+          "hint": "留空时按照 dataType 使用渲染器默认组件。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') && ($ref === null);"
+            }
+          ],
+          "optional": true,
+          "defaultValue": "",
+          "omitWhenHidden": true
+        },
+        {
+          "key": "componentProperties",
+          "name": "组件属性 JSON",
+          "category": "basic",
+          "dataType": "string",
+          "component": "creator-json-editor",
+          "componentProperties": {
+            "placeholder": "例如：{ \"placeholder\": \"请输入\" }",
+            "rows": 4
+          },
+          "hint": "仅基础字段生效，内容必须是 JSON 对象。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'basic') || ($ref !== null);"
+            }
+          ],
+          "optional": true,
+          "omitWhenHidden": true
+        },
+        {
+          "$ref": "arrayElementDefinition",
+          "key": "element",
+          "name": "数组元素定义",
+          "hint": "仅 category 为 array 时生效；元素定义不包含 key 和 name。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "sourceFieldValue": "./category"
+              },
+              "resolver": "return sourceFieldValue === 'array';"
+            }
+          ],
+          "omitWhenHidden": true
+        },
+        {
+          "key": "fields",
+          "name": "对象子字段列表",
+          "category": "array",
+          "element": {
+            "$ref": "fieldDefinition"
+          },
+          "hint": "仅 category 为 object 时生效。",
+          "binds": [
+            {
+              "target": "visible",
+              "params": {
+                "category": "./category",
+                "$ref": "./$ref"
+              },
+              "resolver": "return (category === 'object') && ($ref === null);"
+            }
+          ],
+          "omitWhenHidden": true
+        },
+        {
+          "key": "kvDef",
+          "name": "Record 键值定义",
+          "category": "object",
+          "required": true,
+          "hint": "Key 固定为字符串，Value 可以使用任意匿名字段或 definitions 引用。",
+          "fields": [
+            {
+              "key": "key",
+              "name": "动态 Key 定义",
+              "category": "object",
+              "required": true,
+              "fields": [
+                {
+                  "key": "name",
+                  "name": "Key 标签",
+                  "category": "basic",
+                  "dataType": "string",
+                  "required": false,
+                  "omitNull": true
+                },
+                {
+                  "key": "hint",
+                  "name": "Key 字段提示",
+                  "category": "basic",
+                  "dataType": "string",
+                  "omitNull": true
+                },
+                {
+                  "key": "defaultValue",
+                  "name": "Key 默认值 JSON",
+                  "category": "basic",
+                  "dataType": "string",
+                  "component": "creator-json-editor",
+                  "componentProperties": {
+                    "placeholder": "例如：\"默认文本\"、18、true 或 null",
+                    "rows": 1
+                  },
+                  "optional": true
+                },
+                {
+                  "key": "componentDataKey",
+                  "name": "Key 组件数据 key",
+                  "category": "basic",
+                  "dataType": "string",
+                  "hint": "仅 category 为 basic 时生效。",
+                  "omitNull": true
+                },
+                {
+                  "key": "componentData",
+                  "name": "Key 组件静态数据 JSON",
+                  "category": "basic",
+                  "dataType": "string",
+                  "component": "creator-json-editor",
+                  "componentProperties": {
+                    "placeholder": "例如：[{ \"label\": \"启用\", \"value\": \"enabled\" }]",
+                    "rows": 4
+                  },
+                  "hint": "仅 category 为 basic 时生效。",
+                  "optional": true
+                },
+                {
+                  "key": "component",
+                  "name": "Key 自定义组件 key",
+                  "category": "basic",
+                  "dataType": "string",
+                  "hint": "留空时按照 dataType 使用渲染器默认组件。",
+                  "omitNull": true
+                },
+                {
+                  "key": "componentProperties",
+                  "name": "Key 组件属性 JSON",
+                  "category": "basic",
+                  "dataType": "string",
+                  "component": "creator-json-editor",
+                  "componentProperties": {
+                    "placeholder": "例如：{ \"placeholder\": \"请输入\" }",
+                    "rows": 4
+                  },
+                  "hint": "仅基础字段生效，内容必须是 JSON 对象。",
+                  "omitNull": true
+                },
+                {
+                  "key": "rules",
+                  "name": "Key 校验规则列表",
+                  "category": "array",
+                  "element": {
+                    "category": "object",
+                    "fields": [
+                      {
+                        "key": "type",
+                        "name": "规则类型",
+                        "category": "basic",
+                        "dataType": "string",
+                        "component": "select",
+                        "required": true,
+                        "componentData": [
+                          {
+                            "label": "minLength",
+                            "value": "minLength"
+                          },
+                          {
+                            "label": "maxLength",
+                            "value": "maxLength"
+                          },
+                          {
+                            "label": "pattern",
+                            "value": "pattern"
+                          },
+                          {
+                            "label": "enum",
+                            "value": "enum"
+                          }
+                        ]
+                      },
+                      {
+                        "key": "value",
+                        "name": "规则值 JSON",
+                        "category": "basic",
+                        "dataType": "string",
+                        "component": "creator-json-editor",
+                        "componentProperties": {
+                          "placeholder": "例如：3、\"^[a-z]+$\" 或 [\"a\", \"b\"]",
+                          "rows": 1
+                        },
+                        "hint": "字符串和正则需要使用 JSON 双引号。"
+                      },
+                      {
+                        "key": "message",
+                        "name": "错误提示",
+                        "category": "basic",
+                        "dataType": "string",
+                        "omitNull": true
+                      }
+                    ]
+                  },
+                  "optional": true,
+                  "defaultValue": []
+                }
+              ]
+            },
+            {
+              "$ref": "recordValueDefinition",
               "key": "value",
               "name": "统一 Value 定义"
             }

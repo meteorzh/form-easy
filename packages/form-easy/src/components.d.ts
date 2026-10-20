@@ -7,7 +7,7 @@
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 import { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
-import { EventCenter } from "./managers/event-center";
+import { EventCenter, UserEvent } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
 import { EndpointManager } from "./managers/endpoint-manager";
 import { FormValueStore } from "./managers/form-value-store";
@@ -17,7 +17,7 @@ import { FormSchemaValidationResult } from "./validation/schema";
 import { CreatorEditorMode } from "./components/creator/form-easy-creator-json-editor";
 export { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
-export { EventCenter } from "./managers/event-center";
+export { EventCenter, UserEvent } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
 export { EndpointManager } from "./managers/endpoint-manager";
 export { FormValueStore } from "./managers/form-value-store";
@@ -388,7 +388,7 @@ export namespace Components {
          */
         "formValueStore"?: FormValueStore;
         /**
-          * 字段标签相对于编辑器的位置。
+          * 外层表单的标签位置。 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
           * @default 'left'
          */
         "labelPosition": LabelPosition;
@@ -403,7 +403,7 @@ export namespace Components {
          */
         "renderDepth": number;
         /**
-          * 校验所有动态 key 是否非空、唯一且安全。
+          * 校验所有动态 key 是否唯一且安全。空属性名由 key 字段自己的校验负责。
          */
         "validateEntries": () => Promise<boolean>;
         /**
@@ -518,6 +518,7 @@ export interface FormEasyUploadCustomEvent<T> extends CustomEvent<T> {
 declare global {
     interface HTMLFormEasyElementEventMap {
         "formChange": FormChangeDetail;
+        "userEvent": UserEvent;
     }
     /**
      * 根据 JSON schema 渲染完整动态表单。
@@ -747,6 +748,10 @@ declare namespace LocalJSX {
           * 每次值变更时触发字段和完整表单上下文。
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
+        /**
+          * 当前表单收到的用户事件。监听器可以取消事件入口的默认行为。
+         */
+        "onUserEvent"?: (event: FormEasyCustomEvent<UserEvent>) => void;
         /**
           * 描述表单及其字段的 JSON schema。
          */
@@ -1084,7 +1089,7 @@ declare namespace LocalJSX {
          */
         "formValueStore"?: FormValueStore;
         /**
-          * 字段标签相对于编辑器的位置。
+          * 外层表单的标签位置。 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
           * @default 'left'
          */
         "labelPosition"?: LabelPosition;

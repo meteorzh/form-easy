@@ -14,6 +14,20 @@ describe('设计器直接维护 FormSchema', () => {
     expect(validation.issues).toEqual([]);
   });
 
+  it('通过方法暴露驱动设计器的内置 Schema 作为示例数据', async () => {
+    const page = await newSpecPage({
+      components: [FormEasyCreator],
+      template: () => <form-easy-creator />
+    });
+    const creator = page.root as HTMLElement & {
+      getDesignerSchema(): Promise<FormSchema>;
+    };
+    const schema = await creator.getDesignerSchema();
+
+    expect(schema.key).toBe('formEasyCreator');
+    expect(validateFormSchema(schema).valid).toBe(true);
+  });
+
   it('直接载入外部 Schema，不再创建中间草稿对象', async () => {
     const schema: FormSchema = {
       key: 'directCreatorValue',

@@ -10,10 +10,13 @@ import {
 } from '@stencil/core';
 import { ComponentDataManager } from '../../managers/component-data-manager';
 import { EventCenter } from '../../managers/event-center';
+import { waitForNextPaint } from '../../next-paint';
 import { H5BasicFieldRenderer } from '../../renderers/h5-basic-field-renderer';
 import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import type {
   FormChangeDetail,
+  FormLoadingDetail,
+  FormReadyDetail,
   FormSchema
 } from '../../types';
 import {
@@ -125,11 +128,32 @@ function createCreatorComponentDataManager(): ComponentDataManager {
 })
 export class FormEasyCreator {
   /** 需要载入设计器继续编辑的现有表单 schema。 */
-  @Prop() value?: FormSchema;
+  @Prop()
+  get value(): FormSchema | undefined {
+    return this.storedValue;
+  }
+  set value(next: FormSchema | undefined) {
+    // Stencil 在写入后会回读一次并再次调用 setter，这里直接忽略回读。
+    if (next === this.storedValue) return;
+    // 载入期间表单结构必须保持稳定，否则设计器会丢失当前编辑进度。
+    if (this.schemaLoading) {
+      console.error(
+        `设计器正在载入表单“${this.loadingFormKey}”，此时不能修改 value。` +
+        '请等待 formReady 事件发出后再设置新的表单配置。'
+      );
+      return;
+    }
+    this.storedValue = next;
+    this.requestLoad();
+  }
   /** 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。 */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 设计器生成的 schema 或校验结果变化时触发。 */
   @Event() schemaChange!: EventEmitter<FormEasyCreatorChangeDetail>;
+  /** 设计器按新 value 重新载入时触发。 */
+  @Event() formLoadingChange!: EventEmitter<FormLoadingDetail>;
+  /** 设计器载入完成、可以接受新的表单配置时触发。 */
+  @Event() formReady!: EventEmitter<FormReadyDetail>;
   /** 设计器动态表单直接维护的目标 Schema 数据。 */
   @State() private creatorFormValue: CreatorFormValue = (
     defaultCreatedSchema as unknown as CreatorFormValue
@@ -148,6 +172,16 @@ export class FormEasyCreator {
   @State() private outputMode: 'schema' | 'preview' = 'schema';
   /** 生成 schema 或预览渲染器变化时用于重建预览表单。 */
   @State() private previewRevision = 0;
+  /** 当前是否正在按新 value 重新载入设计器。 */
+  @State() private schemaLoading = false;
+  /** 当前 loading 会话对应的表单键。 */
+  private loadingFormKey = '';
+  /** 载入工作循环是否正在运行。 */
+  private loadWorkerRunning = false;
+  /** 当前生效的待编辑 schema。 */
+  private storedValue?: FormSchema;
+  /** 组件是否已经完成首次挂载。 */
+  private mounted = false;
 
   /** 隔离设计器内部字段事件，避免多个实例或业务表单互相影响。 */
   private readonly creatorEventCenter = new EventCenter();
@@ -170,16 +204,83 @@ export class FormEasyCreator {
     this.loadSchema(this.value);
   }
 
+  /** 组件挂载完成后才允许响应外部的 value 变更。 */
+  componentDidLoad(): void {
+    this.mounted = true;
+  }
+
   /** 组件卸载时清理复制反馈计时器。 */
   disconnectedCallback(): void {
     if (this.copyStateTimer) clearTimeout(this.copyStateTimer);
   }
 
-  /** 外部替换 value 后重新载入设计器。 */
-  @Watch('value')
-  protected handleValueChange(value?: FormSchema): void {
-    this.loadSchema(value);
-    this.editorRevision += 1;
+  /** 安排一次设计器载入。 */
+  private requestLoad(): void {
+    // 首次挂载由生命周期直接载入，不进入 loading。
+    if (!this.mounted) return;
+    this.beginSchemaLoading(this.resolveTargetKey(this.value));
+    this.ensureLoadWorker();
+  }
+
+  /** 计算载入目标对应的表单键。 */
+  private resolveTargetKey(value?: FormSchema): string {
+    return value?.key ?? this.createdSchema.key;
+  }
+
+  /** 进入 loading 状态并通知使用者。 */
+  private beginSchemaLoading(formKey: string): void {
+    if (this.schemaLoading) {
+      // 载入目标换了表单时，先结束旧会话再开新会话，
+      // 保证 true 和 false 事件始终成对且指向同一个表单。
+      if (this.loadingFormKey === formKey) return;
+      this.endSchemaLoading();
+    }
+    this.loadingFormKey = formKey;
+    this.schemaLoading = true;
+    this.formLoadingChange.emit({
+      loading: true,
+      formKey: this.loadingFormKey
+    });
+  }
+
+  /** 结束 loading 状态并通知使用者。 */
+  private endSchemaLoading(): void {
+    if (!this.schemaLoading) return;
+    this.schemaLoading = false;
+    this.formLoadingChange.emit({
+      loading: false,
+      formKey: this.loadingFormKey
+    });
+  }
+
+  /** 启动载入工作循环；已有循环在运行时直接复用。 */
+  private ensureLoadWorker(): void {
+    if (this.loadWorkerRunning) return;
+    this.loadWorkerRunning = true;
+    void this.runLoadWorker();
+  }
+
+  /**
+   * 载入最新的 value。
+   *
+   * 每次载入前先让出一帧，保证 loading 蒙层先绘制出来；
+   * 载入完成后发出 formReady，提示调用者设计器已经可以接受新的配置。
+   */
+  private async runLoadWorker(): Promise<void> {
+    try {
+      await waitForNextPaint();
+      this.loadSchema(this.value);
+      this.editorRevision += 1;
+      // 数据落地后再等一帧再收起蒙层，避免蒙层和内容更新落在同一帧被跳过。
+      await waitForNextPaint();
+      this.endSchemaLoading();
+      this.formReady.emit({ formKey: this.createdSchema.key });
+    } catch (error) {
+      this.endSchemaLoading();
+      throw error;
+    } finally {
+      this.loadWorkerRunning = false;
+    }
   }
 
   /** 外部切换预览渲染器后重建预览表单。 */
@@ -198,6 +299,17 @@ export class FormEasyCreator {
   @Method()
   async getSchemaValidationResult(): Promise<FormSchemaValidationResult> {
     return this.schemaValidation;
+  }
+
+  /**
+   * 获取驱动设计器界面的内置 schema。
+   *
+   * 该 schema 覆盖基础、对象、数组、record、definitions 引用和绑定等能力，
+   * 可作为复杂表单配置的参考示例。
+   */
+  @Method()
+  async getDesignerSchema(): Promise<FormSchema> {
+    return creatorSchema;
   }
 
   /** 校验设计器当前生成的 schema 是否可以安全使用。 */
@@ -353,6 +465,7 @@ export class FormEasyCreator {
               key={`creator-editor-${this.editorRevision}`}
               schema={creatorSchema}
               value={this.creatorFormValue}
+              showLoadingOverlay={false}
               basicFieldRenderer={this.creatorRenderer}
               componentDataManager={this.creatorComponentDataManager}
               eventCenter={this.creatorEventCenter}
@@ -405,6 +518,14 @@ export class FormEasyCreator {
             </div>
           </aside>
         </div>
+        {this.schemaLoading ? (
+          <div class="creator-loading" role="status" aria-live="polite" />
+        ) : null}
+        {this.schemaLoading ? (
+          <div class="creator-loading-indicator">
+            <span>正在载入表单配置…</span>
+          </div>
+        ) : null}
       </section>
     );
   }

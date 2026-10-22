@@ -53,6 +53,8 @@ export class FormEasyArray {
   @State() private collapsedItemIndexes: number[] = [];
   /** 标记数组在本轮渲染完成后是否需要发布元素初始化事件。 */
   private shouldPublishInitialItemValues = false;
+  /** 元素原位更新后触发渲染，不替换数组引用。 */
+  @State() private valueRevision = 0;
 
   /** 初始化可编辑的数组项列表。 */
   componentWillLoad(): void {
@@ -143,9 +145,8 @@ export class FormEasyArray {
   /** 嵌套渲染器变更后替换对应元素。 */
   private changeItem = (index: number, event: CustomEvent<unknown>): void => {
     event.stopPropagation();
-    this.items = this.items.map((item, itemIndex) =>
-      itemIndex === index ? event.detail : item
-    );
+    this.items[index] = event.detail;
+    this.valueRevision += 1;
     this.valueChange.emit(this.items);
   };
 

@@ -94,7 +94,12 @@ form.schema = schema;
 form.addEventListener('formChange', event => {
   console.log(event.detail);
 });
+form.addEventListener('formLoadingChange', event => {
+  console.log(event.detail.loading, event.detail.formKey);
+});
 ```
+
+替换 `schema` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成新 schema 的初始化后移出蒙层；`formLoadingChange` 事件依次发出 `loading: true` 和 `loading: false`。
 
 ```html
 <form-easy></form-easy>
@@ -225,7 +230,10 @@ const creator = document.querySelector('form-easy-creator');
 const schema = await creator.getSchema();
 const validation = await creator.getSchemaValidationResult();
 const valid = await creator.validate();
+const designerSchema = await creator.getDesignerSchema();
 ```
+
+`getDesignerSchema()` 返回驱动设计器界面的内置 schema。它覆盖基础、对象、数组、record、`definitions` 引用和绑定等能力，可以直接作为复杂表单配置的示例数据。
 
 设计器支持表单基础信息、`definitions`、任意层级字段、校验规则、绑定和事件订阅的可视化配置。数组字段的 `element` 与对象字段的 `fields` 也使用动态表单递归编辑，不需要手写整段 JSON；默认值、组件属性和组件静态数据等任意 JSON 值仍使用专用多行编辑器输入。
 
@@ -240,18 +248,25 @@ Vue 模板中直接使用包装组件即可：
 ```vue
 <script setup lang="ts">
 import { FormEasy } from '@wenzhencn/form-easy-vue';
+import type { FormChangeDetail } from '@wenzhencn/form-easy';
 
 const schema = {
   key: 'profile',
   name: '个人资料',
   fields: []
 };
+
+function handleFormChange(detail: FormChangeDetail) {
+  console.log(detail.formData);
+}
 </script>
 
 <template>
-  <FormEasy v-model="formValue" :schema="schema" />
+  <FormEasy :schema="schema" @form-change="handleFormChange" />
 </template>
 ```
+
+`FormEasy` 只接受单向 `value`，不再提供 `v-model`。表单内部编辑通过 `formChange` 事件输出，事件的 `detail.formData` 是最新的表单数据。
 
 也可以全局安装两个入口组件：
 

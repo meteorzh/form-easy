@@ -66,6 +66,8 @@ export class FormEasyObject {
   @State() private childFieldVisibility: Record<string, boolean> = {};
   /** 标记对象在本轮渲染完成后是否需要发布子字段初始化事件。 */
   private shouldPublishInitialFieldValues = false;
+  /** 子字段原位更新后触发渲染，不替换对象引用。 */
+  @State() private valueRevision = 0;
 
   /** 初始化本地对象值。 */
   componentWillLoad(): void {
@@ -156,10 +158,9 @@ export class FormEasyObject {
     event: CustomEvent<unknown>
   ): void => {
     event.stopPropagation();
-    this.objectValue = {
-      ...(this.objectValue ?? {}),
-      [field.key!]: event.detail
-    };
+    if (!this.objectValue) this.objectValue = {};
+    this.objectValue[field.key!] = event.detail;
+    this.valueRevision += 1;
     this.valueChange.emit(this.objectValue);
   };
 

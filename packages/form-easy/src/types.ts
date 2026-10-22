@@ -92,6 +92,20 @@ export interface FormChangeDetail {
   formData: Record<string, unknown>;
 }
 
+/** 表单 schema 切换时触发的事件载荷。 */
+export interface FormLoadingDetail {
+  /** 当前是否正在按新 schema 重新初始化表单。 */
+  loading: boolean;
+  /** 当前表单键。 */
+  formKey: string;
+}
+
+/** 表单结构就绪时触发的事件载荷。 */
+export interface FormReadyDetail {
+  /** 当前表单键。 */
+  formKey: string;
+}
+
 /** 字段可见状态变化时触发的内部事件载荷。 */
 export interface FieldVisibilityChangeDetail {
   /** 字段完整唯一标识。 */

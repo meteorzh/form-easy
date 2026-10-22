@@ -81,10 +81,14 @@ export class FormEasyRecord {
   @State() private expanded = true;
   /** 当前处于收起状态的键值条目内部标识。 */
   @State() private collapsedEntryIds: number[] = [];
+  /** 条目值变化时触发摘要刷新，不改变 record 值引用。 */
+  @State() private entriesRevision = 0;
   /** 下一个键值条目使用的内部标识。 */
   private nextEntryId = 0;
   /** 最近一次向父级发送的对象，用于忽略值事件回写。 */
   private lastEmittedValue?: Record<string, unknown>;
+  /** 复用的 record 值对象，子字段变化时保持引用不变。 */
+  private recordValue: Record<string, unknown> = {};
   /** 外部值同步后是否需要发布条目初始化事件。 */
   private shouldPublishInitialValues = false;
 
@@ -198,9 +202,10 @@ export class FormEasyRecord {
     event: CustomEvent<unknown>
   ): void => {
     event.stopPropagation();
-    this.entries = this.entries.map(entry =>
-      entry.id === entryId ? { ...entry, value: event.detail } : entry
-    );
+    const entry = this.entries.find(item => item.id === entryId);
+    if (!entry) return;
+    entry.value = event.detail;
+    this.entriesRevision += 1;
     this.emitCurrentValueIfValid();
   };
 
@@ -214,10 +219,12 @@ export class FormEasyRecord {
     if (!this.isRecordValue(value)) {
       this.initialized = false;
       this.entries = [];
+      this.recordValue = {};
       return;
     }
     this.initialized = true;
     this.collapsedEntryIds = [];
+    this.recordValue = {};
     this.entries = Object.entries(value).map(([key, item]) => ({
       id: this.nextEntryId++,
       key,
@@ -261,7 +268,10 @@ export class FormEasyRecord {
     if (this.entries.some((_, index) => this.getKeyError(index))) {
       return undefined;
     }
-    const value: Record<string, unknown> = {};
+    const value = this.recordValue;
+    Object.keys(value).forEach(key => {
+      if (!this.entries.some(entry => entry.key === key)) delete value[key];
+    });
     this.entries.forEach(entry => {
       Object.defineProperty(value, entry.key, {
         configurable: true,

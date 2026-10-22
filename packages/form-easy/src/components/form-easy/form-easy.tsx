@@ -29,10 +29,13 @@ import type { BasicFieldRenderer } from '../../renderers/basic-field-renderer';
 import {
   createFormOutputData
 } from '../../form-field-output';
+import { waitForNextPaint } from '../../next-paint';
 import type {
   FieldPresenceChangeDetail,
   FieldVisibilityChangeDetail,
   FormChangeDetail,
+  FormLoadingDetail,
+  FormReadyDetail,
   FormField,
   FormFieldNode,
   FormSchema,
@@ -49,9 +52,43 @@ export class FormEasy {
   /** 当前 form-easy 自定义元素。 */
   @Element() hostElement!: HTMLElement;
   /** 描述表单及其字段的 JSON schema。 */
-  @Prop() schema!: FormSchema;
+  @Prop()
+  get schema(): FormSchema {
+    return this.storedSchema as FormSchema;
+  }
+  set schema(next: FormSchema) {
+    // Stencil 在写入后会回读一次并再次调用 setter，这里直接忽略回读。
+    if (next === this.storedSchema) return;
+    // 表单结构必须在加载期间保持稳定，否则填充值会失去对应的结构。
+    if (this.schemaLoading) {
+      console.error(
+        `表单“${this.storedSchema?.key ?? '未知'}”正在加载中，此时不能修改 schema。` +
+        '请等待 formReady 事件发出后再设置新的结构。'
+      );
+      return;
+    }
+    this.storedSchema = next;
+    this.requestReload('schema');
+  }
   /** 初始化完成后加载的表单预设值。 */
-  @Prop() value?: Record<string, unknown>;
+  @Prop()
+  get value(): Record<string, unknown> | undefined {
+    return this.storedValue;
+  }
+  set value(next: Record<string, unknown> | undefined) {
+    // Stencil 在写入后会回读一次并再次调用 setter，这里直接忽略回读。
+    if (next === this.storedValue) return;
+    // 填充值必须等结构稳定之后再设置，否则值会落到错误的结构上。
+    if (this.schemaLoading) {
+      console.error(
+        `表单“${this.storedSchema?.key ?? '未知'}”正在加载中，此时不能修改 value。` +
+        '请等待 formReady 事件发出后再设置填充值。'
+      );
+      return;
+    }
+    this.storedValue = next;
+    this.requestReload('value');
+  }
   /**
    * 当前表单的基础字段渲染器。
    * undefined 使用全局渲染器，null 强制使用默认 H5 渲染。
@@ -70,8 +107,19 @@ export class FormEasy {
   @Prop() formValueStore?: FormValueStore;
   /** 表单允许渲染的最大字段嵌套深度。 */
   @Prop() maxRenderDepth = 32;
+  /**
+   * 是否在表单上渲染 loading 蒙层。
+   *
+   * 默认跟随 loading 状态；嵌入到已经有自己蒙层的容器中时可以关闭，
+   * 避免出现两层叠加的蒙层。
+   */
+  @Prop() showLoadingOverlay = true;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
+  /** 表单按新 schema 重新初始化时触发。 */
+  @Event() formLoadingChange!: EventEmitter<FormLoadingDetail>;
+  /** 表单结构就绪、可以接受填充值时触发。 */
+  @Event() formReady!: EventEmitter<FormReadyDetail>;
   /** 当前表单收到的用户事件。监听器可以取消事件入口的默认行为。 */
   @Event({
     bubbles: true,
@@ -80,6 +128,12 @@ export class FormEasy {
   }) userEvent!: EventEmitter<UserEvent>;
   /** 当前完整表单数据。 */
   @State() private formData: Record<string, unknown> = {};
+  /** 当前生效的 schema。 */
+  private storedSchema?: FormSchema;
+  /** 当前生效的填充值。 */
+  private storedValue?: Record<string, unknown>;
+  /** 组件是否已经完成首次挂载。 */
+  private mounted = false;
   /** 当前表单未传入外部字段值存储时使用的内部实例。 */
   private readonly internalFormValueStore = new FormValueStore();
   /** 按字段完整唯一标识保存当前可见状态。 */
@@ -88,6 +142,16 @@ export class FormEasy {
   private readonly fieldPresence = new Map<string, boolean>();
   /** 标记初始表单数据是否已经完成加载。 */
   private initialized = false;
+  /** 字段值原位更新后触发渲染，不替换 formData 引用。 */
+  @State() private valueRevision = 0;
+  /** 当前是否正在按新 schema 重新初始化表单。 */
+  @State() private schemaLoading = false;
+  /** 当前 loading 会话对应的表单键。 */
+  private loadingFormKey = '';
+  /** 当前 loading 会话的类型，决定加载完成后是否发出 formReady。 */
+  private loadingKind: 'schema' | 'value' = 'value';
+  /** 重载工作循环是否正在运行。 */
+  private reloadRunning = false;
   /** 取消当前用户事件桥接的函数。 */
   private removeUserEventListener?: () => void;
 
@@ -124,12 +188,15 @@ export class FormEasy {
   /** 初始化第一阶段：挂载控件时先提供空表单数据。 */
   componentWillLoad(): void {
     this.formData = {};
+    // 首次挂载时属性由框架直接写入，不需要再走一次重载流程。
+    this.mounted = false;
   }
 
   /** 初始化第二阶段：按预设值或默认值写入字段数据。 */
   componentDidLoad(): void {
     this.bindUserEvents();
     this.initializeFormData();
+    this.mounted = true;
   }
 
   /** 元素重新连接到文档后恢复用户事件桥接。 */
@@ -149,23 +216,90 @@ export class FormEasy {
     this.bindUserEvents();
   }
 
-  @Watch('schema')
-  reloadSchema(): void {
+  /**
+   * 响应 schema 或 value 的变化，安排一次表单重载。
+   *
+   * 结构变化和填充值变化都会重新初始化表单；
+   * 填充值没有实际变化时不进入 loading，避免无意义的蒙层闪烁。
+   */
+  private requestReload(kind: 'schema' | 'value'): void {
+    // 首次挂载由生命周期直接初始化表单，不进入 loading。
+    if (!this.mounted) return;
     if (!this.isSchemaReady()) return;
-    this.initialized = false;
-    this.fieldVisibility.clear();
-    this.fieldPresence.clear();
-    this.initializeFormData();
+    if (kind === 'value'
+      && this.initialized
+      && this.areValuesEqual(this.computeValueFormData(), this.formData)) {
+      return;
+    }
+    this.loadingKind = kind;
+    this.beginSchemaLoading(this.schema.key);
+    this.ensureReloadWorker();
   }
 
-  @Watch('value')
-  reloadValue(): void {
-    if (!this.isSchemaReady()) return;
-    const nextData = this.value === undefined
-      ? this.createDefaultFormData(this.schema.fields)
-      : this.createPresetFormData(this.schema.fields, this.value, 0);
-    if (this.initialized && this.areValuesEqual(nextData, this.formData)) return;
-    this.applyFormData(nextData);
+  /**
+   * 进入 loading 状态并通知使用者。
+   *
+   * 同一个表单内连续修改只保持一次 loading 会话；表单键变化时先结束旧会话，
+   * 再为新表单开启会话，保证 true 和 false 事件始终成对且指向同一个表单。
+   */
+  private beginSchemaLoading(formKey: string): void {
+    if (this.schemaLoading) {
+      if (this.loadingFormKey === formKey) return;
+      this.endSchemaLoading();
+    }
+    this.loadingFormKey = formKey;
+    this.schemaLoading = true;
+    this.formLoadingChange.emit({ loading: true, formKey });
+  }
+
+  /** 结束 loading 状态并通知使用者。 */
+  private endSchemaLoading(): void {
+    if (!this.schemaLoading) return;
+    this.schemaLoading = false;
+    this.formLoadingChange.emit({ loading: false, formKey: this.loadingFormKey });
+  }
+
+  /** 启动重载工作循环；已有循环在运行时直接复用。 */
+  private ensureReloadWorker(): void {
+    if (this.reloadRunning) return;
+    this.reloadRunning = true;
+    void this.runReloadWorker();
+  }
+
+  /**
+   * 按「先结构、后填充值」的顺序应用最新数据。
+   *
+   * 落数据前先让出两帧，保证 loading 蒙层真正绘制到屏幕上；
+   * 落数据后再让出一帧，保证蒙层是带着旧内容一起消失的，不会出现闪一下。
+   * 由 schema 触发的加载结束后会发出 formReady，提示调用者可以设置填充值了。
+   */
+  private async runReloadWorker(): Promise<void> {
+    try {
+      await waitForNextPaint();
+      if (!this.isSchemaReady()) {
+        this.endSchemaLoading();
+        return;
+      }
+      this.initialized = false;
+      this.fieldVisibility.clear();
+      this.fieldPresence.clear();
+      this.initializeFormData();
+      // 关键：数据落地后再等一帧再收起蒙层。
+      // 蒙层移除和内容更新如果发生在同一帧，浏览器会直接跳过中间状态，
+      // 用户只会看到一闪而过、甚至完全看不到蒙层。
+      await waitForNextPaint();
+      this.endSchemaLoading();
+      // 结构变化导致的加载要告诉调用者结构已经就绪，可以开始设置填充值。
+      if (this.loadingKind === 'schema') {
+        this.formReady.emit({ formKey: this.schema.key });
+      }
+    } catch (error) {
+      // 出错时也要收起蒙层，避免表单一直停留在 loading 状态。
+      this.endSchemaLoading();
+      throw error;
+    } finally {
+      this.reloadRunning = false;
+    }
   }
 
   /** 校验表单中当前挂载的全部字段，并返回是否全部通过。 */
@@ -204,7 +338,8 @@ export class FormEasy {
     event: CustomEvent<unknown>
   ): void => {
     event.stopPropagation();
-    this.formData = { ...this.formData, [field.key!]: event.detail };
+    this.formData[field.key!] = event.detail;
+    this.valueRevision += 1;
     this.emitFormChange(fieldId, event.detail);
   };
 
@@ -400,10 +535,14 @@ export class FormEasy {
   /** 在 schema 和自定义元素生命周期均就绪后初始化当前表单。 */
   private initializeFormData(): void {
     if (!this.isSchemaReady()) return;
-    const initialData = this.value === undefined
+    this.applyFormData(this.computeValueFormData());
+  }
+
+  /** 按当前 value 计算完整表单数据。 */
+  private computeValueFormData(): Record<string, unknown> {
+    return this.value === undefined
       ? this.createDefaultFormData(this.schema.fields)
       : this.createPresetFormData(this.schema.fields, this.value, 0);
-    this.applyFormData(initialData);
   }
 
   /** 比较规范化后的表单值，避免 v-model 回写触发重复初始化。 */
@@ -517,6 +656,14 @@ export class FormEasy {
             />
           );
         })}
+        {this.schemaLoading && this.showLoadingOverlay ? (
+          <div class="form-schema-loading" role="status" aria-live="polite" />
+        ) : null}
+        {this.schemaLoading && this.showLoadingOverlay ? (
+          <div class="form-schema-loading-indicator">
+            <span>正在加载表单…</span>
+          </div>
+        ) : null}
       </form>
     );
   }

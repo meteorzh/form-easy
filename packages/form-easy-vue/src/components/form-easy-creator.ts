@@ -10,6 +10,8 @@ import {
 import type {
   BasicFieldRenderer,
   FormEasyCreatorChangeDetail,
+  FormLoadingDetail,
+  FormReadyDetail,
   FormSchema
 } from '@wenzhencn/form-easy';
 import { ensureFormEasyCustomElements } from './custom-elements';
@@ -18,6 +20,7 @@ type FormEasyCreatorElement = HTMLElement & {
   value?: FormSchema;
   basicFieldRenderer?: BasicFieldRenderer | null;
   getSchema?: () => Promise<FormSchema>;
+  getDesignerSchema?: () => Promise<FormSchema>;
   validate?: () => Promise<boolean>;
 };
 
@@ -45,12 +48,20 @@ export const FormEasyCreator = defineComponent({
   emits: {
     /** 转发原生 schemaChange 事件。 */
     schemaChange: (_detail: FormEasyCreatorChangeDetail) => true,
+    /** 转发原生 formLoadingChange 事件。 */
+    loadingChange: (_detail: FormLoadingDetail) => true,
+    /** 转发原生 formReady 事件。 */
+    ready: (_detail: FormReadyDetail) => true,
     /** Vue v-model 更新事件。 */
     'update:modelValue': (_value: FormSchema) => true
   },
   setup(props, { emit, attrs, expose }) {
     const element = ref<FormEasyCreatorElement>();
     let schemaChangeListener: ((event: Event) => void) | undefined;
+    let formLoadingListener: ((event: Event) => void) | undefined;
+    let formReadyListener: ((event: Event) => void) | undefined;
+    /** 当前是否正在按新 value 重新载入设计器。 */
+    const loading = ref(false);
 
     const syncProperties = (): void => {
       const target = element.value;
@@ -67,7 +78,17 @@ export const FormEasyCreator = defineComponent({
         emit('schemaChange', detail);
         emit('update:modelValue', detail.schema);
       };
+      formLoadingListener = (event: Event): void => {
+        const detail = (event as CustomEvent<FormLoadingDetail>).detail;
+        loading.value = detail.loading;
+        emit('loadingChange', detail);
+      };
+      formReadyListener = (event: Event): void => {
+        emit('ready', (event as CustomEvent<FormReadyDetail>).detail);
+      };
       element.value?.addEventListener('schemaChange', schemaChangeListener);
+      element.value?.addEventListener('formLoadingChange', formLoadingListener);
+      element.value?.addEventListener('formReady', formReadyListener);
     });
 
     watch(
@@ -80,12 +101,21 @@ export const FormEasyCreator = defineComponent({
       if (schemaChangeListener) {
         element.value?.removeEventListener('schemaChange', schemaChangeListener);
       }
+      if (formLoadingListener) {
+        element.value?.removeEventListener('formLoadingChange', formLoadingListener);
+      }
+      if (formReadyListener) {
+        element.value?.removeEventListener('formReady', formReadyListener);
+      }
     });
 
     expose({
       getSchema: () =>
         element.value?.getSchema?.() ?? Promise.resolve(props.modelValue ?? props.value),
+      getDesignerSchema: () =>
+        element.value?.getDesignerSchema?.() ?? Promise.resolve(props.modelValue ?? props.value),
       validate: () => element.value?.validate?.() ?? Promise.resolve(false),
+      loading,
       element
     });
 

@@ -14,6 +14,8 @@ import type {
   EndpointManager,
   EventCenter,
   FormChangeDetail,
+  FormLoadingDetail,
+  FormReadyDetail,
   FormSchema,
   FormValueStore,
   UserEvent
@@ -29,6 +31,7 @@ type FormEasyElement = HTMLElement & {
   endpointManager?: EndpointManager;
   formValueStore?: FormValueStore;
   maxRenderDepth?: number;
+  showLoadingOverlay?: boolean;
   validate?: () => Promise<boolean>;
   validateField?: (fieldId: string) => Promise<boolean>;
 };
@@ -43,13 +46,8 @@ export const FormEasy = defineComponent({
       type: Object as PropType<FormSchema>,
       required: true
     },
-    /** 表单预设值，也可以通过 v-model:modelValue 传入。 */
+    /** 表单预设值；表单内部编辑请通过 formChange 事件获取。 */
     value: {
-      type: Object as PropType<Record<string, unknown> | undefined>,
-      default: undefined
-    },
-    /** Vue 风格的双向绑定值。 */
-    modelValue: {
       type: Object as PropType<Record<string, unknown> | undefined>,
       default: undefined
     },
@@ -82,13 +80,20 @@ export const FormEasy = defineComponent({
     maxRenderDepth: {
       type: Number,
       default: 32
+    },
+    /** 是否在表单上渲染 loading 蒙层。 */
+    showLoadingOverlay: {
+      type: Boolean,
+      default: true
     }
   },
   emits: {
     /** 转发原生 formChange 事件。 */
     formChange: (_detail: FormChangeDetail) => true,
-    /** Vue v-model 更新事件。 */
-    'update:modelValue': (_value: Record<string, unknown>) => true,
+    /** 转发原生 formLoadingChange 事件。 */
+    loadingChange: (_detail: FormLoadingDetail) => true,
+    /** 转发原生 formReady 事件。 */
+    ready: (_detail: FormReadyDetail) => true,
     /** 转发原生 userEvent 事件。 */
     userEvent: (_detail: UserEvent) => true
   },
@@ -97,18 +102,32 @@ export const FormEasy = defineComponent({
     const customElementReady = ref(false);
     let formChangeListener: ((event: Event) => void) | undefined;
     let userEventListener: ((event: Event) => void) | undefined;
+    let formLoadingListener: ((event: Event) => void) | undefined;
+    let formReadyListener: ((event: Event) => void) | undefined;
+    /** 当前是否正在按新 schema 重新初始化表单。 */
+    const loading = ref(false);
 
     const syncProperties = (): void => {
       const target = element.value;
       if (!target || !customElementReady.value) return;
+      const schemaChanged = target.schema !== props.schema;
       target.schema = props.schema;
-      target.value = props.modelValue ?? props.value;
+      // schema setter 会立即进入 loading；不能在同一次同步里继续写 value。
+      // 等原生组件发出 formReady 后，再把当前最新 value 写入新结构。
+      if (!schemaChanged && !loading.value) {
+        target.value = props.value;
+      } else if (!schemaChanged && loading.value && target.value !== props.value) {
+        console.error(
+          '表单正在加载 schema，此时不能同步 value；请等待 ready 事件后再更新。'
+        );
+      }
       target.basicFieldRenderer = props.basicFieldRenderer;
       target.eventCenter = props.eventCenter;
       target.componentDataManager = props.componentDataManager;
       target.endpointManager = props.endpointManager;
       target.formValueStore = props.formValueStore;
       target.maxRenderDepth = props.maxRenderDepth;
+      target.showLoadingOverlay = props.showLoadingOverlay;
     };
 
     onMounted(async () => {
@@ -118,13 +137,29 @@ export const FormEasy = defineComponent({
       formChangeListener = (event: Event): void => {
         const detail = (event as CustomEvent<FormChangeDetail>).detail;
         emit('formChange', detail);
-        emit('update:modelValue', detail.formData);
       };
       userEventListener = (event: Event): void => {
         emit('userEvent', (event as CustomEvent<UserEvent>).detail);
       };
+      formLoadingListener = (event: Event): void => {
+        const detail = (event as CustomEvent<FormLoadingDetail>).detail;
+        loading.value = detail.loading;
+        emit('loadingChange', detail);
+      };
+      formReadyListener = (event: Event): void => {
+        loading.value = false;
+        emit('ready', (event as CustomEvent<FormReadyDetail>).detail);
+        const target = element.value;
+        // 只有目标 schema 仍然是当前 props 时才同步 value；
+        // loading 期间被拒绝的 schema 修改必须由调用方重新提交。
+        if (target && target.schema === props.schema) {
+          target.value = props.value;
+        }
+      };
       element.value?.addEventListener('formChange', formChangeListener);
       element.value?.addEventListener('userEvent', userEventListener);
+      element.value?.addEventListener('formLoadingChange', formLoadingListener);
+      element.value?.addEventListener('formReady', formReadyListener);
       syncProperties();
     });
 
@@ -132,13 +167,13 @@ export const FormEasy = defineComponent({
       () => [
         props.schema,
         props.value,
-        props.modelValue,
         props.basicFieldRenderer,
         props.eventCenter,
         props.componentDataManager,
         props.endpointManager,
         props.formValueStore,
-        props.maxRenderDepth
+        props.maxRenderDepth,
+        props.showLoadingOverlay
       ],
       syncProperties,
       { deep: false }
@@ -151,12 +186,19 @@ export const FormEasy = defineComponent({
       if (userEventListener) {
         element.value?.removeEventListener('userEvent', userEventListener);
       }
+      if (formLoadingListener) {
+        element.value?.removeEventListener('formLoadingChange', formLoadingListener);
+      }
+      if (formReadyListener) {
+        element.value?.removeEventListener('formReady', formReadyListener);
+      }
     });
 
     expose({
       validate: () => element.value?.validate?.() ?? Promise.resolve(false),
       validateField: (fieldId: string) =>
         element.value?.validateField?.(fieldId) ?? Promise.resolve(false),
+      loading,
       element
     });
 

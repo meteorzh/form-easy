@@ -5,7 +5,7 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+import { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormLoadingDetail, FormReadyDetail, FormSchema, LabelPosition } from "./types";
 import { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 import { EventCenter, UserEvent } from "./managers/event-center";
 import { ComponentDataManager } from "./managers/component-data-manager";
@@ -15,7 +15,7 @@ import { FormFieldDefinitions } from "./form-field-definition-resolver";
 import { FormEasyCreatorChangeDetail } from "./components/creator/types";
 import { FormSchemaValidationResult } from "./validation/schema";
 import { CreatorEditorMode } from "./components/creator/form-easy-creator-json-editor";
-export { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormSchema, LabelPosition } from "./types";
+export { ComponentHandle, ComponentValidationResult, EventFlowHistory, FieldPresenceChangeDetail, FieldVisibilityChangeDetail, FormChangeDetail, FormField, FormFieldNode, FormLoadingDetail, FormReadyDetail, FormSchema, LabelPosition } from "./types";
 export { BasicFieldRenderer } from "./renderers/basic-field-renderer";
 export { EventCenter, UserEvent } from "./managers/event-center";
 export { ComponentDataManager } from "./managers/component-data-manager";
@@ -60,6 +60,11 @@ export namespace Components {
          */
         "schema": FormSchema;
         /**
+          * 是否在表单上渲染 loading 蒙层。  默认跟随 loading 状态；嵌入到已经有自己蒙层的容器中时可以关闭， 避免出现两层叠加的蒙层。
+          * @default true
+         */
+        "showLoadingOverlay": boolean;
+        /**
           * 校验表单中当前挂载的全部字段，并返回是否全部通过。
          */
         "validate": () => Promise<boolean>;
@@ -70,7 +75,7 @@ export namespace Components {
         /**
           * 初始化完成后加载的表单预设值。
          */
-        "value"?: Record<string, unknown>;
+        "value": Record<string, unknown> | undefined;
     }
     /**
      * 为数组字段提供添加和删除编辑功能。
@@ -148,6 +153,10 @@ export namespace Components {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 获取驱动设计器界面的内置 schema。  该 schema 覆盖基础、对象、数组、record、definitions 引用和绑定等能力， 可作为复杂表单配置的参考示例。
+         */
+        "getDesignerSchema": () => Promise<FormSchema>;
+        /**
           * 获取设计器当前生成的表单 schema。
          */
         "getSchema": () => Promise<FormSchema>;
@@ -162,7 +171,7 @@ export namespace Components {
         /**
           * 需要载入设计器继续编辑的现有表单 schema。
          */
-        "value"?: FormSchema;
+        "value": FormSchema | undefined;
     }
     /**
      * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
@@ -518,6 +527,8 @@ export interface FormEasyUploadCustomEvent<T> extends CustomEvent<T> {
 declare global {
     interface HTMLFormEasyElementEventMap {
         "formChange": FormChangeDetail;
+        "formLoadingChange": FormLoadingDetail;
+        "formReady": FormReadyDetail;
         "userEvent": UserEvent;
     }
     /**
@@ -559,6 +570,8 @@ declare global {
     };
     interface HTMLFormEasyCreatorElementEventMap {
         "schemaChange": FormEasyCreatorChangeDetail;
+        "formLoadingChange": FormLoadingDetail;
+        "formReady": FormReadyDetail;
     }
     /**
      * 使用 form-easy 自身能力可视化创建动态表单 schema。
@@ -749,17 +762,30 @@ declare namespace LocalJSX {
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
         /**
+          * 表单按新 schema 重新初始化时触发。
+         */
+        "onFormLoadingChange"?: (event: FormEasyCustomEvent<FormLoadingDetail>) => void;
+        /**
+          * 表单结构就绪、可以接受填充值时触发。
+         */
+        "onFormReady"?: (event: FormEasyCustomEvent<FormReadyDetail>) => void;
+        /**
           * 当前表单收到的用户事件。监听器可以取消事件入口的默认行为。
          */
         "onUserEvent"?: (event: FormEasyCustomEvent<UserEvent>) => void;
         /**
           * 描述表单及其字段的 JSON schema。
          */
-        "schema": FormSchema;
+        "schema"?: FormSchema;
+        /**
+          * 是否在表单上渲染 loading 蒙层。  默认跟随 loading 状态；嵌入到已经有自己蒙层的容器中时可以关闭， 避免出现两层叠加的蒙层。
+          * @default true
+         */
+        "showLoadingOverlay"?: boolean;
         /**
           * 初始化完成后加载的表单预设值。
          */
-        "value"?: Record<string, unknown>;
+        "value"?: Record<string, unknown> | undefined;
     }
     /**
      * 为数组字段提供添加和删除编辑功能。
@@ -841,13 +867,21 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
+          * 设计器按新 value 重新载入时触发。
+         */
+        "onFormLoadingChange"?: (event: FormEasyCreatorCustomEvent<FormLoadingDetail>) => void;
+        /**
+          * 设计器载入完成、可以接受新的表单配置时触发。
+         */
+        "onFormReady"?: (event: FormEasyCreatorCustomEvent<FormReadyDetail>) => void;
+        /**
           * 设计器生成的 schema 或校验结果变化时触发。
          */
         "onSchemaChange"?: (event: FormEasyCreatorCustomEvent<FormEasyCreatorChangeDetail>) => void;
         /**
           * 需要载入设计器继续编辑的现有表单 schema。
          */
-        "value"?: FormSchema;
+        "value"?: FormSchema | undefined;
     }
     /**
      * creator 内部用于输入 JSON 值或普通多行文本的编辑器。
@@ -1190,6 +1224,7 @@ declare namespace LocalJSX {
 
     interface FormEasyAttributes {
         "maxRenderDepth": number;
+        "showLoadingOverlay": boolean;
     }
     interface FormEasyArrayAttributes {
         "fieldId": string;

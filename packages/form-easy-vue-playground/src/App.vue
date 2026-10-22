@@ -354,10 +354,24 @@ const comprehensiveCreatorSchema: FormSchema = {
 /** 设计器当前正在编辑的 schema；默认保持空白。 */
 const creatorSchemaValue = ref<FormSchema>(blankCreatorSchema);
 
+/** 设计器组件实例，用于读取设计器自身使用的 schema。 */
+const creatorElement = ref<{
+  getDesignerSchema?: () => Promise<FormSchema>;
+} | null>(null);
+
 /** 使用独立副本将覆盖全面的示例 schema 填入设计器。 */
 function fillComprehensiveCreatorSchema(): void {
   creatorSchemaValue.value = JSON.parse(
     JSON.stringify(comprehensiveCreatorSchema)
+  ) as FormSchema;
+}
+
+/** 使用独立副本将设计器自身的 schema 填入设计器。 */
+async function fillDesignerOwnSchema(): Promise<void> {
+  const source = await creatorElement.value?.getDesignerSchema?.();
+  if (!source) return;
+  creatorSchemaValue.value = JSON.parse(
+    JSON.stringify(source)
   ) as FormSchema;
 }
 
@@ -995,6 +1009,13 @@ const rendererTitle = computed(() =>
           <button
             class="creator-schema-fill"
             type="button"
+            @click="fillDesignerOwnSchema"
+          >
+            填入设计器自身 Schema
+          </button>
+          <button
+            class="creator-schema-fill"
+            type="button"
             @click="fillComprehensiveCreatorSchema"
           >
             填入完整 Schema 示例
@@ -1020,6 +1041,7 @@ const rendererTitle = computed(() =>
         </div>
       </div>
       <FormEasyCreator
+        ref="creatorElement"
         :value="creatorSchemaValue"
         :basic-field-renderer="creatorRenderer"
       />

@@ -26,6 +26,12 @@ defineCustomElements();
 
 字段通过 `required` 配置必填，通过 `rules` 配置 `minLength`、`maxLength`、`min`、`max`、`pattern` 和 `enum` 同步校验；表单元素提供 `validate()` 与 `validateField(fieldId)` 方法。
 
+替换 `schema` 时表单会进入 loading 状态，用半透明蒙层遮住表单内容，初始化完成后移出蒙层，并通过 `formLoadingChange` 事件报告 `loading` 与 `formKey`。
+
+`schema` 表示表单结构，`value` 表示对应的填充值。表单只有结构稳定后才能接受填充值，因此 loading 期间调用方不能修改 `schema` 或 `value`：一旦修改会在控制台记录错误并忽略该次修改，表单结构始终保持稳定。由 `schema` 变化触发的加载结束后会发出 `formReady` 事件，调用方可以据此再设置填充值。
+
+loading 蒙层会先绘制出来，再开始载入数据，数据落地后蒙层再淡出。提示文字固定在视口中央，表单比视口高时也不会跑到屏幕外。
+
 拥有 `key` 的命名字段可配置 `optional: true`。用户可以在字段 label 区域控制该属性是否存在于最终输出；未设置时 label 显示删除线并隐藏真实值控件。存在状态独立于字段值，因此属性不存在与属性明确等于 `null` 可以被准确区分。未设置的 optional 字段跳过值校验。
 
 字段绑定通过一个 target、一个命名 `params` 对象和可选 resolver 描述完整计算关系。单参数绑定可以省略 resolver；多参数必须配置 resolver，例如 `{ target: 'visible', params: { category: './category', reference: './$ref' }, resolver: "return category === 'basic' || reference !== null;" }`。同一字段的同一个 target 只能配置一次。跨表单完整字段引用需要相关表单共用同一个 `FormValueStore` 和 `EventCenter`。

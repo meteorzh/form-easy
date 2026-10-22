@@ -38,8 +38,14 @@ import { FormEasy, FormEasyCreator, installFormEasyVue } from '@wenzhencn/form-e
 app.use(installFormEasyVue);
 ```
 
-两个包装组件只负责 Vue props、事件和 `v-model` 适配；字段循环、数组、对象、record、
+两个包装组件只负责 Vue props 和事件适配；字段循环、数组、对象、record、
 校验及事件管理仍由 `form-easy` 核心组件完成。
+
+`FormEasy` 仅接受单向 `value`，不提供 `v-model`。请在 `formChange` 事件中读取 `detail.formData` 获取最新表单数据。
+
+替换 `schema` 时表单会进入 loading 状态；包装器通过 `loadingChange` 事件转发核心组件的 `formLoadingChange`，通过 `ready` 事件转发 `formReady`，并通过 `expose` 提供 `loading` 状态。
+
+loading 期间不能修改 `schema` 或 `value`，核心组件会在控制台记录错误并忽略该次修改。由结构变化触发的加载结束后会发出 `formReady`，此时才可以设置填充值。
 
 自定义字段组件推荐使用 `useFormEasyField()`，它统一提供受控值、禁用状态、字段上下文与端点调用能力。组件仍需使用 `update:modelValue` 回传值；`componentProperties` 会透传为组件属性。完整示例和注意事项请参阅项目主页的「编写 Vue 3 自定义字段组件」章节。
 

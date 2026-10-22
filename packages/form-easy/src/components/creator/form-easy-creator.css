@@ -11,6 +11,52 @@
 .creator-shell {
   width: min(1440px, 100%);
   margin: 0 auto;
+  position: relative;
+}
+
+.creator-loading {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  background: rgb(255 255 255 / 82%);
+  backdrop-filter: blur(1.5px);
+  color: #526078;
+  font-size: 14px;
+  cursor: progress;
+}
+
+/* 提示文字与蒙层共享设计器的定位上下文，固定在设计器左上角。 */
+.creator-loading-indicator {
+  position: absolute;
+  z-index: 11;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 12%);
+  font-weight: 600;
+}
+
+.creator-loading-indicator::before {
+  content: '';
+  display: block;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgb(82 96 120 / 35%);
+  border-top-color: #526078;
+  border-radius: 50%;
+  animation: creator-loading-spin 0.7s linear infinite;
+}
+
+@keyframes creator-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .creator-header {

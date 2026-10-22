@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>form-easy 蒙层渲染验证</title>
+  <script type="module" src="/build/formeasy.esm.js"></script>
+  <style>
+    body { margin: 0; padding: 40px; font-family: system-ui, sans-serif; }
+    #host { width: 520px; }
+  </style>
+</head>
+<body>
+  <div id="host"></div>
+  <script type="module">
+    const schemaA = {
+      key: 'a',
+      name: '表单 A',
+      fields: [{ key: 'title', name: '标题', category: 'basic', dataType: 'string' }]
+    };
+    const schemaBig = {
+      key: 'big',
+      name: '大表单',
+      fields: Array.from({ length: 30 }, (_item, index) => ({
+        key: `field${index}`,
+        name: `字段 ${index}`,
+        category: 'basic',
+        dataType: 'string'
+      }))
+    };
+
+    const form = document.createElement('form-easy');
+    form.schema = schemaA;
+    document.getElementById('host').appendChild(form);
+
+    window.__frames = [];
+    window.__marks = [];
+    window.__mutations = [];
+
+    const sample = () => {
+      const overlay = form.querySelector('.form-schema-loading');
+      window.__frames.push({
+        t: performance.now(),
+        hasOverlay: !!overlay,
+        raf: 'frame'
+      });
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+
+    const observer = new MutationObserver(() => {
+      window.__mutations.push({
+        t: performance.now(),
+        present: !!form.querySelector('.form-schema-loading')
+      });
+    });
+    observer.observe(form, { childList: true, subtree: true });
+
+    form.addEventListener('formLoadingChange', event => {
+      window.__marks.push({
+        name: 'loading=' + event.detail.loading,
+        t: performance.now()
+      });
+    });
+    form.addEventListener('formReady', () => {
+      window.__marks.push({ name: 'formReady', t: performance.now() });
+    });
+
+    window.__switchBig = () => { form.schema = schemaBig; };
+    // 换回小表单，方便重复触发加载。
+    window.__switchSmall = () => { form.schema = schemaA; };
+    // 只改值，不改结构：字段不会重新渲染。
+    window.__setValue = () => { form.value = { title: 'x' }; };
+    window.__reset = () => {
+      window.__frames = [];
+      window.__marks = [];
+      window.__mutations = [];
+    };
+
+    // 记录主线程长任务，定位真正耗时的阶段。
+    window.__tasks = [];
+    try {
+      const observer = new PerformanceObserver(list => {
+        list.getEntries().forEach(entry => {
+          window.__tasks.push({
+            t: entry.startTime,
+            duration: entry.duration
+          });
+        });
+      });
+      observer.observe({ entryTypes: ['longtask'] });
+    } catch (error) {
+      console.log('longtask 不支持');
+    }
+  </script>
+</body>
+</html>

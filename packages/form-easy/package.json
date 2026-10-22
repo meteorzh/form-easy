@@ -46,6 +46,7 @@
     "build": "stencil build",
     "dev": "stencil build --dev --watch",
     "test": "stencil test --spec",
+    "test:overlay": "node overlay-test/check.mjs",
     "generate": "stencil generate"
   },
   "dependencies": {

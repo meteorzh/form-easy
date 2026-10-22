@@ -5,3 +5,6 @@ coverage/
 .stencil/
 *.log
 .DS_Store
+
+# 蒙层浏览器验证生成的截图
+packages/form-easy/overlay-test/*.png

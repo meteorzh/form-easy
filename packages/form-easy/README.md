@@ -22,6 +22,8 @@ defineCustomElements();
 
 字段可通过 `componentData` 直接提供下拉选项等组件数据，或通过 `componentDataKey` 配合 `ComponentDataManager` 异步加载。数据就绪后，组件才会挂载并接收字段值。`componentDataKey` 也支持 `city-options(provinceCode:./provinceCode)` 参数表达式；框架通过表单级 `FormValueStore` 读取并订阅引用字段，将最新值传入 resolver 的 `params` 参数。
 
+字段提示支持 `hints` 列表。提示位置可以是 `aboveLabel`、`belowLabel`、`aboveControl` 或 `belowControl`，触发器支持 `static`、`hover` 和 `click`，每个位置最多配置一条。旧版 `hint` 字符串仍兼容，并按 `belowLabel + static` 处理。
+
 核心会预注册 `select` 组件。配置 `component: 'select'` 后，传入形如 `{ label, value, disabled? }[]` 的 `componentData` 即可使用原生 H5 下拉框。
 
 字段通过 `required` 配置必填，通过 `rules` 配置 `minLength`、`maxLength`、`min`、`max`、`pattern` 和 `enum` 同步校验；表单元素提供 `validate()` 与 `validateField(fieldId)` 方法。

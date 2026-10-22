@@ -296,8 +296,14 @@ const comprehensiveCreatorSchema: FormSchema = {
       ],
       kvDef: {
         key: {
-          name: '属性名',
-          hint: '支持连续修改，且不能为空或重复。',
+          name: '键',
+          hints: [
+            {
+              position: 'aboveLabel',
+              trigger: 'hover',
+              content: '键不能为空、不能重复，并且必须以字母开头。'
+            }
+          ],
           rules: [
             {
               type: 'pattern',
@@ -314,9 +320,6 @@ const comprehensiveCreatorSchema: FormSchema = {
           dataType: 'string',
           componentProperties: {
             placeholder: '请输入属性值'
-          },
-          affixes: {
-            controlBefore: [{ type: 'text', text: '值' }]
           }
         }
       }
@@ -644,8 +647,14 @@ const schema: FormSchema = {
       },
       kvDef: {
         key: {
-          name: '属性名',
-          hint: '不能为空或重复。',
+          name: '键',
+          hints: [
+            {
+              position: 'aboveLabel',
+              trigger: 'hover',
+              content: '键不能为空、不能重复，并且必须以字母开头。'
+            }
+          ],
           rules: [
             {
               type: 'pattern',
@@ -660,9 +669,6 @@ const schema: FormSchema = {
         value: {
           category: 'basic',
           dataType: 'string',
-          affixes: {
-            controlBefore: [{ type: 'text', text: '值' }]
-          },
           componentProperties: {
             placeholder: '请输入属性值'
           }

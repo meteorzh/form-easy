@@ -184,6 +184,26 @@ export interface FieldAffixes {
   controlAfter?: FieldAffix[];
 }
 
+/** 字段辅助提示相对标签或控件的显示位置。 */
+export type FormFieldHintPosition =
+  | 'aboveLabel'
+  | 'belowLabel'
+  | 'aboveControl'
+  | 'belowControl';
+
+/** 字段辅助提示的触发方式。hover 同时支持键盘 focus。 */
+export type FormFieldHintTrigger = 'static' | 'hover' | 'click';
+
+/** 一条纯文本字段辅助提示。 */
+export interface FormFieldHint {
+  /** 提示相对 label 或 control 的上下位置。 */
+  position: FormFieldHintPosition;
+  /** 提示触发方式。 */
+  trigger: FormFieldHintTrigger;
+  /** 按纯文本渲染的提示内容。 */
+  content: string;
+}
+
 /** 所有字段分类共享的实例配置。 */
 export interface FormFieldCommonConfiguration {
   /** 当前字段是否必填。 */
@@ -192,8 +212,10 @@ export interface FormFieldCommonConfiguration {
   rules?: FieldValidationRule[];
   /** 未提供运行时数据时使用的默认值。 */
   defaultValue?: unknown;
-  /** 展示在字段名称旁的提示文本。 */
+  /** 旧版字段提示文本，等价于 belowLabel + static。 */
   hint?: string;
+  /** 字段辅助提示列表；每个位置最多配置一条。 */
+  hints?: FormFieldHint[];
   /** 标签和控件两侧的只读展示内容。 */
   affixes?: FieldAffixes;
   /** 当前字段拥有的事件订阅配置。 */
@@ -347,6 +369,8 @@ export interface FormFieldReferenceCommonOverrides {
   defaultValue?: unknown;
   /** 覆盖模板的提示文本。 */
   hint?: string;
+  /** 覆盖模板的字段辅助提示。 */
+  hints?: FormFieldHint[];
   /** 整份替换模板的展示位配置。 */
   affixes?: FieldAffixes;
   /** 覆盖模板的组件属性。 */
@@ -389,6 +413,8 @@ export interface FormRecordKeyDefinition extends BasicFieldComponentConfiguratio
   name?: string;
   /** 动态键编辑器的提示文本。 */
   hint?: string;
+  /** 动态键编辑器的字段辅助提示。 */
+  hints?: FormFieldHint[];
   /** 动态键执行的同步校验规则。 */
   rules?: FieldValidationRule[];
   /** 新增条目时使用的默认键。 */

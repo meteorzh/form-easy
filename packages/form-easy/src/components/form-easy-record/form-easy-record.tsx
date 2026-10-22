@@ -47,7 +47,7 @@ export class FormEasyRecord {
   @Prop() formKey!: string;
   /**
    * 外层表单的标签位置。
-   * 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
+   * 键值条目内部使用 left，让“键/值”和对应控件同行显示。
    */
   @Prop() labelPosition: LabelPosition = 'left';
   /** 当前表单指定的基础字段渲染器。 */
@@ -121,7 +121,7 @@ export class FormEasyRecord {
     this.shouldPublishInitialValues = true;
   }
 
-  /** 校验所有动态 key 是否唯一且安全。空属性名由 key 字段自己的校验负责。 */
+  /** 校验所有动态 key 是否唯一且安全。空键由 key 字段自己的校验负责。 */
   @Method()
   async validateEntries(): Promise<boolean> {
     return this.entries.every((_, index) => !this.getKeyError(index));
@@ -181,7 +181,7 @@ export class FormEasyRecord {
       : this.entries.map(entry => entry.id);
   };
 
-  /** 更新一个动态属性名，并在全部 key 合法时同步对象值。 */
+  /** 更新一个动态键，并在全部 key 合法时同步对象值。 */
   private changeEntryKey = (
     entryId: number,
     event: CustomEvent<unknown>
@@ -196,7 +196,7 @@ export class FormEasyRecord {
     this.emitCurrentValueIfValid();
   };
 
-  /** 更新一个动态属性值，并在全部 key 合法时同步对象值。 */
+  /** 更新一个动态值，并在全部 key 合法时同步对象值。 */
   private changeEntryValue = (
     entryId: number,
     event: CustomEvent<unknown>
@@ -286,11 +286,11 @@ export class FormEasyRecord {
   /** 返回指定条目的动态 key 错误提示。 */
   private getKeyError(index: number): string | undefined {
     const key = this.entries[index]?.key ?? '';
-    if (unsafeRecordKeys.has(key)) return `属性名“${key}”不安全，请使用其他名称。`;
+    if (unsafeRecordKeys.has(key)) return `键“${key}”不安全，请使用其他名称。`;
     const duplicate = this.entries.some((entry, entryIndex) =>
       entryIndex !== index && entry.key === key
     );
-    return duplicate ? `属性名“${key}”已经存在。` : undefined;
+    return duplicate ? `键“${key}”已经存在。` : undefined;
   }
 
   /** 获取固定为 string 类型且必填的动态 key 字段配置。 */
@@ -299,11 +299,28 @@ export class FormEasyRecord {
     delete (key as { affixes?: unknown }).affixes;
     return {
       ...key,
-      name: key.name ?? '属性名',
+      name: key.name ?? '键',
       category: 'basic',
       dataType: 'string',
       required: true
     };
+  }
+
+  /** 为动态键附加运行时重复/危险键提示。 */
+  private getKeyEditorField(keyError?: string): FormField {
+    const field = this.keyField;
+    return keyError
+      ? {
+        ...field,
+        hints: [
+          {
+            position: 'aboveLabel',
+            trigger: 'hover',
+            content: keyError
+          }
+        ]
+      }
+      : field;
   }
 
   /** 获取当前 record 每个动态属性共用的 value 字段配置。 */
@@ -312,7 +329,7 @@ export class FormEasyRecord {
     if (!valueNode) return undefined;
     const field = resolveFormFieldNode(valueNode, this.fieldDefinitions);
     return field
-      ? { ...field, name: field.name ?? '属性值' }
+      ? { ...field, name: field.name ?? '值' }
       : undefined;
   }
 
@@ -362,7 +379,7 @@ export class FormEasyRecord {
 
   /** 生成收起后展示在条目标题中的键值摘要。 */
   private formatEntrySummary(entry: FormRecordEntry): string {
-    const key = entry.key.trim() || '未填写属性名';
+    const key = entry.key.trim() || '未填写键';
     const value = this.formatEntryValue(entry.value);
     return value ? `${key}：${value}` : key;
   }
@@ -432,10 +449,10 @@ export class FormEasyRecord {
           <div class="record-entry-fields">
             <div class="record-entry-key">
               <form-easy-field
-                field={this.keyField}
+                field={this.getKeyEditorField(keyError)}
                 fieldId={`${this.fieldId}[${index}].key`}
                 formKey={this.formKey}
-                labelPosition="top"
+                labelPosition="left"
                 basicFieldRenderer={this.basicFieldRenderer}
                 componentDataManager={this.componentDataManager}
                 endpointManager={this.endpointManager}
@@ -450,14 +467,13 @@ export class FormEasyRecord {
                   this.changeEntryKey(entry.id, event)
                 }
               />
-              {keyError && <p class="record-key-error" role="alert">{keyError}</p>}
             </div>
             <div class="record-entry-value">
               <form-easy-field
                 field={valueField}
                 fieldId={`${this.fieldId}[${index}].value`}
                 formKey={this.formKey}
-                labelPosition="top"
+                labelPosition="left"
                 basicFieldRenderer={this.basicFieldRenderer}
                 componentDataManager={this.componentDataManager}
                 endpointManager={this.endpointManager}

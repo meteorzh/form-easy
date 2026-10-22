@@ -50,6 +50,8 @@ import type {
   FieldVisibilityChangeDetail,
   FieldValidationErrorType,
   FormField,
+  FormFieldHint,
+  FormFieldHintPosition,
   HandleTarget,
   LabelPosition
 } from '../../types';
@@ -113,6 +115,10 @@ export class FormEasyField implements HandleTarget {
   @State() private componentDataError?: Error;
   /** 当前字段首个未通过规则的错误信息。 */
   @State() private validationError?: string;
+  /** 当前通过 click 打开的辅助提示位置。 */
+  @State() private activeHintPosition?: FormFieldHintPosition;
+  /** 当前通过鼠标或 focus 激活的辅助提示位置。 */
+  @State() private hoveredHintPosition?: FormFieldHintPosition;
   /** 当前字段校验错误来自用户值还是 schema 配置。 */
   @State() private validationErrorType?: FieldValidationErrorType;
   /** 当前基础字段渲染组件主动报告的内部校验结果。 */
@@ -1184,6 +1190,87 @@ export class FormEasyField implements HandleTarget {
     );
   }
 
+  /** 返回兼容旧 hint 字符串后的提示配置。 */
+  private get fieldHints(): FormFieldHint[] {
+    const hints = this.field.hints ?? [];
+    if (!this.field.hint || hints.some(hint => hint.position === 'belowLabel')) {
+      return hints;
+    }
+    return [
+      { position: 'belowLabel', trigger: 'static', content: this.field.hint },
+      ...hints
+    ];
+  }
+
+  /** 切换 click 提示；hover 提示使用 CSS 和 focus 状态控制。 */
+  private toggleHint = (position: FormFieldHintPosition): void => {
+    this.activeHintPosition = this.activeHintPosition === position
+      ? undefined
+      : position;
+  };
+
+  /** 设置 label/control 当前激活的 hover 提示位置。 */
+  private setHoveredHint = (position: FormFieldHintPosition): void => {
+    this.hoveredHintPosition = position;
+  };
+
+  /** 清除 label/control 当前激活的 hover 提示位置。 */
+  private clearHoveredHint = (position: FormFieldHintPosition): void => {
+    if (this.hoveredHintPosition === position) this.hoveredHintPosition = undefined;
+  };
+
+  /** 找到指定目标区域当前应该激活的 hover 提示。 */
+  private getHoverHintPosition(
+    target: 'label' | 'control'
+  ): FormFieldHintPosition | undefined {
+    const positions = target === 'label'
+      ? ['aboveLabel', 'belowLabel'] as const
+      : ['aboveControl', 'belowControl'] as const;
+    return positions.find(position => this.fieldHints.some(hint => (
+      hint.position === position && hint.trigger === 'hover'
+    )));
+  }
+
+  /** 渲染字段辅助提示节点。 */
+  private renderHints(position: FormFieldHintPosition): unknown {
+    const hint = this.fieldHints.find(item => item.position === position);
+    if (!hint || !hint.content.trim()) return null;
+    const hintId = `${this.fieldId}-hint-${position}`;
+    const interactive = hint.trigger !== 'static';
+    // hover 只在实际悬停或 focus 时由 CSS 打开，不能在初始渲染时直接显示。
+    const opened = hint.trigger === 'static'
+      || this.activeHintPosition === position
+      || this.hoveredHintPosition === position;
+    // hover 直接由 label/control 区域响应；只有 click 需要独立触发节点，
+    // 避免把控件本身的点击行为改成提示开关。
+    const trigger = hint.trigger === 'click' ? (
+      <button
+        class="field-hint-trigger field-hint-trigger--button"
+        type="button"
+        aria-describedby={hintId}
+        aria-expanded={String(this.activeHintPosition === position)}
+        onClick={() => this.toggleHint(position)}
+      >
+        <span aria-hidden="true">?</span>
+      </button>
+    ) : null;
+    return (
+      <span
+        class={{
+          'field-hint': true,
+          'field-hint--interactive': interactive,
+          [`field-hint--${position}`]: true,
+          'field-hint--open': opened
+        }}
+      >
+        {trigger}
+        <span id={hintId} class="field-hint-content" role="tooltip">
+          {hint.content}
+        </span>
+      </span>
+    );
+  }
+
   /** 渲染字段名称和编辑器。 */
   render() {
     if (!this.visible) return null;
@@ -1199,8 +1286,7 @@ export class FormEasyField implements HandleTarget {
     }
     const hasName = typeof this.field.name === 'string'
       && this.field.name.trim().length > 0;
-    const hasHint = typeof this.field.hint === 'string'
-      && this.field.hint.trim().length > 0;
+    const hasHint = this.fieldHints.length > 0;
     const affixes = readFieldAffixes(this.field);
     const hasLabelAffix = affixes.labelBefore.length > 0 || affixes.labelAfter.length > 0;
     const metadataClass = hasName || hasHint || hasLabelAffix || this.field.optional === true
@@ -1212,8 +1298,31 @@ export class FormEasyField implements HandleTarget {
         : ' field--optional-omitted'
       : '';
     const tallField = isTallFieldCategory(this.field.category);
+    const labelHoverHint = this.fieldHints.some(hint =>
+      hint.trigger === 'hover'
+      && (hint.position === 'aboveLabel' || hint.position === 'belowLabel')
+    );
     const label = (hasName || hasLabelAffix || this.field.optional === true) && (
-      <div class="field-label">
+      <div
+        class="field-label"
+        tabIndex={labelHoverHint ? 0 : undefined}
+        onMouseEnter={labelHoverHint ? () => {
+          const position = this.getHoverHintPosition('label');
+          if (position) this.setHoveredHint(position);
+        } : undefined}
+        onMouseLeave={labelHoverHint ? () => {
+          const position = this.getHoverHintPosition('label');
+          if (position) this.clearHoveredHint(position);
+        } : undefined}
+        onFocus={() => {
+          const position = this.getHoverHintPosition('label');
+          if (position) this.setHoveredHint(position);
+        }}
+        onBlur={() => {
+          const position = this.getHoverHintPosition('label');
+          if (position) this.clearHoveredHint(position);
+        }}
+      >
             {(hasName || hasLabelAffix) && (
               <div class="field-label-main">
                 {this.renderAffixGroup('labelBefore', affixes.labelBefore)}
@@ -1241,18 +1350,40 @@ export class FormEasyField implements HandleTarget {
             )}
       </div>
     );
-    const hint = hasHint && <small>{this.field.hint}</small>;
+    const belowLabelHints = hasHint && this.renderHints('belowLabel');
+    const aboveLabelHints = hasHint && this.renderHints('aboveLabel');
+    const aboveControlHints = hasHint && this.renderHints('aboveControl');
+    const belowControlHints = hasHint && this.renderHints('belowControl');
 
     return (
       <section
         class={`field field--${this.labelPosition}${tallField ? ' field--tall' : ''}${metadataClass}${optionalClass}`}
         part="field"
       >
-        {tallField && (label || hint) ? <div class="field-meta">{label}{hint}</div> : null}
+        {tallField && (label || aboveLabelHints || belowLabelHints) ? (
+          <div class="field-meta">
+            {aboveLabelHints}
+            {label}
+            {belowLabelHints}
+          </div>
+        ) : null}
+        {!tallField && aboveLabelHints}
         {!tallField && label}
-        {!tallField && hint}
+        {!tallField && belowLabelHints}
         {this.outputPresent && (
-          <div class="editor" onFocusout={this.activateValidationFeedback}>
+          <div
+            class="editor"
+            onFocusout={this.activateValidationFeedback}
+            onMouseEnter={() => {
+              const position = this.getHoverHintPosition('control');
+              if (position) this.setHoveredHint(position);
+            }}
+            onMouseLeave={() => {
+              const position = this.getHoverHintPosition('control');
+              if (position) this.clearHoveredHint(position);
+            }}
+          >
+            {aboveControlHints}
             <div class="editor-line">
               {this.renderAffixGroup('controlBefore', affixes.controlBefore)}
               <div class="editor-control">
@@ -1260,6 +1391,7 @@ export class FormEasyField implements HandleTarget {
               </div>
               {this.renderAffixGroup('controlAfter', affixes.controlAfter)}
             </div>
+            {belowControlHints}
             {this.validationError && (
               <p
                 class={{

@@ -103,6 +103,112 @@
   max-width: 100%;
 }
 small { color: #64748b; }
+.field {
+  position: relative;
+}
+.field-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.field-hint--interactive { margin-inline-start: 5px; }
+.field-hint-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+.field-hint-trigger--button {
+  padding: 0;
+  background: transparent;
+  font: inherit;
+}
+.field-hint-trigger:focus-visible {
+  outline: 2px solid rgb(37 99 235 / 35%);
+  outline-offset: 2px;
+}
+.field-hint-content {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: min(320px, 70vw);
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: #f8fafc;
+  background: #334155;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 18%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.field-hint--interactive.field-hint--aboveLabel,
+.field-hint--interactive.field-hint--belowLabel {
+  position: absolute;
+  left: 0;
+}
+.field-hint--interactive.field-hint--aboveLabel {
+  top: 0;
+}
+.field-hint--interactive.field-hint--belowLabel {
+  top: 100%;
+}
+.editor {
+  position: relative;
+}
+.field-hint--interactive.field-hint--aboveControl,
+.field-hint--interactive.field-hint--belowControl {
+  position: absolute;
+  left: 0;
+}
+.field-hint--interactive.field-hint--aboveControl {
+  top: 0;
+}
+.field-hint--interactive.field-hint--belowControl {
+  bottom: 0;
+}
+.field-hint--belowLabel .field-hint-content,
+.field-hint--belowControl .field-hint-content {
+  top: calc(100% + 6px);
+  bottom: auto;
+  transform: translateY(-3px);
+}
+.field-hint--belowLabel.field-hint--open .field-hint-content,
+.field-hint--belowControl.field-hint--open .field-hint-content,
+.field-hint--open .field-hint-content,
+.field-hint:focus-within .field-hint-content {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.field-hint:not(.field-hint--interactive) .field-hint-content {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin-top: 4px;
+  color: #64748b;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.field > .field-hint,
+.field > .editor > .field-hint { display: flex; }
 .field--left { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
 .field--left > .field-label { grid-column: 1; grid-row: 1; }
 .field--left > small { grid-column: 1; grid-row: 2; }

@@ -41,6 +41,8 @@ app.use(installFormEasyVue);
 两个包装组件只负责 Vue props 和事件适配；字段循环、数组、对象、record、
 校验及事件管理仍由 `form-easy` 核心组件完成。
 
+字段提示使用核心 schema 的 `hints` 配置，支持 `aboveLabel`、`belowLabel`、`aboveControl`、`belowControl` 四个位置，以及 `static`、`hover`、`click` 三种触发器。
+
 `FormEasy` 仅接受单向 `value`，不提供 `v-model`。请在 `formChange` 事件中读取 `detail.formData` 获取最新表单数据。
 
 替换 `schema` 时表单会进入 loading 状态；包装器通过 `loadingChange` 事件转发核心组件的 `formLoadingChange`，通过 `ready` 事件转发 `formReady`，并通过 `expose` 提供 `loading` 状态。

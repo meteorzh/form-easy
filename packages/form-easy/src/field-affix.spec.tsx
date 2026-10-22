@@ -311,7 +311,7 @@ describe('字段展示位', () => {
     const fields = Array.from(page.root!.querySelectorAll('form-easy-field'));
     expect(fields[0].querySelector('.field')?.classList.contains('field--tall')).toBe(true);
     expect(fields.filter(field =>
-      field.querySelector('.field')?.classList.contains('field--top')
+      field.querySelector('.field')?.classList.contains('field--left')
     ).length).toBeGreaterThanOrEqual(2);
   });
 

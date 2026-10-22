@@ -147,7 +147,24 @@ const recursiveSchema = {
 
 ## 字段展示位 🏷️
 
-`hint` 是控件下方的说明。`affixes` 则把只读内容贴在标签或控件两侧，不进入表单值。标签前后的图片与标签等高对齐，控件前后的图片与控件等高对齐，宽高比都是 1:1。基础字段可以使用四个位置。数组、对象和 record 字段只能使用标签前后，因为它们的控件比较高。数组元素和 record 的动态 key 不支持展示位；同一份内容重复出现在每一项上没有意义。数组元素内部的命名子字段，以及 record 的 value，仍然可以单独配置。
+字段提示通过 `hints` 配置，每个位置最多一条：`aboveLabel`、`belowLabel`、`aboveControl`、`belowControl`。触发器支持 `static`、`hover` 和 `click`；`hover` 同时支持鼠标悬停与键盘 focus，`click` 适合触屏设备。提示内容按纯文本渲染，不支持 HTML。旧版 `hint` 仍然兼容，并等价于 `belowLabel + static`。`affixes` 则把只读内容贴在标签或控件两侧，不进入表单值。标签前后的图片与标签等高对齐，控件前后的图片与控件等高对齐，宽高比都是 1:1。基础字段可以使用四个位置。数组、对象和 record 字段只能使用标签前后，因为它们的控件比较高。数组元素和 record 的动态 key 不支持展示位；同一份内容重复出现在每一项上没有意义。数组元素内部的命名子字段，以及 record 的 value，仍然可以单独配置。
+
+例如将说明显示在控件下方，或在标签上方使用悬浮提示：
+
+```ts
+hints: [
+  {
+    position: 'aboveLabel',
+    trigger: 'hover',
+    content: '请输入唯一的环境键。'
+  },
+  {
+    position: 'belowControl',
+    trigger: 'static',
+    content: '值会按当前 record 的 value 定义进行校验。'
+  }
+]
+```
 
 ```ts
 const priceSchema = {
@@ -613,7 +630,14 @@ const fieldValid = await form.validateField('profile.userName');
   rules: [{ type: 'minLength', value: 1 }],
   kvDef: {
     key: {
-      name: '属性名',
+      name: '键',
+      hints: [
+        {
+          position: 'aboveLabel',
+          trigger: 'hover',
+          content: '键不能为空、不能重复，并且必须以字母开头。'
+        }
+      ],
       rules: [
         { type: 'pattern', value: '^[A-Za-z][A-Za-z0-9_-]*$' }
       ]

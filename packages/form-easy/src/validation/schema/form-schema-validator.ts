@@ -64,6 +64,7 @@ const formFieldProperties = new Set([
   'rules',
   'defaultValue',
   'hint',
+  'hints',
   'affixes',
   'dataType',
   'component',
@@ -88,6 +89,7 @@ const formFieldReferenceProperties = new Set([
   'rules',
   'defaultValue',
   'hint',
+  'hints',
   'affixes',
   'componentProperties',
   'componentData',
@@ -120,6 +122,7 @@ const recordKeyValueDefinitionProperties = new Set(['key', 'value']);
 const recordKeyDefinitionProperties = new Set([
   'name',
   'hint',
+  'hints',
   'rules',
   'defaultValue',
   'component',
@@ -437,6 +440,7 @@ function validateOptionalPropertyTypes(
   validateOptionalType(field, 'omitNull', 'boolean', path, context);
   validateOptionalType(field, 'omitWhenHidden', 'boolean', path, context);
   validateOptionalType(field, 'hint', 'string', path, context);
+  validateFieldHints(field.hints, propertyPath(path, 'hints'), context);
   validateOptionalType(field, 'component', 'string', path, context, true);
   validateOptionalType(field, 'componentDataKey', 'string', path, context, true);
   validateComponentDataKeyExpression(field.componentDataKey, path, context);
@@ -448,6 +452,44 @@ function validateOptionalPropertyTypes(
       'componentProperties 必须是普通对象。'
     );
   }
+}
+
+/** 校验字段辅助提示，并限制每个位置最多配置一条。 */
+function validateFieldHints(
+  value: unknown,
+  path: string,
+  context: SchemaValidationContext
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    context.addError('invalid-type', path, 'hints 必须是数组。');
+    return;
+  }
+  const positions = new Set<string>();
+  const validPositions = new Set(['aboveLabel', 'belowLabel', 'aboveControl', 'belowControl']);
+  const validTriggers = new Set(['static', 'hover', 'click']);
+  value.forEach((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isPlainRecord(item)) {
+      context.addError('invalid-type', itemPath, '提示项必须是普通对象。');
+      return;
+    }
+    const position = item.position;
+    const trigger = item.trigger;
+    if (typeof position !== 'string' || !validPositions.has(position)) {
+      context.addError('invalid-value', propertyPath(itemPath, 'position'), '提示位置无效。');
+    } else if (positions.has(position)) {
+      context.addError('invalid-value', propertyPath(itemPath, 'position'), '同一位置只能配置一条提示。');
+    } else {
+      positions.add(position);
+    }
+    if (typeof trigger !== 'string' || !validTriggers.has(trigger)) {
+      context.addError('invalid-value', propertyPath(itemPath, 'trigger'), '提示触发器无效。');
+    }
+    if (typeof item.content !== 'string' || item.content.trim().length === 0) {
+      context.addError('invalid-value', propertyPath(itemPath, 'content'), '提示内容必须是非空字符串。');
+    }
+  });
 }
 
 /** 校验展示位：数组元素位置禁止配置，其余位置检查元素结构。 */

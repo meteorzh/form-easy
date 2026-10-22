@@ -116,7 +116,7 @@
 
 .record-entry {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--record-border);
   border-radius: 8px;
   background: #ffffff;
@@ -124,6 +124,8 @@
 }
 
 .record-entry:hover {
+  position: relative;
+  z-index: 2;
   border-color: #bfccdc;
   box-shadow: 0 3px 12px rgb(15 23 42 / 5%);
 }
@@ -210,7 +212,7 @@
 
 .record-entry-fields {
   display: grid;
-  grid-template-columns: minmax(150px, .7fr) minmax(180px, 1.3fr);
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
   gap: 10px;
   min-width: 0;
 }
@@ -218,17 +220,17 @@
 .record-entry-key,
 .record-entry-value {
   min-width: 0;
+  overflow: visible;
+}
+
+/* record 项的短标签不应占用默认字段布局的 120px 标签列。 */
+.record-entry-key .field--left,
+.record-entry-value .field--left {
+  grid-template-columns: max-content minmax(0, 1fr);
 }
 
 .record-entry form-easy-field::part(field) {
   margin-bottom: 8px;
-}
-
-.record-key-error {
-  margin: -4px 0 8px;
-  color: #dc2626;
-  font-size: 12px;
-  line-height: 1.4;
 }
 
 .record-items-toggle {

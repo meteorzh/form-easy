@@ -397,7 +397,7 @@ export namespace Components {
          */
         "formValueStore"?: FormValueStore;
         /**
-          * 外层表单的标签位置。 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
+          * 外层表单的标签位置。 键值条目内部使用 left，让“键/值”和对应控件同行显示。
           * @default 'left'
          */
         "labelPosition": LabelPosition;
@@ -412,7 +412,7 @@ export namespace Components {
          */
         "renderDepth": number;
         /**
-          * 校验所有动态 key 是否唯一且安全。空属性名由 key 字段自己的校验负责。
+          * 校验所有动态 key 是否唯一且安全。空键由 key 字段自己的校验负责。
          */
         "validateEntries": () => Promise<boolean>;
         /**
@@ -1123,7 +1123,7 @@ declare namespace LocalJSX {
          */
         "formValueStore"?: FormValueStore;
         /**
-          * 外层表单的标签位置。 键值条目内部固定使用 top，避免窄列里的左右布局把属性值和控件拆开。
+          * 外层表单的标签位置。 键值条目内部使用 left，让“键/值”和对应控件同行显示。
           * @default 'left'
          */
         "labelPosition"?: LabelPosition;

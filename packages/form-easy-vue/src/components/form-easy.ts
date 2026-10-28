@@ -31,6 +31,7 @@ type FormEasyElement = HTMLElement & {
   endpointManager?: EndpointManager;
   formValueStore?: FormValueStore;
   maxRenderDepth?: number;
+  disabled?: boolean;
   showLoadingOverlay?: boolean;
   validate?: () => Promise<boolean>;
   validateField?: (fieldId: string) => Promise<boolean>;
@@ -81,6 +82,11 @@ export const FormEasy = defineComponent({
       type: Number,
       default: 32
     },
+    /** 禁用整个表单的用户编辑。 */
+    disabled: {
+      type: Boolean,
+      default: false
+    },
     /** 是否在表单上渲染 loading 蒙层。 */
     showLoadingOverlay: {
       type: Boolean,
@@ -127,6 +133,7 @@ export const FormEasy = defineComponent({
       target.endpointManager = props.endpointManager;
       target.formValueStore = props.formValueStore;
       target.maxRenderDepth = props.maxRenderDepth;
+      target.disabled = props.disabled;
       target.showLoadingOverlay = props.showLoadingOverlay;
     };
 
@@ -173,6 +180,7 @@ export const FormEasy = defineComponent({
         props.endpointManager,
         props.formValueStore,
         props.maxRenderDepth,
+        props.disabled,
         props.showLoadingOverlay
       ],
       syncProperties,

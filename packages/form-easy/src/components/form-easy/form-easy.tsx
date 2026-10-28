@@ -107,6 +107,8 @@ export class FormEasy {
   @Prop() formValueStore?: FormValueStore;
   /** 表单允许渲染的最大字段嵌套深度。 */
   @Prop() maxRenderDepth = 32;
+  /** 禁用整个表单的用户编辑，不改变字段自身的禁用状态。 */
+  @Prop() disabled = false;
   /**
    * 是否在表单上渲染 loading 蒙层。
    *
@@ -637,6 +639,7 @@ export class FormEasy {
               fieldId={`${schema.key}.${field.key}`}
               formKey={schema.key}
               labelPosition={this.labelPosition}
+              parentDisabled={this.disabled}
               basicFieldRenderer={this.basicFieldRenderer}
               componentDataManager={this.componentDataManager}
               endpointManager={this.endpointManager}

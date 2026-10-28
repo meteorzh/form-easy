@@ -496,6 +496,7 @@ result.warnings.forEach(issue => {
 | `definitions` | 可通过 `$ref` 引用的可复用字段模板。 |
 | `labelPosition` | 标签位置：`left`（默认）、`top`、`right`。 |
 | `maxRenderDepth` | `<form-easy>` 组件属性，递归字段最大渲染深度，默认 `32`。 |
+| `disabled` | `<form-easy>` / `<FormEasy>` 组件属性，默认 `false`；禁用所有字段（含嵌套字段、可选字段切换和增删操作）。恢复后保留字段自身的禁用状态，不影响程序填值及校验；不是 schema 属性。 |
 
 ### 基础字段
 

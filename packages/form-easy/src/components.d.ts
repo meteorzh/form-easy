@@ -39,6 +39,11 @@ export namespace Components {
          */
         "componentDataManager"?: ComponentDataManager;
         /**
+          * 禁用整个表单的用户编辑，不改变字段自身的禁用状态。
+          * @default false
+         */
+        "disabled": boolean;
+        /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
         "endpointManager"?: EndpointManager;
@@ -741,6 +746,11 @@ declare namespace LocalJSX {
          */
         "componentDataManager"?: ComponentDataManager;
         /**
+          * 禁用整个表单的用户编辑，不改变字段自身的禁用状态。
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
           * 当前表单覆盖全局配置的异步服务端点管理器。
          */
         "endpointManager"?: EndpointManager;
@@ -1224,6 +1234,7 @@ declare namespace LocalJSX {
 
     interface FormEasyAttributes {
         "maxRenderDepth": number;
+        "disabled": boolean;
         "showLoadingOverlay": boolean;
     }
     interface FormEasyArrayAttributes {

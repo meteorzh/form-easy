@@ -320,6 +320,11 @@ export class FormEasyCreator {
     this.refreshCreatedSchema(this.creatorFormValue, false);
   }
 
+  /** 内部动态表单的事件只在设计器内部使用，不能冒泡到设计器宿主，避免和设计器自身的事件混淆。 */
+  private stopInnerFormEvent = (event: Event): void => {
+    event.stopPropagation();
+  };
+
   /** 接收内部动态表单直接输出的目标 Schema。 */
   private handleCreatorFormChange = (event: CustomEvent<FormChangeDetail>): void => {
     event.stopPropagation();
@@ -390,6 +395,9 @@ export class FormEasyCreator {
           schema={this.createdSchema}
           basicFieldRenderer={this.basicFieldRenderer ?? null}
           eventCenter={this.previewEventCenter}
+          onFormChange={this.stopInnerFormEvent}
+          onFormLoading={this.stopInnerFormEvent}
+          onFormReady={this.stopInnerFormEvent}
         />
       </div>
     );
@@ -463,6 +471,8 @@ export class FormEasyCreator {
               componentDataManager={this.creatorComponentDataManager}
               eventCenter={this.creatorEventCenter}
               onFormChange={this.handleCreatorFormChange}
+              onFormLoading={this.stopInnerFormEvent}
+              onFormReady={this.stopInnerFormEvent}
             />
           </section>
 

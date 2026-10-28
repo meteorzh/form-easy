@@ -39,6 +39,8 @@ describe('表单 schema 切换 loading 状态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flushDeferredLoad(page);
     const events: boolean[] = [];
     page.root!.addEventListener('formLoading', () => events.push(true));
     page.root!.addEventListener('formReady', () => events.push(false));
@@ -63,6 +65,8 @@ describe('表单 schema 切换 loading 状态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flushDeferredLoad(page);
 
     const instance = page.rootInstance as unknown as {
       schemaLoading: boolean;

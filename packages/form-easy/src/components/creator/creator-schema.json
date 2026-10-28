@@ -51,6 +51,7 @@
       "key": "definitions",
       "name": "可复用字段定义",
       "category": "record",
+      "defaultValue": {},
       "kvDef": {
         "key": {
           "name": "定义名称",

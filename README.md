@@ -102,7 +102,7 @@ form.addEventListener('formReady', event => {
 });
 ```
 
-替换 `schema` 或 `value` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成初始化后移出蒙层；开始时发出 `formLoading`，结束时发出 `formReady`。loading 期间对 `schema` 或 `value` 的修改会在控制台记录错误并被忽略，请在收到 `formReady` 后再修改。
+首次挂载以及替换 `schema` 或 `value` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成初始化后移出蒙层；开始时发出 `formLoading`，结束时发出 `formReady`。首次挂载或 `schema` 触发的加载结束后会补发一次 `formChange` 报告完整数据，`value` 触发的加载不会。loading 期间对 `schema` 或 `value` 的修改会在控制台记录错误并被忽略，请在收到 `formReady` 后再修改。
 
 ```html
 <form-easy></form-easy>
@@ -227,8 +227,8 @@ const existingSchema: FormSchema = {
   fields: []
 };
 
-function handleSchemaChange(event: CustomEvent<FormEasyCreatorChangeDetail>) {
-  const { schema, validation } = event.detail;
+function handleSchemaChange(detail: FormEasyCreatorChangeDetail) {
+  const { schema, validation } = detail;
   console.log('当前 schema', schema);
   console.log('是否可用', validation.valid);
 }
@@ -286,7 +286,7 @@ function handleFormChange(detail: FormChangeDetail) {
 </template>
 ```
 
-`FormEasy` 只接受单向 `value`，不再提供 `v-model`。表单内部编辑通过 `formChange` 事件输出，事件的 `detail.formData` 是最新的表单数据。
+`FormEasy` 只接受单向 `value`，不再提供 `v-model`。表单内部编辑通过 `formChange` 事件输出，事件的 `detail.formData` 是最新的表单数据。`FormEasyCreator` 同样只接受单向 `value`，编辑结果通过 `schemaChange` 事件的 `detail.schema` 获取。
 
 也可以全局安装两个入口组件：
 

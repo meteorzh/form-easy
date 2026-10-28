@@ -38,6 +38,8 @@ import { FormEasy, FormEasyCreator, installFormEasyVue } from '@wenzhencn/form-e
 app.use(installFormEasyVue);
 ```
 
+`FormEasyCreator` 同样只接受单向 `value`，不提供 `v-model`。编辑结果通过 `schemaChange` 事件的 `detail.schema` 获取；请不要把它回写到 `value`，回写会被当作载入新的表单配置，设计器会整体重新载入。
+
 两个包装组件只负责 Vue props 和事件适配；字段循环、数组、对象、record、
 校验及事件管理仍由 `form-easy` 核心组件完成。
 
@@ -45,7 +47,7 @@ app.use(installFormEasyVue);
 
 `FormEasy` 仅接受单向 `value`，不提供 `v-model`。请在 `formChange` 事件中读取 `detail.formData` 获取最新表单数据。
 
-替换 `schema` 或 `value` 时表单会进入 loading 状态；包装器通过 `loading` 事件转发核心组件的 `formLoading`，通过 `ready` 事件转发 `formReady`，并通过 `expose` 提供 `loading` 状态。
+首次挂载以及替换 `schema` 或 `value` 时，表单会进入 loading 状态；包装器通过 `loading` 事件转发核心组件的 `formLoading`，通过 `ready` 事件转发 `formReady`，并通过 `expose` 提供 `loading` 状态。
 
 loading 期间不能修改 `schema` 或 `value`，核心组件会在控制台记录错误并忽略该次修改。每轮加载结束都会发出 `formReady`，此时才可以再次修改；替换 `schema` 后包装器会在 `formReady` 时自动写入最新的 `value`。
 

@@ -5,6 +5,17 @@ import { FormEasyField } from './components/form-easy-field/form-easy-field';
 import type { BasicFieldRenderer } from './renderers/basic-field-renderer';
 import type { FormChangeDetail, FormSchema } from './types';
 
+/** 等待表单首次挂载的加载结束，加载期间的 formChange 会合并到结束时发出。 */
+async function waitForInitialization(page: {
+  rootInstance?: unknown;
+  waitForChanges(): Promise<unknown>;
+}): Promise<void> {
+  for (let i = 0; i < 40 && (page.rootInstance as { schemaLoading: boolean }).schemaLoading; i++) {
+    await new Promise(resolve => { setTimeout(resolve, 0); });
+    await page.waitForChanges();
+  }
+}
+
 describe('命名字段 omitWhenHidden 输出策略', () => {
   it('隐藏时省略输出，重新显示后恢复字段原始值', async () => {
     const schema: FormSchema = {
@@ -34,6 +45,7 @@ describe('命名字段 omitWhenHidden 输出策略', () => {
       )
     });
     await page.waitForChanges();
+    await waitForInitialization(page);
 
     const changes: FormChangeDetail[] = [];
     page.root!.addEventListener('formChange', event => {

@@ -15,6 +15,17 @@ function createTestRenderer(): BasicFieldRenderer {
   };
 }
 
+/** 等待表单首次挂载的加载结束，加载期间的 formChange 会合并到结束时发出。 */
+async function waitForInitialization(page: {
+  rootInstance?: unknown;
+  waitForChanges(): Promise<unknown>;
+}): Promise<void> {
+  for (let i = 0; i < 40 && (page.rootInstance as { schemaLoading: boolean }).schemaLoading; i++) {
+    await new Promise(resolve => { setTimeout(resolve, 0); });
+    await page.waitForChanges();
+  }
+}
+
 describe('optional 字段输出存在状态', () => {
   it('默认不输出字段，并可以从 label 区域启用 null 值输出', async () => {
     const schema: FormSchema = {
@@ -37,6 +48,7 @@ describe('optional 字段输出存在状态', () => {
       )
     });
     await page.waitForChanges();
+    await waitForInitialization(page);
 
     const changes: FormChangeDetail[] = [];
     page.root!.addEventListener('formChange', event => {

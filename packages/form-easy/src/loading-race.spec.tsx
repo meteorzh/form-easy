@@ -28,11 +28,11 @@ function createSchema(key: string, fieldKey: string): FormSchema {
   };
 }
 
-/** 推进若干个宏任务与渲染周期，等待异步重载完成。 */
+/** 推进若干个宏任务与渲染周期，等待异步重载和字段树稳定全部完成。 */
 async function flush(page: {
   waitForChanges(): Promise<unknown>;
 }): Promise<void> {
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 40; i++) {
     await new Promise(resolve => { setTimeout(resolve, 0); });
     await page.waitForChanges();
   }
@@ -65,6 +65,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const events = captureLoadingEvents(page.root!);
     const ready: string[] = [];
     page.root!.addEventListener('formReady', event => {
@@ -93,6 +95,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const events = captureLoadingEvents(page.root!);
     // 模拟 Vue 包装层：结构就绪后同步写入已保存的值。
     page.root!.addEventListener('formReady', () => {
@@ -122,6 +126,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const errors: string[] = [];
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(String(args[0]));
@@ -151,6 +157,8 @@ describe('表单 loading 蒙层竞态', () => {
       template: () => <form-easy-creator value={createSchema('eA', 'x')} />
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     let pushed = false;
     page.root!.addEventListener('formReady', () => {
       if (pushed) return;
@@ -179,6 +187,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const events = captureLoadingEvents(page.root!);
     const ready: string[] = [];
     page.root!.addEventListener('formReady', event => {
@@ -203,6 +213,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const events = captureLoadingEvents(page.root!);
     const errors: string[] = [];
     const originalError = console.error;
@@ -235,6 +247,8 @@ describe('表单 loading 蒙层竞态', () => {
       )
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const errors: string[] = [];
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(String(args[0]));
@@ -259,6 +273,8 @@ describe('表单 loading 蒙层竞态', () => {
       template: () => <form-easy-creator value={createSchema('cA', 'x')} />
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const events = captureLoadingEvents(page.root!);
     const ready: string[] = [];
     page.root!.addEventListener('formReady', event => {
@@ -283,6 +299,8 @@ describe('表单 loading 蒙层竞态', () => {
       template: () => <form-easy-creator value={createSchema('dA', 'x')} />
     });
     await page.waitForChanges();
+    // 首次挂载同样会进入加载状态，等它结束后再开始修改。
+    await flush(page);
     const errors: string[] = [];
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(String(args[0]));

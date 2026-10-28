@@ -152,6 +152,10 @@ export class FormEasy {
   private loadingFormKey = '';
   /** 重载工作循环是否正在运行。 */
   private reloadRunning = false;
+  /** 当前 loading 会话的类型，决定加载完成后是否补发 formChange。 */
+  private loadingKind: 'schema' | 'value' = 'schema';
+  /** 加载期间记录的最后一次字段值变化。 */
+  private pendingFormChange?: { fieldId: string; value: unknown };
   /** 取消当前用户事件桥接的函数。 */
   private removeUserEventListener?: () => void;
 
@@ -190,13 +194,24 @@ export class FormEasy {
     this.formData = {};
     // 首次挂载时属性由框架直接写入，不需要再走一次重载流程。
     this.mounted = false;
+    // 首次挂载同样是一次 schema 加载：蒙层从第一次渲染起就盖住逐层挂载的字段。
+    if (this.isSchemaReady()) this.beginInitialLoading();
   }
 
   /** 初始化第二阶段：按预设值或默认值写入字段数据。 */
   componentDidLoad(): void {
     this.bindUserEvents();
+    // schema 可能在两个生命周期之间才写入，此时在这里开始加载。
+    if (this.isSchemaReady()) this.beginInitialLoading();
     this.initializeFormData();
     this.mounted = true;
+    if (this.schemaLoading) this.ensureReloadWorker(false);
+  }
+
+  /** 首次挂载按 schema 加载处理，结束后上报一次最终表单数据。 */
+  private beginInitialLoading(): void {
+    this.loadingKind = 'schema';
+    this.beginSchemaLoading(this.schema.key);
   }
 
   /** 元素重新连接到文档后恢复用户事件桥接。 */
@@ -223,7 +238,7 @@ export class FormEasy {
    * 填充值没有实际变化时不进入 loading，避免无意义的蒙层闪烁。
    */
   private requestReload(kind: 'schema' | 'value'): void {
-    // 首次挂载由生命周期直接初始化表单，不进入 loading。
+    // 首次挂载由生命周期负责加载。
     if (!this.mounted) return;
     if (!this.isSchemaReady()) return;
     if (kind === 'value'
@@ -231,6 +246,7 @@ export class FormEasy {
       && this.areValuesEqual(this.computeValueFormData(), this.formData)) {
       return;
     }
+    this.loadingKind = kind;
     this.beginSchemaLoading(this.schema.key);
     this.ensureReloadWorker();
   }
@@ -248,6 +264,7 @@ export class FormEasy {
     }
     this.loadingFormKey = formKey;
     this.schemaLoading = true;
+    this.pendingFormChange = undefined;
     this.formLoading.emit({ formKey });
   }
 
@@ -258,11 +275,15 @@ export class FormEasy {
     this.formReady.emit({ formKey: this.loadingFormKey });
   }
 
-  /** 启动重载工作循环；已有循环在运行时直接复用。 */
-  private ensureReloadWorker(): void {
+  /**
+   * 启动重载工作循环；已有循环在运行时直接复用。
+   *
+   * @param applyData 是否由工作循环写入数据；首次挂载时生命周期已经写入，只需等待字段稳定。
+   */
+  private ensureReloadWorker(applyData = true): void {
     if (this.reloadRunning) return;
     this.reloadRunning = true;
-    void this.runReloadWorker();
+    void this.runReloadWorker(applyData);
   }
 
   /**
@@ -272,25 +293,68 @@ export class FormEasy {
    * 落数据后再让出一帧，保证蒙层是带着旧内容一起消失的，不会出现闪一下。
    * 加载结束后发出 formReady，提示调用者可以设置新的 schema 和 value 了。
    */
-  private async runReloadWorker(): Promise<void> {
+  private async runReloadWorker(applyData: boolean): Promise<void> {
+    // 加载期间 schema 和 value 的修改都会被拒绝，本轮类型不会中途改变。
+    const kind = this.loadingKind;
+    let completed = false;
     try {
-      await waitForNextPaint();
-      if (!this.isSchemaReady()) return;
-      this.initialized = false;
-      this.fieldVisibility.clear();
-      this.fieldPresence.clear();
-      this.initializeFormData();
+      if (applyData) {
+        await waitForNextPaint();
+        if (!this.isSchemaReady()) return;
+        this.initialized = false;
+        // 可见与输出存在状态由字段挂载、卸载和标识迁移事件自行维护，这里不能清空：
+        // 复用的字段不会重新上报，清空后隐藏字段和未启用的 optional 字段会重新出现在输出里。
+        this.initializeFormData();
+      }
       // 关键：数据落地后再等一帧再收起蒙层。
       // 蒙层移除和内容更新如果发生在同一帧，浏览器会直接跳过中间状态，
       // 用户只会看到一闪而过、甚至完全看不到蒙层。
       await waitForNextPaint();
+      // 蒙层要一直盖到嵌套字段全部挂载完成，避免用户看到字段逐层出现。
+      await this.waitForFieldsSettled();
+      completed = true;
     } finally {
       // 必须先结束工作循环，再收起蒙层并发出 formReady（出错时同样收起蒙层）。
       // 监听器收到 formReady 时表单已完全空闲，此时发起的修改是合法修改，
       // 要能正常开启新一轮加载，不能被静默丢弃。
       this.reloadRunning = false;
+      const pending = this.pendingFormChange;
+      this.pendingFormChange = undefined;
       this.endSchemaLoading();
+      // schema 加载（含首次挂载）结束后补发加载期间的最后一次 formChange，报告整理后的完整数据；
+      // value 加载的数据由调用方给出，不再上报。formReady 监听器里已开始新一轮加载时也不再上报。
+      if (completed && kind === 'schema' && pending && !this.schemaLoading) {
+        this.emitFormChange(pending.fieldId, pending.value);
+      }
     }
+  }
+
+  /**
+   * 等待字段树稳定。
+   *
+   * 嵌套字段要等上层字段拿到值后才会渲染，组件代码也可能按需加载，
+   * 因此逐帧等待全部 form-easy 子组件就绪，直到一帧内不再出现新的子组件。
+   */
+  private async waitForFieldsSettled(): Promise<void> {
+    // 每一轮至少展开一层嵌套字段，超过渲染深度保护上限后不再等待。
+    for (let round = 0; round <= this.maxRenderDepth + 1; round++) {
+      const current = new Set(this.getFormEasyDescendants());
+      await Promise.all(Array.from(current).map(element =>
+        (element as HTMLElement & { componentOnReady?: () => Promise<unknown> })
+          .componentOnReady?.()
+      ));
+      await waitForNextPaint();
+      const next = this.getFormEasyDescendants();
+      if (next.length === current.size && next.every(element => current.has(element))) {
+        return;
+      }
+    }
+  }
+
+  /** 获取当前表单内渲染的全部 form-easy 子组件。 */
+  private getFormEasyDescendants(): Element[] {
+    return Array.from(this.hostElement.querySelectorAll('*'))
+      .filter(element => element.tagName.startsWith('FORM-EASY-'));
   }
 
   /** 校验表单中当前挂载的全部字段，并返回是否全部通过。 */
@@ -374,6 +438,12 @@ export class FormEasy {
 
   /** 发送保留原始字段值、但按输出策略过滤后的表单变化事件。 */
   private emitFormChange(fieldId: string, value: unknown): void {
+    if (this.schemaLoading) {
+      // 加载期间字段逐层挂载产生的变化不是用户编辑，只记住最后一次，
+      // 发出时才计算输出数据，因此补发时报告的是加载结束时的完整数据。
+      this.pendingFormChange = { fieldId, value };
+      return;
+    }
     this.formChange.emit({
       fieldId,
       value,

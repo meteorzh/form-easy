@@ -29,13 +29,8 @@ export const FormEasyCreator = defineComponent({
   name: 'FormEasyCreator',
   inheritAttrs: false,
   props: {
-    /** 需要编辑的表单 schema。 */
+    /** 需要载入设计器编辑的表单 schema；编辑结果请通过 schemaChange 事件获取。 */
     value: {
-      type: Object as PropType<FormSchema | undefined>,
-      default: undefined
-    },
-    /** Vue 风格的设计器双向绑定值。 */
-    modelValue: {
       type: Object as PropType<FormSchema | undefined>,
       default: undefined
     },
@@ -51,9 +46,7 @@ export const FormEasyCreator = defineComponent({
     /** 转发原生 formLoading 事件。 */
     loading: (_detail: FormLoadingDetail) => true,
     /** 转发原生 formReady 事件。 */
-    ready: (_detail: FormReadyDetail) => true,
-    /** Vue v-model 更新事件。 */
-    'update:modelValue': (_value: FormSchema) => true
+    ready: (_detail: FormReadyDetail) => true
   },
   setup(props, { emit, attrs, expose }) {
     const element = ref<FormEasyCreatorElement>();
@@ -66,7 +59,7 @@ export const FormEasyCreator = defineComponent({
     const syncProperties = (): void => {
       const target = element.value;
       if (!target) return;
-      target.value = props.modelValue ?? props.value;
+      target.value = props.value;
       target.basicFieldRenderer = props.basicFieldRenderer;
     };
 
@@ -74,9 +67,7 @@ export const FormEasyCreator = defineComponent({
       await ensureFormEasyCustomElements();
       syncProperties();
       schemaChangeListener = (event: Event): void => {
-        const detail = (event as CustomEvent<FormEasyCreatorChangeDetail>).detail;
-        emit('schemaChange', detail);
-        emit('update:modelValue', detail.schema);
+        emit('schemaChange', (event as CustomEvent<FormEasyCreatorChangeDetail>).detail);
       };
       formLoadingListener = (event: Event): void => {
         loading.value = true;
@@ -92,7 +83,7 @@ export const FormEasyCreator = defineComponent({
     });
 
     watch(
-      () => [props.value, props.modelValue, props.basicFieldRenderer],
+      () => [props.value, props.basicFieldRenderer],
       syncProperties,
       { deep: false }
     );
@@ -111,9 +102,9 @@ export const FormEasyCreator = defineComponent({
 
     expose({
       getSchema: () =>
-        element.value?.getSchema?.() ?? Promise.resolve(props.modelValue ?? props.value),
+        element.value?.getSchema?.() ?? Promise.resolve(props.value),
       getDesignerSchema: () =>
-        element.value?.getDesignerSchema?.() ?? Promise.resolve(props.modelValue ?? props.value),
+        element.value?.getDesignerSchema?.() ?? Promise.resolve(props.value),
       validate: () => element.value?.validate?.() ?? Promise.resolve(false),
       loading,
       element

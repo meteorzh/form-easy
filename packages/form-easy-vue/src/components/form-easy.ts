@@ -96,8 +96,8 @@ export const FormEasy = defineComponent({
   emits: {
     /** 转发原生 formChange 事件。 */
     formChange: (_detail: FormChangeDetail) => true,
-    /** 转发原生 formLoadingChange 事件。 */
-    loadingChange: (_detail: FormLoadingDetail) => true,
+    /** 转发原生 formLoading 事件。 */
+    loading: (_detail: FormLoadingDetail) => true,
     /** 转发原生 formReady 事件。 */
     ready: (_detail: FormReadyDetail) => true,
     /** 转发原生 userEvent 事件。 */
@@ -110,7 +110,7 @@ export const FormEasy = defineComponent({
     let userEventListener: ((event: Event) => void) | undefined;
     let formLoadingListener: ((event: Event) => void) | undefined;
     let formReadyListener: ((event: Event) => void) | undefined;
-    /** 当前是否正在按新 schema 重新初始化表单。 */
+    /** 当前是否正在按新的 schema 或 value 重新加载表单。 */
     const loading = ref(false);
 
     const syncProperties = (): void => {
@@ -118,11 +118,14 @@ export const FormEasy = defineComponent({
       if (!target || !customElementReady.value) return;
       const schemaChanged = target.schema !== props.schema;
       target.schema = props.schema;
-      // schema setter 会立即进入 loading；不能在同一次同步里继续写 value。
-      // 等原生组件发出 formReady 后，再把当前最新 value 写入新结构。
-      if (!schemaChanged && !loading.value) {
+      // schema setter 进入 loading 时不能在同一次同步里继续写 value，
+      // 等原生组件发出 formReady 后再把当前最新 value 写入新结构。
+      // 原生组件尚未完成首次挂载时 schema 不会触发加载，也不会发出 formReady，
+      // 此时必须直接写入 value，否则首次挂载会丢失已保存的值。
+      // formLoading 由 setter 同步发出，这里读到的 loading 已是最新状态。
+      if (!loading.value) {
         target.value = props.value;
-      } else if (!schemaChanged && loading.value && target.value !== props.value) {
+      } else if (!schemaChanged && target.value !== props.value) {
         console.error(
           '表单正在加载 schema，此时不能同步 value；请等待 ready 事件后再更新。'
         );
@@ -149,15 +152,15 @@ export const FormEasy = defineComponent({
         emit('userEvent', (event as CustomEvent<UserEvent>).detail);
       };
       formLoadingListener = (event: Event): void => {
-        const detail = (event as CustomEvent<FormLoadingDetail>).detail;
-        loading.value = detail.loading;
-        emit('loadingChange', detail);
+        loading.value = true;
+        emit('loading', (event as CustomEvent<FormLoadingDetail>).detail);
       };
       formReadyListener = (event: Event): void => {
         loading.value = false;
         emit('ready', (event as CustomEvent<FormReadyDetail>).detail);
         const target = element.value;
-        // 只有目标 schema 仍然是当前 props 时才同步 value；
+        // 只有目标 schema 仍然是当前 props 时才同步 value，
+        // 这样加载期间被拒绝的 value 修改会在加载结束后补上；
         // loading 期间被拒绝的 schema 修改必须由调用方重新提交。
         if (target && target.schema === props.schema) {
           target.value = props.value;
@@ -165,7 +168,7 @@ export const FormEasy = defineComponent({
       };
       element.value?.addEventListener('formChange', formChangeListener);
       element.value?.addEventListener('userEvent', userEventListener);
-      element.value?.addEventListener('formLoadingChange', formLoadingListener);
+      element.value?.addEventListener('formLoading', formLoadingListener);
       element.value?.addEventListener('formReady', formReadyListener);
       syncProperties();
     });
@@ -195,7 +198,7 @@ export const FormEasy = defineComponent({
         element.value?.removeEventListener('userEvent', userEventListener);
       }
       if (formLoadingListener) {
-        element.value?.removeEventListener('formLoadingChange', formLoadingListener);
+        element.value?.removeEventListener('formLoading', formLoadingListener);
       }
       if (formReadyListener) {
         element.value?.removeEventListener('formReady', formReadyListener);

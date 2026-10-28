@@ -150,9 +150,9 @@ export class FormEasyCreator {
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 设计器生成的 schema 或校验结果变化时触发。 */
   @Event() schemaChange!: EventEmitter<FormEasyCreatorChangeDetail>;
-  /** 设计器按新 value 重新载入时触发。 */
-  @Event() formLoadingChange!: EventEmitter<FormLoadingDetail>;
-  /** 设计器载入完成、可以接受新的表单配置时触发。 */
+  /** 设计器按新 value 开始重新载入时触发；载入期间的修改会被忽略。 */
+  @Event() formLoading!: EventEmitter<FormLoadingDetail>;
+  /** 设计器载入完成、可以接受新的表单配置时触发，与 formLoading 成对出现。 */
   @Event() formReady!: EventEmitter<FormReadyDetail>;
   /** 设计器动态表单直接维护的目标 Schema 数据。 */
   @State() private creatorFormValue: CreatorFormValue = (
@@ -227,30 +227,24 @@ export class FormEasyCreator {
     return value?.key ?? this.createdSchema.key;
   }
 
-  /** 进入 loading 状态并通知使用者。 */
+  /** 进入 loading 状态并发出 formLoading。 */
   private beginSchemaLoading(formKey: string): void {
     if (this.schemaLoading) {
       // 载入目标换了表单时，先结束旧会话再开新会话，
-      // 保证 true 和 false 事件始终成对且指向同一个表单。
+      // 保证 formLoading 和 formReady 始终成对且指向同一个表单。
       if (this.loadingFormKey === formKey) return;
       this.endSchemaLoading();
     }
     this.loadingFormKey = formKey;
     this.schemaLoading = true;
-    this.formLoadingChange.emit({
-      loading: true,
-      formKey: this.loadingFormKey
-    });
+    this.formLoading.emit({ formKey });
   }
 
-  /** 结束 loading 状态并通知使用者。 */
+  /** 结束 loading 状态并发出 formReady，此后设计器可以接受新的配置。 */
   private endSchemaLoading(): void {
     if (!this.schemaLoading) return;
     this.schemaLoading = false;
-    this.formLoadingChange.emit({
-      loading: false,
-      formKey: this.loadingFormKey
-    });
+    this.formReady.emit({ formKey: this.loadingFormKey });
   }
 
   /** 启动载入工作循环；已有循环在运行时直接复用。 */
@@ -273,13 +267,12 @@ export class FormEasyCreator {
       this.editorRevision += 1;
       // 数据落地后再等一帧再收起蒙层，避免蒙层和内容更新落在同一帧被跳过。
       await waitForNextPaint();
-      this.endSchemaLoading();
-      this.formReady.emit({ formKey: this.createdSchema.key });
-    } catch (error) {
-      this.endSchemaLoading();
-      throw error;
     } finally {
+      // 必须先结束工作循环，再收起蒙层并发出 formReady（出错时同样收起蒙层）。
+      // 监听器收到 formReady 时设计器已完全空闲，此时发起的修改是合法修改，
+      // 要能正常开启新一轮载入，不能被静默丢弃。
       this.loadWorkerRunning = false;
+      this.endSchemaLoading();
     }
   }
 

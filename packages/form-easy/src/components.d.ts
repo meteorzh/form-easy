@@ -532,7 +532,7 @@ export interface FormEasyUploadCustomEvent<T> extends CustomEvent<T> {
 declare global {
     interface HTMLFormEasyElementEventMap {
         "formChange": FormChangeDetail;
-        "formLoadingChange": FormLoadingDetail;
+        "formLoading": FormLoadingDetail;
         "formReady": FormReadyDetail;
         "userEvent": UserEvent;
     }
@@ -575,7 +575,7 @@ declare global {
     };
     interface HTMLFormEasyCreatorElementEventMap {
         "schemaChange": FormEasyCreatorChangeDetail;
-        "formLoadingChange": FormLoadingDetail;
+        "formLoading": FormLoadingDetail;
         "formReady": FormReadyDetail;
     }
     /**
@@ -772,11 +772,11 @@ declare namespace LocalJSX {
          */
         "onFormChange"?: (event: FormEasyCustomEvent<FormChangeDetail>) => void;
         /**
-          * 表单按新 schema 重新初始化时触发。
+          * 表单按新的 schema 或 value 开始重新加载时触发；加载期间的修改会被忽略。
          */
-        "onFormLoadingChange"?: (event: FormEasyCustomEvent<FormLoadingDetail>) => void;
+        "onFormLoading"?: (event: FormEasyCustomEvent<FormLoadingDetail>) => void;
         /**
-          * 表单结构就绪、可以接受填充值时触发。
+          * 每轮加载结束、表单可以接受新的 schema 和 value 时触发，与 formLoading 成对出现。
          */
         "onFormReady"?: (event: FormEasyCustomEvent<FormReadyDetail>) => void;
         /**
@@ -877,11 +877,11 @@ declare namespace LocalJSX {
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
         /**
-          * 设计器按新 value 重新载入时触发。
+          * 设计器按新 value 开始重新载入时触发；载入期间的修改会被忽略。
          */
-        "onFormLoadingChange"?: (event: FormEasyCreatorCustomEvent<FormLoadingDetail>) => void;
+        "onFormLoading"?: (event: FormEasyCreatorCustomEvent<FormLoadingDetail>) => void;
         /**
-          * 设计器载入完成、可以接受新的表单配置时触发。
+          * 设计器载入完成、可以接受新的表单配置时触发，与 formLoading 成对出现。
          */
         "onFormReady"?: (event: FormEasyCreatorCustomEvent<FormReadyDetail>) => void;
         /**

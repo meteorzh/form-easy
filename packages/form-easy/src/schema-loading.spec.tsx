@@ -3,7 +3,7 @@ import { newSpecPage } from '@stencil/core/testing';
 import { FormEasy } from './components/form-easy/form-easy';
 import { FormEasyField } from './components/form-easy-field/form-easy-field';
 import type { BasicFieldRenderer } from './renderers/basic-field-renderer';
-import type { FormLoadingDetail, FormSchema } from './types';
+import type { FormSchema } from './types';
 
 /** loading 测试不需要挂载真实输入控件。 */
 const noopRenderer: BasicFieldRenderer = {
@@ -40,9 +40,8 @@ describe('表单 schema 切换 loading 状态', () => {
     });
     await page.waitForChanges();
     const events: boolean[] = [];
-    page.root!.addEventListener('formLoadingChange', event => {
-      events.push((event as CustomEvent<FormLoadingDetail>).detail.loading);
-    });
+    page.root!.addEventListener('formLoading', () => events.push(true));
+    page.root!.addEventListener('formReady', () => events.push(false));
 
     page.root!.schema = createSchema('loadingB', 'y', 'B');
     await flushDeferredLoad(page);

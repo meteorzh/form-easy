@@ -36,16 +36,18 @@ describe('设计器 loading 事件隔离', () => {
       template: () => <form-easy-creator value={createSchema('outer', 'x')} />
     });
     await page.waitForChanges();
-    const events: FormLoadingDetail[] = [];
-    page.root!.addEventListener('formLoadingChange', event => {
-      events.push((event as CustomEvent<FormLoadingDetail>).detail);
+    const events: Array<FormLoadingDetail & { loading: boolean }> = [];
+    page.root!.addEventListener('formLoading', event => {
+      events.push({ ...(event as CustomEvent<FormLoadingDetail>).detail, loading: true });
+    });
+    page.root!.addEventListener('formReady', event => {
+      events.push({ ...(event as CustomEvent<FormLoadingDetail>).detail, loading: false });
     });
 
     (page.root as any).value = createSchema('outer2', 'y');
     await flush(page);
 
-    // 设计器自身只应该发出一对 loading 事件。
-    console.log('EVENTS', JSON.stringify(events));
+    // 设计器自身只应该发出一对 formLoading / formReady 事件。
     expect(events).toHaveLength(2);
     expect(events[0].loading).toBe(true);
     expect(events[1].loading).toBe(false);

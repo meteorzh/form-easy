@@ -48,8 +48,8 @@ export const FormEasyCreator = defineComponent({
   emits: {
     /** 转发原生 schemaChange 事件。 */
     schemaChange: (_detail: FormEasyCreatorChangeDetail) => true,
-    /** 转发原生 formLoadingChange 事件。 */
-    loadingChange: (_detail: FormLoadingDetail) => true,
+    /** 转发原生 formLoading 事件。 */
+    loading: (_detail: FormLoadingDetail) => true,
     /** 转发原生 formReady 事件。 */
     ready: (_detail: FormReadyDetail) => true,
     /** Vue v-model 更新事件。 */
@@ -79,15 +79,15 @@ export const FormEasyCreator = defineComponent({
         emit('update:modelValue', detail.schema);
       };
       formLoadingListener = (event: Event): void => {
-        const detail = (event as CustomEvent<FormLoadingDetail>).detail;
-        loading.value = detail.loading;
-        emit('loadingChange', detail);
+        loading.value = true;
+        emit('loading', (event as CustomEvent<FormLoadingDetail>).detail);
       };
       formReadyListener = (event: Event): void => {
+        loading.value = false;
         emit('ready', (event as CustomEvent<FormReadyDetail>).detail);
       };
       element.value?.addEventListener('schemaChange', schemaChangeListener);
-      element.value?.addEventListener('formLoadingChange', formLoadingListener);
+      element.value?.addEventListener('formLoading', formLoadingListener);
       element.value?.addEventListener('formReady', formReadyListener);
     });
 
@@ -102,7 +102,7 @@ export const FormEasyCreator = defineComponent({
         element.value?.removeEventListener('schemaChange', schemaChangeListener);
       }
       if (formLoadingListener) {
-        element.value?.removeEventListener('formLoadingChange', formLoadingListener);
+        element.value?.removeEventListener('formLoading', formLoadingListener);
       }
       if (formReadyListener) {
         element.value?.removeEventListener('formReady', formReadyListener);

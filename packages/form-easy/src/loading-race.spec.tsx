@@ -38,11 +38,17 @@ async function flush(page: {
   }
 }
 
-/** 收集表单上收到的全部 loading 事件。 */
-function captureLoadingEvents(element: Element): FormLoadingDetail[] {
-  const events: FormLoadingDetail[] = [];
-  element.addEventListener('formLoadingChange', event => {
-    events.push((event as CustomEvent<FormLoadingDetail>).detail);
+/** loading 事件记录：formLoading 记为 true，formReady 记为 false。 */
+type LoadingEventRecord = FormLoadingDetail & { loading: boolean };
+
+/** 按发生顺序收集表单上收到的 formLoading 和 formReady 事件。 */
+function captureLoadingEvents(element: Element): LoadingEventRecord[] {
+  const events: LoadingEventRecord[] = [];
+  element.addEventListener('formLoading', event => {
+    events.push({ ...(event as CustomEvent<FormLoadingDetail>).detail, loading: true });
+  });
+  element.addEventListener('formReady', event => {
+    events.push({ ...(event as CustomEvent<FormLoadingDetail>).detail, loading: false });
   });
   return events;
 }
@@ -76,7 +82,93 @@ describe('表单 loading 蒙层竞态', () => {
     expect(events[events.length - 1].loading).toBe(false);
   });
 
-  it('value 变化不会发出 formReady', async () => {
+  it('formReady 监听器里立即设置 value 不会丢失重载、蒙层能正常收起', async () => {
+    const page = await newSpecPage({
+      components: [FormEasy, FormEasyField],
+      template: () => (
+        <form-easy
+          schema={createSchema('chainA', 'x')}
+          basicFieldRenderer={noopRenderer}
+        />
+      )
+    });
+    await page.waitForChanges();
+    const events = captureLoadingEvents(page.root!);
+    // 模拟 Vue 包装层：结构就绪后同步写入已保存的值。
+    page.root!.addEventListener('formReady', () => {
+      (page.root as any).value = { y: 'saved' };
+    });
+
+    (page.root as any).schema = createSchema('chainB', 'y');
+    await flush(page);
+
+    const form = page.rootInstance as unknown as {
+      formData: Record<string, unknown>;
+      schemaLoading: boolean;
+    };
+    expect(form.formData.y).toBe('saved');
+    expect(form.schemaLoading).toBe(false);
+    expect(events.map(event => event.loading)).toEqual([true, false, true, false]);
+  });
+
+  it('value 加载结束后在 formReady 里设置 value 属于合法修改，会正常应用', async () => {
+    const page = await newSpecPage({
+      components: [FormEasy, FormEasyField],
+      template: () => (
+        <form-easy
+          schema={createSchema('endA', 'x')}
+          basicFieldRenderer={noopRenderer}
+        />
+      )
+    });
+    await page.waitForChanges();
+    const errors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => errors.push(String(args[0]));
+    let pushed = false;
+    page.root!.addEventListener('formReady', () => {
+      if (pushed) return;
+      pushed = true;
+      (page.root as any).value = { x: 'after-end' };
+    });
+
+    (page.root as any).value = { x: 'first' };
+    await flush(page);
+    console.error = originalError;
+
+    const form = page.rootInstance as unknown as {
+      formData: Record<string, unknown>;
+      schemaLoading: boolean;
+    };
+    expect(errors).toEqual([]);
+    expect(form.formData.x).toBe('after-end');
+    expect(form.schemaLoading).toBe(false);
+  });
+
+  it('设计器 formReady 监听器里立即设置 value 不会丢失载入', async () => {
+    const page = await newSpecPage({
+      components: [FormEasyCreator],
+      template: () => <form-easy-creator value={createSchema('eA', 'x')} />
+    });
+    await page.waitForChanges();
+    let pushed = false;
+    page.root!.addEventListener('formReady', () => {
+      if (pushed) return;
+      pushed = true;
+      (page.root as any).value = createSchema('eC', 'z');
+    });
+
+    (page.root as any).value = createSchema('eB', 'y');
+    await flush(page);
+
+    const creator = page.root as HTMLElement & {
+      getSchema(): Promise<FormSchema>;
+    };
+    expect((await creator.getSchema()).key).toBe('eC');
+    expect(page.root!.querySelector('.creator-loading')).toBeNull();
+  });
+
+  it('value 变化导致加载时，同样成对发出 formLoading 和 formReady', async () => {
     const page = await newSpecPage({
       components: [FormEasy, FormEasyField],
       template: () => (
@@ -96,8 +188,8 @@ describe('表单 loading 蒙层竞态', () => {
     (page.root as any).value = { x: 'vx' };
     await flush(page);
 
-    expect(ready).toEqual([]);
-    expect(events).toHaveLength(2);
+    expect(ready).toEqual(['valueOnly']);
+    expect(events.map(event => event.loading)).toEqual([true, false]);
   });
 
   it('loading 期间修改 schema 会记录错误并忽略该次修改', async () => {

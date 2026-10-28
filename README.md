@@ -94,12 +94,15 @@ form.schema = schema;
 form.addEventListener('formChange', event => {
   console.log(event.detail);
 });
-form.addEventListener('formLoadingChange', event => {
-  console.log(event.detail.loading, event.detail.formKey);
+form.addEventListener('formLoading', event => {
+  console.log('开始加载', event.detail.formKey);
+});
+form.addEventListener('formReady', event => {
+  console.log('加载结束', event.detail.formKey);
 });
 ```
 
-替换 `schema` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成新 schema 的初始化后移出蒙层；`formLoadingChange` 事件依次发出 `loading: true` 和 `loading: false`。
+替换 `schema` 或 `value` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成初始化后移出蒙层；开始时发出 `formLoading`，结束时发出 `formReady`。loading 期间对 `schema` 或 `value` 的修改会在控制台记录错误并被忽略，请在收到 `formReady` 后再修改。
 
 ```html
 <form-easy></form-easy>

@@ -55,11 +55,8 @@
     });
     observer.observe(form, { childList: true, subtree: true });
 
-    form.addEventListener('formLoadingChange', event => {
-      window.__marks.push({
-        name: 'loading=' + event.detail.loading,
-        t: performance.now()
-      });
+    form.addEventListener('formLoading', () => {
+      window.__marks.push({ name: 'formLoading', t: performance.now() });
     });
     form.addEventListener('formReady', () => {
       window.__marks.push({ name: 'formReady', t: performance.now() });

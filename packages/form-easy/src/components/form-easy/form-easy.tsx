@@ -118,9 +118,9 @@ export class FormEasy {
   @Prop() showLoadingOverlay = true;
   /** 每次值变更时触发字段和完整表单上下文。 */
   @Event() formChange!: EventEmitter<FormChangeDetail>;
-  /** 表单按新 schema 重新初始化时触发。 */
-  @Event() formLoadingChange!: EventEmitter<FormLoadingDetail>;
-  /** 表单结构就绪、可以接受填充值时触发。 */
+  /** 表单按新的 schema 或 value 开始重新加载时触发；加载期间的修改会被忽略。 */
+  @Event() formLoading!: EventEmitter<FormLoadingDetail>;
+  /** 每轮加载结束、表单可以接受新的 schema 和 value 时触发，与 formLoading 成对出现。 */
   @Event() formReady!: EventEmitter<FormReadyDetail>;
   /** 当前表单收到的用户事件。监听器可以取消事件入口的默认行为。 */
   @Event({
@@ -150,8 +150,6 @@ export class FormEasy {
   @State() private schemaLoading = false;
   /** 当前 loading 会话对应的表单键。 */
   private loadingFormKey = '';
-  /** 当前 loading 会话的类型，决定加载完成后是否发出 formReady。 */
-  private loadingKind: 'schema' | 'value' = 'value';
   /** 重载工作循环是否正在运行。 */
   private reloadRunning = false;
   /** 取消当前用户事件桥接的函数。 */
@@ -233,16 +231,15 @@ export class FormEasy {
       && this.areValuesEqual(this.computeValueFormData(), this.formData)) {
       return;
     }
-    this.loadingKind = kind;
     this.beginSchemaLoading(this.schema.key);
     this.ensureReloadWorker();
   }
 
   /**
-   * 进入 loading 状态并通知使用者。
+   * 进入 loading 状态并发出 formLoading。
    *
    * 同一个表单内连续修改只保持一次 loading 会话；表单键变化时先结束旧会话，
-   * 再为新表单开启会话，保证 true 和 false 事件始终成对且指向同一个表单。
+   * 再为新表单开启会话，保证 formLoading 和 formReady 始终成对且指向同一个表单。
    */
   private beginSchemaLoading(formKey: string): void {
     if (this.schemaLoading) {
@@ -251,14 +248,14 @@ export class FormEasy {
     }
     this.loadingFormKey = formKey;
     this.schemaLoading = true;
-    this.formLoadingChange.emit({ loading: true, formKey });
+    this.formLoading.emit({ formKey });
   }
 
-  /** 结束 loading 状态并通知使用者。 */
+  /** 结束 loading 状态并发出 formReady，此后表单可以接受新的 schema 和 value。 */
   private endSchemaLoading(): void {
     if (!this.schemaLoading) return;
     this.schemaLoading = false;
-    this.formLoadingChange.emit({ loading: false, formKey: this.loadingFormKey });
+    this.formReady.emit({ formKey: this.loadingFormKey });
   }
 
   /** 启动重载工作循环；已有循环在运行时直接复用。 */
@@ -273,15 +270,12 @@ export class FormEasy {
    *
    * 落数据前先让出两帧，保证 loading 蒙层真正绘制到屏幕上；
    * 落数据后再让出一帧，保证蒙层是带着旧内容一起消失的，不会出现闪一下。
-   * 由 schema 触发的加载结束后会发出 formReady，提示调用者可以设置填充值了。
+   * 加载结束后发出 formReady，提示调用者可以设置新的 schema 和 value 了。
    */
   private async runReloadWorker(): Promise<void> {
     try {
       await waitForNextPaint();
-      if (!this.isSchemaReady()) {
-        this.endSchemaLoading();
-        return;
-      }
+      if (!this.isSchemaReady()) return;
       this.initialized = false;
       this.fieldVisibility.clear();
       this.fieldPresence.clear();
@@ -290,17 +284,12 @@ export class FormEasy {
       // 蒙层移除和内容更新如果发生在同一帧，浏览器会直接跳过中间状态，
       // 用户只会看到一闪而过、甚至完全看不到蒙层。
       await waitForNextPaint();
-      this.endSchemaLoading();
-      // 结构变化导致的加载要告诉调用者结构已经就绪，可以开始设置填充值。
-      if (this.loadingKind === 'schema') {
-        this.formReady.emit({ formKey: this.schema.key });
-      }
-    } catch (error) {
-      // 出错时也要收起蒙层，避免表单一直停留在 loading 状态。
-      this.endSchemaLoading();
-      throw error;
     } finally {
+      // 必须先结束工作循环，再收起蒙层并发出 formReady（出错时同样收起蒙层）。
+      // 监听器收到 formReady 时表单已完全空闲，此时发起的修改是合法修改，
+      // 要能正常开启新一轮加载，不能被静默丢弃。
       this.reloadRunning = false;
+      this.endSchemaLoading();
     }
   }
 

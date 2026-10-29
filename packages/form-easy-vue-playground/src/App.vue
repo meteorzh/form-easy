@@ -1015,7 +1015,7 @@ const rendererTitle = computed(() =>
       <div class="creator-example-toolbar">
         <div>
           <p>CREATOR OPTIONS</p>
-          <span>切换设计器的编辑模式，以及右侧表单预览使用的基础字段渲染器。</span>
+          <span>编辑模式切换左侧配置区是否显示表单 key 和表单名；预览渲染器只影响右侧“表单预览”，左侧配置区固定使用内置 H5 控件。</span>
         </div>
         <div class="creator-toolbar-actions">
           <button
@@ -1033,6 +1033,7 @@ const rendererTitle = computed(() =>
             填入完整 Schema 示例
           </button>
           <div class="creator-renderer-switch" role="group" aria-label="设计器编辑模式">
+            <span class="creator-switch-label" aria-hidden="true">编辑模式</span>
             <button
               type="button"
               :class="{ active: !creatorAnonymous }"
@@ -1054,7 +1055,8 @@ const rendererTitle = computed(() =>
               匿名
             </button>
           </div>
-          <div class="creator-renderer-switch" role="group" aria-label="设计器预览渲染器">
+          <div class="creator-renderer-switch" role="group" aria-label="右侧表单预览使用的渲染器">
+            <span class="creator-switch-label" aria-hidden="true">预览渲染器</span>
             <button
               type="button"
               :class="{ active: activeCreatorRenderer === 'h5' }"
@@ -1179,7 +1181,9 @@ body { margin: 0; }
 .creator-example-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #d9deea; }
 .creator-example-toolbar p { margin: 0 0 7px; color: #27354f; font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
 .creator-example-toolbar span { color: #748096; font-size: 12px; }
-.creator-toolbar-actions { display: flex; align-items: center; gap: 10px; }
+.creator-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.creator-schema-fill,
+.creator-renderer-switch button { white-space: nowrap; }
 .creator-schema-fill { min-height: 36px; padding: 8px 14px; border: 1px solid #8caf60; color: #172033; background: #b9ff66; cursor: pointer; font: 750 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
 .creator-schema-fill:hover { border-color: #6f9442; background: #adf255; }
 .creator-schema-fill:active { transform: translateY(1px); }
@@ -1189,6 +1193,7 @@ body { margin: 0; }
 .creator-renderer-switch button:hover { color: #101827; background: #f1f3f7; }
 .creator-renderer-switch button.active { color: #101827; background: #b9ff66; }
 .creator-renderer-switch button:disabled { cursor: not-allowed; opacity: .5; }
+.creator-renderer-switch .creator-switch-label { align-self: center; padding: 0 6px 0 5px; color: #9aa4b5; font: 700 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; white-space: nowrap; }
 
 .workspace-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 38px; }
 .workspace-actions { display: flex; align-items: end; flex-direction: column; gap: 14px; }

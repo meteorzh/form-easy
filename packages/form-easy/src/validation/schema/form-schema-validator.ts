@@ -163,8 +163,9 @@ function validateSchemaRoot(
 
   validateUnknownProperties(schema, formSchemaProperties, path, context);
   validateRequiredIdentifier(schema, 'key', path, '表单 key', context);
-  if (hasOwn(schema, 'name')) {
-    validateRequiredNonEmptyString(schema, 'name', path, '表单名称', context);
+  // 表单名称选填，允许空串（为空时不渲染标题）；但出现时必须是字符串，与 FormSchema.name 的类型一致。
+  if (hasOwn(schema, 'name') && typeof schema.name !== 'string') {
+    context.addError('invalid-type', propertyPath(path, 'name'), '表单名称必须是字符串。');
   }
   if (hasOwn(schema, 'labelPosition') && !labelPositions.has(schema.labelPosition as LabelPosition)) {
     context.addError(

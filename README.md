@@ -259,7 +259,9 @@ const designerSchema = await creator.getDesignerSchema();
 
 字段节点直接通过同级 `$ref` 选择器决定声明方式：不选择时编辑同级内联配置，选择 definition 后只输出 `$ref` 和实例覆盖，不会展开目标定义，因此可以安全表达自引用树结构。清空 `$ref` 会恢复此前保留的内联配置。引用 definitions 的普通字段仍需填写实例 `key` 和 `name`，数组元素引用则不需要。设计器会动态列出当前已声明的 definition，并在定义被删除、改名、重名或引用不存在时通过结构检查给出错误。
 
-匿名模式：设置 `anonymous` 后，设计器不显示表单 key 和表单名的输入。输出的 schema 沿用传入 `value` 的 key；`value` 没有 key 时自动生成 `anonymous_` 开头的默认 key，未传入 `value` 时从空表单开始。传入的 `name` 原样保留。载入期间不能切换模式；切换模式只重建配置区并保留当前编辑结果，不会重新载入，也不发出 `formLoading` / `formReady`。
+表单名称为选填项：载入的 schema 没有 `name` 时，设计器输出也不包含 `name`；用户清空名称时输出空串。schema 结构校验允许 `name` 为空串（不渲染标题），但出现时必须是字符串。
+
+匿名模式：设置 `anonymous` 后，设计器不显示表单 key 和表单名的输入。输出的 schema 沿用传入 `value` 的 key；`value` 没有 key 时自动生成 `anonymous_` 开头的默认 key，未传入 `value` 时从空表单开始。传入的非空 `name` 原样保留。载入期间不能切换模式；切换模式只重建配置区并保留当前编辑结果，不会重新载入，也不发出 `formLoading` / `formReady`。
 
 设计器右侧可以在 `JSON Schema` 与“表单预览”之间切换。`basicFieldRenderer` 仅用于渲染预览表单；不传时使用默认 H5 渲染器，也可以传入 Vue 或 Element Plus 渲染器。设计器左侧配置区域固定使用隔离的内置 H5 渲染器，确保设计器专用 JSON 编辑组件不要求业务渲染器额外注册。
 

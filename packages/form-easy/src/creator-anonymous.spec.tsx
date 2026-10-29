@@ -147,11 +147,11 @@ describe('设计器匿名模式', () => {
     const definitionsField = getEditor(page.root!)!.schema.fields
       .find(field => field.key === 'definitions')!;
     expect(definitionsField.optional).toBe(true);
-    // 表单名称可选：未设置时不输出，设置后不能为空。
+    // 表单名称选填：不是必填项，也不需要单独启用。
     const nameField = getEditor(page.root!)!.schema.fields
       .find(field => field.key === 'name')!;
-    expect(nameField.optional).toBe(true);
-    expect(nameField.required).toBe(true);
+    expect(nameField.required).toBeFalsy();
+    expect(nameField.optional).toBeFalsy();
   });
 
   it('载入期间不能切换模式', async () => {
@@ -251,5 +251,30 @@ describe('设计器匿名模式', () => {
     // 再次上报相同内容不会重复发出。
     emitEditorChange(page.root!, { fields: [] });
     expect(changes).toHaveLength(1);
+  });
+
+  it('表单名称为 null 时由 omitNull 省略，空串和空白原样输出且校验通过', async () => {
+    const page = await newSpecPage({
+      components: [FormEasyCreator],
+      template: () => <form-easy-creator value={createSchema('noName', 'x')} />
+    });
+    await flush(page);
+    const creator = page.root as CreatorElement;
+    const validation = async (): Promise<boolean> => (
+      await (page.root as HTMLElement & {
+        getSchemaValidationResult(): Promise<{ valid: boolean }>;
+      }).getSchemaValidationResult()
+    ).valid;
+
+    // 配置区缺失 name 时补出的 null 由字段的 omitNull 输出策略省略。
+    const nameField = getEditor(page.root!)!.schema.fields
+      .find(field => field.key === 'name')!;
+    expect(nameField.omitNull).toBe(true);
+
+    for (const name of ['', '   ', '订单表单']) {
+      emitEditorChange(page.root!, { key: 'noName', name, fields: [] });
+      expect((await creator.getSchema()).name).toBe(name);
+      expect(await validation()).toBe(true);
+    }
   });
 });

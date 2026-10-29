@@ -283,7 +283,8 @@ export class FormEasyCreator {
   /** 提取匿名模式下需要保留的表单 key 和 name；没有 key 时生成默认 key。 */
   private pickIdentity(schema?: FormSchema): Pick<FormSchema, 'key' | 'name'> {
     const key = this.hasFormKey(schema) ? schema!.key : generateAnonymousFormKey();
-    return schema?.name === undefined ? { key } : { key, name: schema.name };
+    // 只保留字符串名称；null 等非字符串值不能进入输出，否则结构检查会报错。
+    return typeof schema?.name === 'string' ? { key, name: schema.name } : { key };
   }
 
   /**

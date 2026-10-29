@@ -23,9 +23,8 @@
       "name": "表单名称",
       "category": "basic",
       "dataType": "string",
-      "optional": true,
-      "required": true,
-      "hint": "可选；设置后表单会渲染标题区域，不能为空。"
+      "omitNull": true,
+      "hint": "选填；填写后表单会渲染标题区域。"
     },
     {
       "key": "labelPosition",

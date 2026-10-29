@@ -650,6 +650,16 @@ export class FormEasy {
     return (
       <form part="form" novalidate>
         {hasFormName ? <h2>{schema.name}</h2> : null}
+        {/* 既没有表单名也没有字段时表单会是一片空白，显示空状态占位。 */}
+        {!hasFormName && fields.length === 0 ? (
+          <div class="form-empty" part="empty">
+            <svg class="form-empty-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="3.5" width="16" height="17" rx="2.5" />
+              <path d="M8 9h8M8 13h8M8 17h5" />
+            </svg>
+            <p>暂无表单内容</p>
+          </div>
+        ) : null}
         {/* 字段区域单独滚动：嵌套较深、宽度不够时横向滚动，标题和加载蒙层不随之移动。 */}
         <div class="form-fields" part="fields">
           {fields.map(fieldNode => {

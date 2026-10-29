@@ -216,7 +216,12 @@
 
 .record-entry-fields {
   display: grid;
-  grid-template-columns: minmax(min-content, .9fr) minmax(min-content, 1.1fr);
+  /*
+   * key 列按自身内容取宽度（标签最宽 160px 加上输入框），不参与按比例分配；
+   * 否则 key 列只能拿到值列占满最小宽度后剩下的空间，宽度会随载入的 schema 忽宽忽窄。
+   * 值列拿剩余的全部宽度，内容更宽时由表单横向滚动。
+   */
+  grid-template-columns: max-content minmax(min-content, 1fr);
   gap: 10px;
   min-width: 0;
 }

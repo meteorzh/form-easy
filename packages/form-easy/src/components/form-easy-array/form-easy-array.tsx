@@ -231,21 +231,16 @@ export class FormEasyArray {
 
         <div class="array-content" hidden={!this.expanded}>
           {this.items.length === 0 && (
-            <div class="array-empty">
-              <button
-                class="array-empty-action"
-                type="button"
-                disabled={this.disabled}
-                aria-label="添加第一项"
-                title="添加第一项"
-                onClick={this.addItem}
-              >
-                <svg aria-hidden="true" viewBox="0 0 20 20">
-                  <path d="M10 4v12M4 10h12" />
-                </svg>
-              </button>
-              <p>暂无内容，点击加号添加第一项。</p>
-            </div>
+            // 整个空状态区域就是添加按钮，点击任意位置添加第一项。
+            <button
+              class="array-empty"
+              type="button"
+              disabled={this.disabled}
+              aria-label="添加第一项"
+              onClick={this.addItem}
+            >
+              暂无内容，点击添加第一项
+            </button>
           )}
 
           <div class="array-items">

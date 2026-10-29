@@ -40,7 +40,7 @@ app.use(installFormEasyVue);
 
 `FormEasyCreator` 同样只接受单向 `value`，不提供 `v-model`。编辑结果通过 `schemaChange` 事件的 `detail.schema` 获取；请不要把它回写到 `value`，回写会被当作载入新的表单配置，设计器会整体重新载入。
 
-传入 `anonymous` 可开启匿名模式：设计器不显示表单 key 和表单名的输入，`value` 没有 key 时自动生成默认 key，传入的 name 原样保留在输出中；载入期间不能切换模式。
+传入 `anonymous` 可开启匿名模式：设计器不显示表单 key 和表单名的输入，`value` 没有 key 时自动生成默认 key，传入的非空 name 原样保留在输出中；载入期间不能切换模式。
 
 两个包装组件只负责 Vue props 和事件适配；字段循环、数组、对象、record、
 校验及事件管理仍由 `form-easy` 核心组件完成。

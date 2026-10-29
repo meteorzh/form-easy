@@ -5,6 +5,8 @@
 
 .object {
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
   min-width: 0;
   border-left: 3px solid #e2e8f0;

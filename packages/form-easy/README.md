@@ -36,6 +36,18 @@ loading 期间字段逐层挂载产生的值变化不会逐条发出 `formChange
 
 loading 蒙层会先绘制出来，再开始载入数据，数据落地后蒙层再淡出。提示文字固定在视口中央，表单比视口高时也不会跑到屏幕外。
 
+表单宽度不够时（例如嵌套层级较深），字段区域会横向滚动，而不是把深层字段的控件挤到无法使用：基础字段的控件和左右布局的标签列都有最小宽度，嵌套层级的最小宽度逐层累加。可以通过 CSS 变量调整：
+
+```css
+form-easy {
+  --form-easy-control-min-width: 160px; /* 基础字段控件的最小宽度 */
+  --form-easy-label-min-width: 120px;   /* 左右布局标签列的最小宽度 */
+  --form-easy-label-max-width: 180px;   /* 左右布局标签列的最大宽度 */
+}
+```
+
+通过 `hints` 配置的悬停和点击提示在支持 Popover API 的浏览器中渲染在页面顶层，不会被滚动区域裁掉。
+
 拥有 `key` 的命名字段可配置 `optional: true`。用户可以在字段 label 区域控制该属性是否存在于最终输出；未设置时 label 显示删除线并隐藏真实值控件。存在状态独立于字段值，因此属性不存在与属性明确等于 `null` 可以被准确区分。未设置的 optional 字段跳过值校验。
 
 字段绑定通过一个 target、一个命名 `params` 对象和可选 resolver 描述完整计算关系。单参数绑定可以省略 resolver；多参数必须配置 resolver，例如 `{ target: 'visible', params: { category: './category', reference: './$ref' }, resolver: "return category === 'basic' || reference !== null;" }`。同一字段的同一个 target 只能配置一次。跨表单完整字段引用需要相关表单共用同一个 `FormValueStore` 和 `EventCenter`。

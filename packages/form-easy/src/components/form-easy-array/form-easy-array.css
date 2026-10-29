@@ -10,6 +10,8 @@
   --array-muted: #64748b;
   --array-surface: #f8fafc;
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -74,6 +76,8 @@
 
 .array-content {
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -84,6 +88,8 @@
 
 .array-items {
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
 }
 

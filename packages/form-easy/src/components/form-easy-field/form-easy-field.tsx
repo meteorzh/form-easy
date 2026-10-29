@@ -56,6 +56,12 @@ import type {
   LabelPosition
 } from '../../types';
 
+/** 当前浏览器是否支持 Popover API。 */
+function supportsPopover(): boolean {
+  return typeof HTMLElement !== 'undefined'
+    && typeof HTMLElement.prototype.showPopover === 'function';
+}
+
 /** 渲染单个字段，并提供通用的 form-easy 组件操作。 */
 @Component({ tag: 'form-easy-field', styleUrl: 'form-easy-field.css' })
 export class FormEasyField implements HandleTarget {
@@ -119,6 +125,8 @@ export class FormEasyField implements HandleTarget {
   @State() private activeHintPosition?: FormFieldHintPosition;
   /** 当前通过鼠标或 focus 激活的辅助提示位置。 */
   @State() private hoveredHintPosition?: FormFieldHintPosition;
+  /** 当前键盘焦点所在的辅助提示位置。 */
+  @State() private focusedHintPosition?: FormFieldHintPosition;
   /** 当前字段校验错误来自用户值还是 schema 配置。 */
   @State() private validationErrorType?: FieldValidationErrorType;
   /** 当前基础字段渲染组件主动报告的内部校验结果。 */
@@ -153,6 +161,10 @@ export class FormEasyField implements HandleTarget {
   /** 加载失败的展示图片标识。 */
   @State() private brokenAffixImages: string[] = [];
   /** 挂在 document.body 上的大图蒙层。 */
+  /** 可交互提示的浮层元素，按提示位置索引。 */
+  private readonly hintLayers = new Map<FormFieldHintPosition, HTMLElement>();
+  /** 是否正在跟随页面滚动和窗口尺寸变化更新提示位置。 */
+  private hintLayerTracking = false;
   private previewRoot?: HTMLDivElement;
   /** 打开大图的缩略图按钮，关闭后恢复焦点。 */
   private previewOpener?: HTMLElement;
@@ -263,6 +275,7 @@ export class FormEasyField implements HandleTarget {
     this.formValueStore?.deleteBranch(this.fieldId);
     if (this.rendererHost) this.activeRenderer?.unmount(this.rendererHost);
     this.closeAffixPreview();
+    this.setHintLayerTracking(false);
   }
 
   /** 字段完成首次挂载后调用已注册的框架渲染适配器。 */
@@ -270,11 +283,13 @@ export class FormEasyField implements HandleTarget {
     this.emitVisibilityChange(true);
     this.emitPresenceChange(true);
     this.renderWithAdapter();
+    this.syncHintLayers();
   }
 
   /** 字段状态或属性更新后同步更新已注册的框架渲染适配器。 */
   componentDidUpdate(): void {
     this.renderWithAdapter();
+    this.syncHintLayers();
   }
 
   /** 供事件中心或外部代码执行标准操作命令。 */
@@ -1219,6 +1234,67 @@ export class FormEasyField implements HandleTarget {
     if (this.hoveredHintPosition === position) this.hoveredHintPosition = undefined;
   };
 
+  /** 判断指定位置的提示当前是否应该显示。 */
+  private isHintOpen(position: FormFieldHintPosition): boolean {
+    return this.activeHintPosition === position
+      || this.hoveredHintPosition === position
+      || this.focusedHintPosition === position;
+  }
+
+  /**
+   * 把可交互提示放到浏览器顶层渲染。
+   *
+   * 表单字段区域会横向滚动，滚动容器会裁掉超出边缘的浮层；
+   * 支持 Popover API 时提示进入顶层，按锚点位置计算坐标，不再受任何滚动或裁剪容器影响。
+   * 不支持时保留原来的 CSS 定位。
+   */
+  private syncHintLayers(): void {
+    let anyOpen = false;
+    this.hintLayers.forEach((layer, position) => {
+      if (!layer.isConnected || typeof layer.showPopover !== 'function') return;
+      const open = this.isHintOpen(position);
+      const showing = layer.matches(':popover-open');
+      if (open && !showing) layer.showPopover();
+      if (!open && showing) layer.hidePopover();
+      if (!open) return;
+      this.positionHintLayer(layer, position);
+      anyOpen = true;
+    });
+    this.setHintLayerTracking(anyOpen);
+  }
+
+  /** 按锚点（提示触发区域）计算顶层提示的视口坐标，并限制在视口内。 */
+  private positionHintLayer(layer: HTMLElement, position: FormFieldHintPosition): void {
+    const anchor = layer.parentElement?.getBoundingClientRect();
+    if (!anchor) return;
+    const gap = 6;
+    const viewportMargin = 8;
+    const { width, height } = layer.getBoundingClientRect();
+    const above = position === 'aboveLabel' || position === 'aboveControl';
+    const top = above ? anchor.top - gap - height : anchor.bottom + gap;
+    const maxLeft = Math.max(viewportMargin, window.innerWidth - width - viewportMargin);
+    layer.style.top = `${Math.max(viewportMargin, top)}px`;
+    layer.style.left = `${Math.min(Math.max(viewportMargin, anchor.left), maxLeft)}px`;
+  }
+
+  /** 重新计算全部已打开提示的位置。 */
+  private repositionHintLayers = (): void => {
+    this.hintLayers.forEach((layer, position) => {
+      if (layer.isConnected && layer.matches(':popover-open')) {
+        this.positionHintLayer(layer, position);
+      }
+    });
+  };
+
+  /** 有提示打开时跟随页面滚动和窗口尺寸变化更新位置。 */
+  private setHintLayerTracking(enabled: boolean): void {
+    if (enabled === this.hintLayerTracking) return;
+    this.hintLayerTracking = enabled;
+    const method = enabled ? 'addEventListener' : 'removeEventListener';
+    window[method]('scroll', this.repositionHintLayers, true);
+    window[method]('resize', this.repositionHintLayers);
+  }
+
   /** 找到指定目标区域当前应该激活的 hover 提示。 */
   private getHoverHintPosition(
     target: 'label' | 'control'
@@ -1238,9 +1314,7 @@ export class FormEasyField implements HandleTarget {
     const hintId = `${this.fieldId}-hint-${position}`;
     const interactive = hint.trigger !== 'static';
     // hover 只在实际悬停或 focus 时由 CSS 打开，不能在初始渲染时直接显示。
-    const opened = hint.trigger === 'static'
-      || this.activeHintPosition === position
-      || this.hoveredHintPosition === position;
+    const opened = hint.trigger === 'static' || this.isHintOpen(position);
     // hover 直接由 label/control 区域响应；只有 click 需要独立触发节点，
     // 避免把控件本身的点击行为改成提示开关。
     const trigger = hint.trigger === 'click' ? (
@@ -1262,9 +1336,22 @@ export class FormEasyField implements HandleTarget {
           [`field-hint--${position}`]: true,
           'field-hint--open': opened
         }}
+        onFocusin={interactive ? () => { this.focusedHintPosition = position; } : undefined}
+        onFocusout={interactive ? () => {
+          if (this.focusedHintPosition === position) this.focusedHintPosition = undefined;
+        } : undefined}
       >
         {trigger}
-        <span id={hintId} class="field-hint-content" role="tooltip">
+        <span
+          id={hintId}
+          class="field-hint-content"
+          role="tooltip"
+          {...(interactive && supportsPopover() ? { popover: 'manual' } : {})}
+          ref={(element?: HTMLElement) => {
+            if (element && interactive) this.hintLayers.set(position, element);
+            else this.hintLayers.delete(position);
+          }}
+        >
           {hint.content}
         </span>
       </span>

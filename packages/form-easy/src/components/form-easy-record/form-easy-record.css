@@ -8,6 +8,8 @@
   --record-border: #dbe3ee;
   --record-surface: #f8fafc;
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -111,6 +113,8 @@
 
 .record-entries {
   display: grid;
+  /* 单列宽度不小于内容的最小宽度，让深层字段的最小宽度逐层向外传递。 */
+  grid-template-columns: minmax(min-content, 1fr);
   gap: 8px;
 }
 
@@ -212,7 +216,7 @@
 
 .record-entry-fields {
   display: grid;
-  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(min-content, .9fr) minmax(min-content, 1.1fr);
   gap: 10px;
   min-width: 0;
 }
@@ -229,7 +233,18 @@
  */
 .record-entry-key .field--left,
 .record-entry-value .field--left {
-  grid-template-columns: fit-content(160px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(min-content, 1fr);
+}
+
+/* 标签列的宽度取标签和提示的完整宽度，但最多 160px；空间不够时整体横向滚动，不再把标签挤成一列字。 */
+.record-entry-key .field--left > .field-label,
+.record-entry-key .field--left > .field-hint,
+.record-entry-key .field--left > .field-meta,
+.record-entry-value .field--left > .field-label,
+.record-entry-value .field--left > .field-hint,
+.record-entry-value .field--left > .field-meta {
+  width: max-content;
+  max-width: 160px;
 }
 
 .record-entry form-easy-field::part(field) {

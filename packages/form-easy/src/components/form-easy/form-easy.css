@@ -1,6 +1,16 @@
 :host { display: block; }
 form { box-sizing: border-box; position: relative; }
 
+/*
+ * 字段区域按内容的最小宽度排布：每个基础控件和标签都有最小宽度，嵌套层级的最小宽度逐层累加。
+ * 表单宽度不够时横向滚动，而不是把深层字段的控件挤到无法使用。
+ * 可通过 --form-easy-control-min-width、--form-easy-label-min-width、--form-easy-label-max-width 调整。
+ */
+.form-fields {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .form-schema-error {
   margin: 8px 0;
   color: #dc2626;

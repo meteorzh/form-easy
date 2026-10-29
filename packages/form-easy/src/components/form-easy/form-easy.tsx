@@ -650,45 +650,48 @@ export class FormEasy {
     return (
       <form part="form" novalidate>
         {hasFormName ? <h2>{schema.name}</h2> : null}
-        {fields.map(fieldNode => {
-          const field = this.resolveField(fieldNode);
-          if (!field) {
-            const referenceName = '$ref' in fieldNode
-              ? fieldNode.$ref
-              : '未知定义';
+        {/* 字段区域单独滚动：嵌套较深、宽度不够时横向滚动，标题和加载蒙层不随之移动。 */}
+        <div class="form-fields" part="fields">
+          {fields.map(fieldNode => {
+            const field = this.resolveField(fieldNode);
+            if (!field) {
+              const referenceName = '$ref' in fieldNode
+                ? fieldNode.$ref
+                : '未知定义';
+              return (
+                <p class="form-schema-error" role="alert">
+                  未找到字段定义：{referenceName}。
+                </p>
+              );
+            }
+            if (!field.key) return null;
             return (
-              <p class="form-schema-error" role="alert">
-                未找到字段定义：{referenceName}。
-              </p>
+              <form-easy-field
+                field={field}
+                fieldId={`${schema.key}.${field.key}`}
+                formKey={schema.key}
+                labelPosition={this.labelPosition}
+                parentDisabled={this.disabled}
+                basicFieldRenderer={this.basicFieldRenderer}
+                componentDataManager={this.componentDataManager}
+                endpointManager={this.endpointManager}
+                value={this.formData[field.key]}
+                valuePresent={Object.prototype.hasOwnProperty.call(
+                  this.formData,
+                  field.key
+                )}
+                eventCenter={this.activeEventCenter}
+                formValueStore={this.activeFormValueStore}
+                fieldDefinitions={this.fieldDefinitions}
+                renderDepth={0}
+                maxRenderDepth={this.maxRenderDepth}
+                onValueChange={(event: CustomEvent<unknown>) =>
+                  this.changeField(field, `${schema.key}.${field.key}`, event)
+                }
+              />
             );
-          }
-          if (!field.key) return null;
-          return (
-            <form-easy-field
-              field={field}
-              fieldId={`${schema.key}.${field.key}`}
-              formKey={schema.key}
-              labelPosition={this.labelPosition}
-              parentDisabled={this.disabled}
-              basicFieldRenderer={this.basicFieldRenderer}
-              componentDataManager={this.componentDataManager}
-              endpointManager={this.endpointManager}
-              value={this.formData[field.key]}
-              valuePresent={Object.prototype.hasOwnProperty.call(
-                this.formData,
-                field.key
-              )}
-              eventCenter={this.activeEventCenter}
-              formValueStore={this.activeFormValueStore}
-              fieldDefinitions={this.fieldDefinitions}
-              renderDepth={0}
-              maxRenderDepth={this.maxRenderDepth}
-              onValueChange={(event: CustomEvent<unknown>) =>
-                this.changeField(field, `${schema.key}.${field.key}`, event)
-              }
-            />
-          );
-        })}
+          })}
+        </div>
         {this.schemaLoading && this.showLoadingOverlay ? (
           <div class="form-schema-loading" role="status" aria-live="polite" />
         ) : null}

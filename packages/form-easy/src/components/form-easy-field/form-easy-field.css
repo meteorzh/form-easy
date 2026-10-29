@@ -92,6 +92,8 @@
   min-width: 0;
 }
 .editor-control { flex: 1 1 auto; min-width: 0; }
+/* 基础字段控件的最小宽度；容器字段的最小宽度由其内部字段累加得出。 */
+.field:not(.field--tall) .editor-control { min-width: var(--form-easy-control-min-width, 160px); }
 /* 基础字段的控件前后展示位要紧挨控件，不能把剩余宽度塞进控件和后置内容之间。 */
 .field:not(.field--tall) .editor-line:has(.field-affixes--control) > .editor-control {
   flex: 0 1 auto;
@@ -195,6 +197,17 @@ small { color: #64748b; }
   pointer-events: auto;
   transform: translateY(0);
 }
+/*
+ * 支持 Popover API 时，可交互提示在顶层渲染，坐标由脚本按锚点计算，
+ * 这里清除浮层的相对定位和浏览器默认的 popover 样式。
+ */
+.field-hint--interactive .field-hint-content[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  border: 0;
+  overflow: visible;
+}
 .field-hint:not(.field-hint--interactive) .field-hint-content {
   position: static;
   width: auto;
@@ -220,15 +233,27 @@ small { color: #64748b; }
 .field-meta > .field-hint { min-width: 0; }
 .field-label-text,
 .field-hint-content { overflow-wrap: anywhere; }
-.field--left { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
+/*
+ * 控件列的最小宽度取内容的最小宽度，不能为 0：
+ * 否则嵌套字段会被逐层挤压，深层控件没有可用空间；宽度不够时由表单横向滚动。
+ */
+.field--left {
+  grid-template-columns:
+    minmax(var(--form-easy-label-min-width, 120px), var(--form-easy-label-max-width, 180px))
+    minmax(min-content, 1fr);
+}
 .field--left > .field-label { grid-column: 1; grid-row: 1; }
 .field--left > small { grid-column: 1; grid-row: 2; }
 .field--left > .editor { grid-column: 2; grid-row: 1 / span 2; }
-.field--right { grid-template-columns: minmax(0, 1fr) minmax(120px, 180px); }
+.field--right {
+  grid-template-columns:
+    minmax(min-content, 1fr)
+    minmax(var(--form-easy-label-min-width, 120px), var(--form-easy-label-max-width, 180px));
+}
 .field--right > .field-label { grid-column: 2; grid-row: 1; }
 .field--right > small { grid-column: 2; grid-row: 2; }
 .field--right > .editor { grid-column: 1; grid-row: 1 / span 2; }
-.field--top { grid-template-columns: 1fr; }
+.field--top { grid-template-columns: minmax(min-content, 1fr); }
 .field--top > .field-label { justify-content: flex-start; }
 .field-meta {
   display: grid;
@@ -242,7 +267,7 @@ small { color: #64748b; }
 .field--tall.field--left > .editor { grid-column: 2; grid-row: 1; }
 .field--tall.field--right > .field-meta { grid-column: 2; grid-row: 1; }
 .field--tall.field--right > .editor { grid-column: 1; grid-row: 1; }
-.field--editor-only { grid-template-columns: minmax(0, 1fr); }
+.field--editor-only { grid-template-columns: minmax(min-content, 1fr); }
 .field--editor-only > .editor { grid-column: 1; grid-row: 1; }
 .field--optional-omitted .field-label-text {
   color: #94a3b8;

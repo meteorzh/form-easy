@@ -182,6 +182,8 @@ export class FormEasyCreator {
   private storedValue?: FormSchema;
   /** 组件是否已经完成首次挂载。 */
   private mounted = false;
+  /** componentWillLoad 载入时使用的 value，用来发现两个生命周期之间才写入的 value。 */
+  private initialLoadedValue?: FormSchema;
 
   /** 隔离设计器内部字段事件，避免多个实例或业务表单互相影响。 */
   private readonly creatorEventCenter = new EventCenter();
@@ -201,12 +203,17 @@ export class FormEasyCreator {
 
   /** 组件首次加载前同步外部传入的待编辑 schema。 */
   componentWillLoad(): void {
+    this.initialLoadedValue = this.value;
     this.loadSchema(this.value);
   }
 
   /** 组件挂载完成后才允许响应外部的 value 变更。 */
   componentDidLoad(): void {
     this.mounted = true;
+    // 组件代码已缓存时，componentWillLoad 可能先于使用方写入 value 执行，
+    // value 在两个生命周期之间写入时 requestLoad 还不会响应，这里补一次载入。
+    if (this.value !== this.initialLoadedValue) this.requestLoad();
+    this.initialLoadedValue = undefined;
   }
 
   /** 组件卸载时清理复制反馈计时器。 */
@@ -328,6 +335,9 @@ export class FormEasyCreator {
   /** 接收内部动态表单直接输出的目标 Schema。 */
   private handleCreatorFormChange = (event: CustomEvent<FormChangeDetail>): void => {
     event.stopPropagation();
+    // 每次载入都会重建内部表单；已被替换的旧表单仍可能在自身加载结束后补发 formChange，
+    // 这些旧数据不能覆盖当前载入的 schema。
+    if (event.currentTarget !== this.creatorFormElement) return;
     // 只更新对外 schema。把省略 optional 字段后的输出再写回 value，
     // 会让这些字段的存在状态在 true/false 之间来回翻转。
     this.refreshCreatedSchema(event.detail.formData, true);
@@ -461,7 +471,8 @@ export class FormEasyCreator {
             </div>
             <form-easy
               ref={(element?: typeof this.creatorFormElement) => {
-                this.creatorFormElement = element;
+                // 重建内部表单时新旧元素的 ref 回调顺序不固定，只记录新挂载的元素。
+                if (element) this.creatorFormElement = element;
               }}
               key={`creator-editor-${this.editorRevision}`}
               schema={creatorSchema}

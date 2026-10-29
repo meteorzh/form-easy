@@ -26,6 +26,7 @@ import {
   validateFormSchema,
   type FormSchemaValidationResult
 } from '../../validation/schema';
+import { areJsonValuesEqual } from '../../value-equality';
 import creatorSchemaJson from './creator-schema.json';
 import type { FormEasyCreatorChangeDetail } from './types';
 
@@ -34,6 +35,21 @@ type CreatorFormValue = Record<string, unknown>;
 
 /** 驱动设计器配置区域的内部递归动态表单 schema。 */
 const creatorSchema = creatorSchemaJson as FormSchema;
+
+/** 匿名模式下由使用方提供、设计器不显示输入的表单级字段。 */
+const anonymousHiddenFieldKeys = new Set(['key', 'name']);
+
+/** 匿名模式使用的配置 schema：不包含表单 key 和表单名的输入。 */
+const anonymousCreatorSchema: FormSchema = {
+  ...creatorSchema,
+  fields: creatorSchema.fields.filter(field =>
+    !anonymousHiddenFieldKeys.has(field.key as string))
+};
+
+/** 为没有 key 的匿名表单生成默认 key；每次生成都不同，避免多个匿名表单在事件中心里冲突。 */
+function generateAnonymousFormKey(): string {
+  return `anonymous_${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
+}
 
 /** 设计器未传入待编辑 Schema 时使用的初始目标表单。 */
 const defaultCreatedSchema: FormSchema = {
@@ -146,6 +162,35 @@ export class FormEasyCreator {
     this.storedValue = next;
     this.requestLoad();
   }
+  /**
+   * 是否以匿名模式编辑表单。
+   *
+   * 匿名模式下不显示表单 key 和表单名的输入：沿用传入 value 的 key，
+   * 没有 key 时自动生成一个默认 key；传入的 name 原样保留在输出中。载入期间不能切换模式。
+   */
+  @Prop()
+  get anonymous(): boolean {
+    return this.storedAnonymous;
+  }
+  set anonymous(next: boolean) {
+    const anonymous = next === true;
+    if (anonymous === this.storedAnonymous) return;
+    if (this.schemaLoading) {
+      console.error(
+        `设计器正在载入表单“${this.loadingFormKey}”，此时不能切换匿名模式。` +
+        '请等待 formReady 事件发出后再切换。'
+      );
+      return;
+    }
+    // 首次挂载前只记录模式，由生命周期按最终的 value 统一载入。
+    if (!this.mounted) {
+      this.storedAnonymous = anonymous;
+      return;
+    }
+    // 切换模式时沿用当前编辑结果；切到匿名模式时当前没有 key 会自动生成。
+    this.storedAnonymous = anonymous;
+    this.rebuildEditor(this.createdSchema);
+  }
   /** 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。 */
   @Prop() basicFieldRenderer?: BasicFieldRenderer | null;
   /** 设计器生成的 schema 或校验结果变化时触发。 */
@@ -184,6 +229,15 @@ export class FormEasyCreator {
   private mounted = false;
   /** componentWillLoad 载入时使用的 value，用来发现两个生命周期之间才写入的 value。 */
   private initialLoadedValue?: FormSchema;
+  /** 当前是否处于匿名模式。 */
+  private storedAnonymous = false;
+  /**
+   * 使用方当前持有的 schema：载入时为传入的 value，之后为最近一次发出的结果。
+   * 只有生成结果与它不同时才发出 schemaChange。
+   */
+  private reportedSchema?: unknown;
+  /** 匿名模式下合并回输出的表单 key 和 name；key 来自传入的 value 或自动生成。 */
+  private anonymousIdentity?: Pick<FormSchema, 'key' | 'name'>;
 
   /** 隔离设计器内部字段事件，避免多个实例或业务表单互相影响。 */
   private readonly creatorEventCenter = new EventCenter();
@@ -219,6 +273,27 @@ export class FormEasyCreator {
   /** 组件卸载时清理复制反馈计时器。 */
   disconnectedCallback(): void {
     if (this.copyStateTimer) clearTimeout(this.copyStateTimer);
+  }
+
+  /** 判断 schema 是否带有可用的表单 key。 */
+  private hasFormKey(schema?: FormSchema): boolean {
+    return typeof schema?.key === 'string' && schema.key.trim() !== '';
+  }
+
+  /** 提取匿名模式下需要保留的表单 key 和 name；没有 key 时生成默认 key。 */
+  private pickIdentity(schema?: FormSchema): Pick<FormSchema, 'key' | 'name'> {
+    const key = this.hasFormKey(schema) ? schema!.key : generateAnonymousFormKey();
+    return schema?.name === undefined ? { key } : { key, name: schema.name };
+  }
+
+  /**
+   * 切换模式后用指定 schema 重建配置区，保留当前编辑进度。
+   *
+   * 只是换了一份配置界面，不属于载入新的表单配置，因此不发出 formLoading 和 formReady。
+   */
+  private rebuildEditor(schema?: FormSchema): void {
+    this.loadSchema(schema);
+    this.editorRevision += 1;
   }
 
   /** 安排一次设计器载入。 */
@@ -321,10 +396,31 @@ export class FormEasyCreator {
 
   /** 将现有 Schema 或默认 Schema 直接载入设计器动态表单。 */
   private loadSchema(schema?: FormSchema): void {
+    // 载入后配置区会规范化这份 schema（匿名模式还可能生成 key），结果与它不同时再发出 schemaChange。
+    this.reportedSchema = schema;
+    if (this.storedAnonymous) {
+      // 匿名模式没有 key 和 name 的输入，不使用带示例名称的默认表单；未传入时从空表单开始。
+      this.anonymousIdentity = this.pickIdentity(schema);
+      // 配置区的值带上完整的 key 和 name：它们不在匿名配置 schema 中，配置区载入后总会上报一次，
+      // 由设计器比较后决定是否需要发出 schemaChange（例如生成了默认 key）。
+      this.creatorFormValue = this.composeSchema(
+        (schema ?? { fields: [] }) as unknown as CreatorFormValue
+      );
+      this.refreshCreatedSchema(this.creatorFormValue, false);
+      return;
+    }
     this.creatorFormValue = (
       schema ?? defaultCreatedSchema
     ) as unknown as CreatorFormValue;
     this.refreshCreatedSchema(this.creatorFormValue, false);
+  }
+
+  /** 匿名模式下把使用方提供的 key 和 name 合并回配置区输出的 schema。 */
+  private composeSchema(formData: CreatorFormValue): CreatorFormValue {
+    if (!this.storedAnonymous || !this.anonymousIdentity) return formData;
+    // key 和 name 只以记录的值为准，载入数据里的空 key 不能覆盖生成的默认 key。
+    const { key: _key, name: _name, ...rest } = formData;
+    return { ...this.anonymousIdentity, ...rest };
   }
 
   /** 内部动态表单的事件只在设计器内部使用，不能冒泡到设计器宿主，避免和设计器自身的事件混淆。 */
@@ -340,7 +436,11 @@ export class FormEasyCreator {
     if (event.currentTarget !== this.creatorFormElement) return;
     // 只更新对外 schema。把省略 optional 字段后的输出再写回 value，
     // 会让这些字段的存在状态在 true/false 之间来回翻转。
-    this.refreshCreatedSchema(event.detail.formData, true);
+    const schema = this.composeSchema(event.detail.formData);
+    // 内容没有变化的输出（例如配置区载入完成后的上报）不再打扰使用方。
+    const changed = !areJsonValuesEqual(schema, this.reportedSchema);
+    this.reportedSchema = schema;
+    this.refreshCreatedSchema(schema, changed);
   };
 
   /** 校验当前设计数据，并按需向使用方发送变化事件。 */
@@ -475,7 +575,7 @@ export class FormEasyCreator {
                 if (element) this.creatorFormElement = element;
               }}
               key={`creator-editor-${this.editorRevision}`}
-              schema={creatorSchema}
+              schema={this.storedAnonymous ? anonymousCreatorSchema : creatorSchema}
               value={this.creatorFormValue}
               showLoadingOverlay={false}
               basicFieldRenderer={this.creatorRenderer}

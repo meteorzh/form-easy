@@ -200,6 +200,9 @@ small { color: #64748b; }
   width: auto;
   max-width: none;
   margin-top: 4px;
+  /* 静态提示与标签、控件左边缘对齐，不保留浮层提示的内边距。 */
+  padding: 0;
+  border-radius: 0;
   color: #64748b;
   background: transparent;
   box-shadow: none;
@@ -209,6 +212,14 @@ small { color: #64748b; }
 }
 .field > .field-hint,
 .field > .editor > .field-hint { display: flex; }
+/*
+ * 标签列宽度有上限，标签和提示必须在列内换行：
+ * 没有空格的长单词、路径或变量名也要能断开，不能溢出到控件列或表单外。
+ */
+.field > .field-hint,
+.field-meta > .field-hint { min-width: 0; }
+.field-label-text,
+.field-hint-content { overflow-wrap: anywhere; }
 .field--left { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
 .field--left > .field-label { grid-column: 1; grid-row: 1; }
 .field--left > small { grid-column: 1; grid-row: 2; }

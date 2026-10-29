@@ -154,6 +154,11 @@ export namespace Components {
      */
     interface FormEasyCreator {
         /**
+          * 是否以匿名模式编辑表单。  匿名模式下不显示表单 key 和表单名的输入：沿用传入 value 的 key， 没有 key 时自动生成一个默认 key；传入的 name 原样保留在输出中。载入期间不能切换模式。
+          * @default false
+         */
+        "anonymous": boolean;
+        /**
           * 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
@@ -873,6 +878,11 @@ declare namespace LocalJSX {
      */
     interface FormEasyCreator {
         /**
+          * 是否以匿名模式编辑表单。  匿名模式下不显示表单 key 和表单名的输入：沿用传入 value 的 key， 没有 key 时自动生成一个默认 key；传入的 name 原样保留在输出中。载入期间不能切换模式。
+          * @default false
+         */
+        "anonymous"?: boolean;
+        /**
           * 右侧表单预览使用的基础字段渲染器；未传入时使用默认 H5 渲染器。
          */
         "basicFieldRenderer"?: BasicFieldRenderer | null;
@@ -1245,6 +1255,9 @@ declare namespace LocalJSX {
         "maxRenderDepth": number;
         "disabled": boolean;
     }
+    interface FormEasyCreatorAttributes {
+        "anonymous": boolean;
+    }
     interface FormEasyCreatorJsonEditorAttributes {
         "mode": CreatorEditorMode;
         "placeholder": string;
@@ -1292,7 +1305,7 @@ declare namespace LocalJSX {
     interface IntrinsicElements {
         "form-easy": Omit<FormEasy, keyof FormEasyAttributes> & { [K in keyof FormEasy & keyof FormEasyAttributes]?: FormEasy[K] } & { [K in keyof FormEasy & keyof FormEasyAttributes as `attr:${K}`]?: FormEasyAttributes[K] } & { [K in keyof FormEasy & keyof FormEasyAttributes as `prop:${K}`]?: FormEasy[K] };
         "form-easy-array": Omit<FormEasyArray, keyof FormEasyArrayAttributes> & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes]?: FormEasyArray[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `attr:${K}`]?: FormEasyArrayAttributes[K] } & { [K in keyof FormEasyArray & keyof FormEasyArrayAttributes as `prop:${K}`]?: FormEasyArray[K] } & OneOf<"fieldId", FormEasyArray["fieldId"], FormEasyArrayAttributes["fieldId"]> & OneOf<"formKey", FormEasyArray["formKey"], FormEasyArrayAttributes["formKey"]>;
-        "form-easy-creator": FormEasyCreator;
+        "form-easy-creator": Omit<FormEasyCreator, keyof FormEasyCreatorAttributes> & { [K in keyof FormEasyCreator & keyof FormEasyCreatorAttributes]?: FormEasyCreator[K] } & { [K in keyof FormEasyCreator & keyof FormEasyCreatorAttributes as `attr:${K}`]?: FormEasyCreatorAttributes[K] } & { [K in keyof FormEasyCreator & keyof FormEasyCreatorAttributes as `prop:${K}`]?: FormEasyCreator[K] };
         "form-easy-creator-json-editor": Omit<FormEasyCreatorJsonEditor, keyof FormEasyCreatorJsonEditorAttributes> & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes]?: FormEasyCreatorJsonEditor[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `attr:${K}`]?: FormEasyCreatorJsonEditorAttributes[K] } & { [K in keyof FormEasyCreatorJsonEditor & keyof FormEasyCreatorJsonEditorAttributes as `prop:${K}`]?: FormEasyCreatorJsonEditor[K] };
         "form-easy-field": Omit<FormEasyField, keyof FormEasyFieldAttributes> & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes]?: FormEasyField[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `attr:${K}`]?: FormEasyFieldAttributes[K] } & { [K in keyof FormEasyField & keyof FormEasyFieldAttributes as `prop:${K}`]?: FormEasyField[K] } & OneOf<"fieldId", FormEasyField["fieldId"], FormEasyFieldAttributes["fieldId"]> & OneOf<"formKey", FormEasyField["formKey"], FormEasyFieldAttributes["formKey"]>;
         "form-easy-object": Omit<FormEasyObject, keyof FormEasyObjectAttributes> & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes]?: FormEasyObject[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `attr:${K}`]?: FormEasyObjectAttributes[K] } & { [K in keyof FormEasyObject & keyof FormEasyObjectAttributes as `prop:${K}`]?: FormEasyObject[K] } & OneOf<"fieldId", FormEasyObject["fieldId"], FormEasyObjectAttributes["fieldId"]> & OneOf<"formKey", FormEasyObject["formKey"], FormEasyObjectAttributes["formKey"]>;

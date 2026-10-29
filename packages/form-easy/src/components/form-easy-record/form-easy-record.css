@@ -223,10 +223,13 @@
   overflow: visible;
 }
 
-/* record 项的短标签不应占用默认字段布局的 120px 标签列。 */
+/*
+ * record 项的标签列按内容收缩，短标签不占用默认布局的 120px 标签列；
+ * 但最多占 160px，过长的标签和提示在列内换行（换行规则见字段样式），不会挤压控件。
+ */
 .record-entry-key .field--left,
 .record-entry-value .field--left {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: fit-content(160px) minmax(0, 1fr);
 }
 
 .record-entry form-easy-field::part(field) {

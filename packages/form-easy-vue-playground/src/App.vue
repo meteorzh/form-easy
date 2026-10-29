@@ -14,6 +14,12 @@ const activeView = ref<'examples' | 'creator' | 'documentation'>('examples');
 /** 设计器表单预览当前使用的渲染器类型。 */
 const activeCreatorRenderer = ref<'h5' | 'elementPlus'>('h5');
 
+/** 设计器当前是否使用匿名模式：不显示表单 key 和表单名的输入。 */
+const creatorAnonymous = ref(false);
+
+/** 设计器是否正在载入表单配置；载入期间不能切换模式。 */
+const creatorLoading = ref(false);
+
 /** 将设计器渲染器选择转换为可传入组件的渲染器实例。 */
 const creatorRenderer = computed(() =>
   activeCreatorRenderer.value === 'elementPlus' ? elementPlusRenderer : null
@@ -1008,8 +1014,8 @@ const rendererTitle = computed(() =>
     <section v-else-if="activeView === 'creator'" class="creator-page">
       <div class="creator-example-toolbar">
         <div>
-          <p>PREVIEW RENDERER</p>
-          <span>切换设计器右侧表单预览使用的基础字段渲染器。</span>
+          <p>CREATOR OPTIONS</p>
+          <span>切换设计器的编辑模式，以及右侧表单预览使用的基础字段渲染器。</span>
         </div>
         <div class="creator-toolbar-actions">
           <button
@@ -1026,6 +1032,28 @@ const rendererTitle = computed(() =>
           >
             填入完整 Schema 示例
           </button>
+          <div class="creator-renderer-switch" role="group" aria-label="设计器编辑模式">
+            <button
+              type="button"
+              :class="{ active: !creatorAnonymous }"
+              :aria-pressed="!creatorAnonymous"
+              :disabled="creatorLoading"
+              title="显示表单 key 和表单名的输入"
+              @click="creatorAnonymous = false"
+            >
+              普通
+            </button>
+            <button
+              type="button"
+              :class="{ active: creatorAnonymous }"
+              :aria-pressed="creatorAnonymous"
+              :disabled="creatorLoading"
+              title="不显示表单 key 和表单名的输入，缺少 key 时自动生成"
+              @click="creatorAnonymous = true"
+            >
+              匿名
+            </button>
+          </div>
           <div class="creator-renderer-switch" role="group" aria-label="设计器预览渲染器">
             <button
               type="button"
@@ -1049,7 +1077,10 @@ const rendererTitle = computed(() =>
       <FormEasyCreator
         ref="creatorElement"
         :value="creatorSchemaValue"
+        :anonymous="creatorAnonymous"
         :basic-field-renderer="creatorRenderer"
+        @loading="creatorLoading = true"
+        @ready="creatorLoading = false"
       />
     </section>
     <ReadmeDocument v-else />
@@ -1157,6 +1188,7 @@ body { margin: 0; }
 .creator-renderer-switch button { padding: 8px 11px; border: 0; color: #68758a; background: transparent; cursor: pointer; font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; transition: color .15s ease, background .15s ease; }
 .creator-renderer-switch button:hover { color: #101827; background: #f1f3f7; }
 .creator-renderer-switch button.active { color: #101827; background: #b9ff66; }
+.creator-renderer-switch button:disabled { cursor: not-allowed; opacity: .5; }
 
 .workspace-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 38px; }
 .workspace-actions { display: flex; align-items: end; flex-direction: column; gap: 14px; }

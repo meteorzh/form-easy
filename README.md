@@ -102,7 +102,7 @@ form.addEventListener('formReady', event => {
 });
 ```
 
-首次挂载以及替换 `schema` 或 `value` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成初始化后移出蒙层；开始时发出 `formLoading`，结束时发出 `formReady`。首次挂载或 `schema` 触发的加载结束后会补发一次 `formChange` 报告完整数据，`value` 触发的加载不会。loading 期间对 `schema` 或 `value` 的修改会在控制台记录错误并被忽略，请在收到 `formReady` 后再修改。
+首次挂载以及替换 `schema` 或 `value` 后，表单会先进入 loading 状态，用半透明蒙层遮住表单内容，完成初始化后移出蒙层；开始时发出 `formLoading`，结束时发出 `formReady`。加载会规范化传入的值（补齐缺失字段、套用默认值、去掉 schema 外的属性、按输出策略过滤），结束后如果实际生效的数据与传入的 `value` 不同，会在 `formReady` 之后补发一次 `formChange`，此时 `fieldId` 为表单 key；没有变化则不发。loading 期间对 `schema` 或 `value` 的修改会在控制台记录错误并被忽略，请在收到 `formReady` 后再修改。
 
 ```html
 <form-easy></form-easy>
@@ -258,6 +258,8 @@ const designerSchema = await creator.getDesignerSchema();
 设计器支持表单基础信息、`definitions`、任意层级字段、校验规则、绑定和事件订阅的可视化配置。数组字段的 `element` 与对象字段的 `fields` 也使用动态表单递归编辑，不需要手写整段 JSON；默认值、组件属性和组件静态数据等任意 JSON 值仍使用专用多行编辑器输入。
 
 字段节点直接通过同级 `$ref` 选择器决定声明方式：不选择时编辑同级内联配置，选择 definition 后只输出 `$ref` 和实例覆盖，不会展开目标定义，因此可以安全表达自引用树结构。清空 `$ref` 会恢复此前保留的内联配置。引用 definitions 的普通字段仍需填写实例 `key` 和 `name`，数组元素引用则不需要。设计器会动态列出当前已声明的 definition，并在定义被删除、改名、重名或引用不存在时通过结构检查给出错误。
+
+匿名模式：设置 `anonymous` 后，设计器不显示表单 key 和表单名的输入。输出的 schema 沿用传入 `value` 的 key；`value` 没有 key 时自动生成 `anonymous_` 开头的默认 key，未传入 `value` 时从空表单开始。传入的 `name` 原样保留。载入期间不能切换模式；切换模式只重建配置区并保留当前编辑结果，不会重新载入，也不发出 `formLoading` / `formReady`。
 
 设计器右侧可以在 `JSON Schema` 与“表单预览”之间切换。`basicFieldRenderer` 仅用于渲染预览表单；不传时使用默认 H5 渲染器，也可以传入 Vue 或 Element Plus 渲染器。设计器左侧配置区域固定使用隔离的内置 H5 渲染器，确保设计器专用 JSON 编辑组件不要求业务渲染器额外注册。
 

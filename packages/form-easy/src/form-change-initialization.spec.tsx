@@ -61,9 +61,16 @@ async function flush(page: { waitForChanges(): Promise<unknown> }): Promise<void
   }
 }
 
-describe('表单加载期间的 formChange', () => {
-  /** 在挂载之前就开始监听，收集首次挂载起的全部 formChange。 */
-  async function mountForm(): Promise<{
+/** 加载后不会被修改的完整值：每个非 optional 字段都已提供，optional 字段未启用。 */
+const completeValue = {
+  title: 'hello',
+  profile: { name: 'n', address: { city: 'c' } },
+  tags: ['a', 'b']
+};
+
+describe('表单加载后的 formChange', () => {
+  /** 在挂载之前就开始监听，收集首次挂载起的全部事件。 */
+  async function mountForm(value?: Record<string, unknown>): Promise<{
     page: Awaited<ReturnType<typeof newSpecPage>>;
     form: FormEasyTestElement;
     changes: FormChangeDetail[];
@@ -83,51 +90,62 @@ describe('表单加载期间的 formChange', () => {
     form.addEventListener('formLoading', () => order.push('loading'));
     form.addEventListener('formReady', () => order.push('ready'));
     form.schema = createNestedSchema('initA');
-    form.value = {
-      title: 'hello',
-      profile: { name: 'n', address: { city: 'c' } },
-      tags: ['a', 'b']
-    };
+    if (value !== undefined) form.value = value;
     form.basicFieldRenderer = noopRenderer;
     page.body.appendChild(form);
     await flush(page);
     return { page, form, changes, order };
   }
 
-  it('首次挂载按 schema 加载处理，字段逐层上报的变化在 formReady 之后只发出一次', async () => {
-    const { changes, order } = await mountForm();
+  it('首次挂载的值没有被修改时，字段逐层挂载不会发出 formChange', async () => {
+    const { changes, order } = await mountForm(completeValue);
+
+    expect(order).toEqual(['loading', 'ready']);
+    expect(changes).toEqual([]);
+  });
+
+  it('首次挂载的值被规范化时，在 formReady 之后发出一次完整数据', async () => {
+    const { changes, order } = await mountForm({
+      // 缺少 title、tags；legacy 不在 schema 中。
+      profile: { name: 'n', address: { city: 'c' } },
+      legacy: true
+    });
 
     expect(order).toEqual(['loading', 'ready', 'change']);
     expect(changes).toHaveLength(1);
-    // 发出的是初始化结束时的完整输出：未提供的 optional 字段不输出。
+    expect(changes[0].fieldId).toBe('initA');
     expect(changes[0].formData).toEqual({
-      title: 'hello',
+      title: null,
       profile: { name: 'n', address: { city: 'c' } },
-      tags: ['a', 'b']
+      tags: null
     });
   });
 
-  it('重新加载期间的变化在 formReady 之后只发出一次，且保留字段的输出状态', async () => {
-    const { page, form, changes, order } = await mountForm();
-    changes.length = 0;
-    order.length = 0;
+  it('首次挂载未传入值时，发出一次按默认值生成的数据', async () => {
+    const { changes } = await mountForm();
 
-    form.schema = createNestedSchema('initB');
+    expect(changes).toHaveLength(1);
+    // 没有 defaultValue 的对象字段默认值为 null。
+    expect(changes[0].formData).toEqual({ title: 't', profile: null, tags: null });
+  });
+
+  it('schema 变化后输出不同时发出一次，且保留复用字段的输出状态', async () => {
+    const { page, form, changes, order } = await mountForm(completeValue);
+    order.length = 0;
+    const schema = createNestedSchema('initB');
+    schema.fields.push({ key: 'extra', name: '新增', category: 'basic', dataType: 'string' });
+
+    form.schema = schema;
     await flush(page);
 
-    expect(changes).toHaveLength(1);
     expect(order).toEqual(['loading', 'ready', 'change']);
-    // value 未变，新结构沿用原值；复用的 optional 字段仍然不输出。
-    expect(changes[0].formData).toEqual({
-      title: 'hello',
-      profile: { name: 'n', address: { city: 'c' } },
-      tags: ['a', 'b']
-    });
+    expect(changes).toHaveLength(1);
+    // 复用的 optional 字段仍然不输出；新字段在传入值中缺失，补为 null。
+    expect(changes[0].formData).toEqual({ ...completeValue, extra: null });
   });
 
-  it('value 变化导致的加载结束后不上报 formChange', async () => {
-    const { page, form, changes, order } = await mountForm();
-    changes.length = 0;
+  it('value 变化后没有被修改时不发出 formChange', async () => {
+    const { page, form, changes, order } = await mountForm(completeValue);
     order.length = 0;
 
     form.value = {
@@ -139,5 +157,16 @@ describe('表单加载期间的 formChange', () => {
 
     expect(order).toEqual(['loading', 'ready']);
     expect(changes).toEqual([]);
+  });
+
+  it('value 变化后被规范化时同样发出一次', async () => {
+    const { page, form, changes, order } = await mountForm(completeValue);
+    order.length = 0;
+
+    form.value = { ...completeValue, title: 'changed', legacy: 1 };
+    await flush(page);
+
+    expect(order).toEqual(['loading', 'ready', 'change']);
+    expect(changes[0].formData).toEqual({ ...completeValue, title: 'changed' });
   });
 });

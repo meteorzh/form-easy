@@ -18,6 +18,7 @@ import { ensureFormEasyCustomElements } from './custom-elements';
 
 type FormEasyCreatorElement = HTMLElement & {
   value?: FormSchema;
+  anonymous?: boolean;
   basicFieldRenderer?: BasicFieldRenderer | null;
   getSchema?: () => Promise<FormSchema>;
   getDesignerSchema?: () => Promise<FormSchema>;
@@ -33,6 +34,11 @@ export const FormEasyCreator = defineComponent({
     value: {
       type: Object as PropType<FormSchema | undefined>,
       default: undefined
+    },
+    /** 匿名模式：不显示表单 key 和表单名的输入，value 必须包含 key；载入期间不能切换。 */
+    anonymous: {
+      type: Boolean,
+      default: false
     },
     /** 设计器右侧预览使用的基础字段渲染器。 */
     basicFieldRenderer: {
@@ -59,6 +65,8 @@ export const FormEasyCreator = defineComponent({
     const syncProperties = (): void => {
       const target = element.value;
       if (!target) return;
+      // 先同步模式再同步 value：匿名模式会校验 value 是否带 key。
+      target.anonymous = props.anonymous;
       target.value = props.value;
       target.basicFieldRenderer = props.basicFieldRenderer;
     };
@@ -83,7 +91,7 @@ export const FormEasyCreator = defineComponent({
     });
 
     watch(
-      () => [props.value, props.basicFieldRenderer],
+      () => [props.value, props.anonymous, props.basicFieldRenderer],
       syncProperties,
       { deep: false }
     );

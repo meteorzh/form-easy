@@ -30,6 +30,7 @@ import {
   createFormOutputData
 } from '../../form-field-output';
 import { waitForNextPaint } from '../../next-paint';
+import { areJsonValuesEqual } from '../../value-equality';
 import type {
   FieldPresenceChangeDetail,
   FieldVisibilityChangeDetail,
@@ -152,10 +153,6 @@ export class FormEasy {
   private loadingFormKey = '';
   /** 重载工作循环是否正在运行。 */
   private reloadRunning = false;
-  /** 当前 loading 会话的类型，决定加载完成后是否补发 formChange。 */
-  private loadingKind: 'schema' | 'value' = 'schema';
-  /** 加载期间记录的最后一次字段值变化。 */
-  private pendingFormChange?: { fieldId: string; value: unknown };
   /** 取消当前用户事件桥接的函数。 */
   private removeUserEventListener?: () => void;
 
@@ -195,23 +192,17 @@ export class FormEasy {
     // 首次挂载时属性由框架直接写入，不需要再走一次重载流程。
     this.mounted = false;
     // 首次挂载同样是一次 schema 加载：蒙层从第一次渲染起就盖住逐层挂载的字段。
-    if (this.isSchemaReady()) this.beginInitialLoading();
+    if (this.isSchemaReady()) this.beginSchemaLoading(this.schema.key);
   }
 
   /** 初始化第二阶段：按预设值或默认值写入字段数据。 */
   componentDidLoad(): void {
     this.bindUserEvents();
     // schema 可能在两个生命周期之间才写入，此时在这里开始加载。
-    if (this.isSchemaReady()) this.beginInitialLoading();
+    if (this.isSchemaReady()) this.beginSchemaLoading(this.schema.key);
     this.initializeFormData();
     this.mounted = true;
     if (this.schemaLoading) this.ensureReloadWorker(false);
-  }
-
-  /** 首次挂载按 schema 加载处理，结束后上报一次最终表单数据。 */
-  private beginInitialLoading(): void {
-    this.loadingKind = 'schema';
-    this.beginSchemaLoading(this.schema.key);
   }
 
   /** 元素重新连接到文档后恢复用户事件桥接。 */
@@ -243,10 +234,9 @@ export class FormEasy {
     if (!this.isSchemaReady()) return;
     if (kind === 'value'
       && this.initialized
-      && this.areValuesEqual(this.computeValueFormData(), this.formData)) {
+      && areJsonValuesEqual(this.computeValueFormData(), this.formData)) {
       return;
     }
-    this.loadingKind = kind;
     this.beginSchemaLoading(this.schema.key);
     this.ensureReloadWorker();
   }
@@ -264,7 +254,6 @@ export class FormEasy {
     }
     this.loadingFormKey = formKey;
     this.schemaLoading = true;
-    this.pendingFormChange = undefined;
     this.formLoading.emit({ formKey });
   }
 
@@ -291,11 +280,10 @@ export class FormEasy {
    *
    * 落数据前先让出两帧，保证 loading 蒙层真正绘制到屏幕上；
    * 落数据后再让出一帧，保证蒙层是带着旧内容一起消失的，不会出现闪一下。
-   * 加载结束后发出 formReady，提示调用者可以设置新的 schema 和 value 了。
+   * 加载结束后发出 formReady，提示调用者可以设置新的 schema 和 value 了；
+   * 加载过程对传入值做了修改时，随后再发出一次 formChange。
    */
   private async runReloadWorker(applyData: boolean): Promise<void> {
-    // 加载期间 schema 和 value 的修改都会被拒绝，本轮类型不会中途改变。
-    const kind = this.loadingKind;
     let completed = false;
     try {
       if (applyData) {
@@ -318,13 +306,16 @@ export class FormEasy {
       // 监听器收到 formReady 时表单已完全空闲，此时发起的修改是合法修改，
       // 要能正常开启新一轮加载，不能被静默丢弃。
       this.reloadRunning = false;
-      const pending = this.pendingFormChange;
-      this.pendingFormChange = undefined;
+      // 在发出 formReady 之前记下本轮的传入值和最终输出，监听器可能立刻修改它们。
+      const loadedValue = this.value;
+      const output = completed && this.isSchemaReady() ? this.createOutputData() : undefined;
       this.endSchemaLoading();
-      // schema 加载（含首次挂载）结束后补发加载期间的最后一次 formChange，报告整理后的完整数据；
-      // value 加载的数据由调用方给出，不再上报。formReady 监听器里已开始新一轮加载时也不再上报。
-      if (completed && kind === 'schema' && pending && !this.schemaLoading) {
-        this.emitFormChange(pending.fieldId, pending.value);
+      // 加载过程会规范化传入值：补齐缺失字段、套用默认值、去掉 schema 外的属性、
+      // 按 optional 和隐藏策略过滤输出，初始化联动也可能改写字段。
+      // 最终输出与传入值不同时补发一次 formChange，让使用者拿到实际生效的数据；
+      // 没有变化则不发。formReady 监听器里已开始新一轮加载时交给新一轮处理。
+      if (output && !this.schemaLoading && !areJsonValuesEqual(output, loadedValue)) {
+        this.formChange.emit({ fieldId: this.schema.key, value: output, formData: output });
       }
     }
   }
@@ -438,29 +429,30 @@ export class FormEasy {
 
   /** 发送保留原始字段值、但按输出策略过滤后的表单变化事件。 */
   private emitFormChange(fieldId: string, value: unknown): void {
-    if (this.schemaLoading) {
-      // 加载期间字段逐层挂载产生的变化不是用户编辑，只记住最后一次，
-      // 发出时才计算输出数据，因此补发时报告的是加载结束时的完整数据。
-      this.pendingFormChange = { fieldId, value };
-      return;
-    }
+    // 加载期间字段逐层挂载产生的变化不是用户编辑；加载结束后统一比较最终输出与传入值。
+    if (this.schemaLoading) return;
     this.formChange.emit({
       fieldId,
       value,
-      formData: createFormOutputData(
-        this.schema.fields,
-        this.formData,
-        this.schema.key,
-        {
-          definitions: this.fieldDefinitions,
-          maxDepth: this.maxRenderDepth,
-          isFieldVisible: currentFieldId =>
-            this.fieldVisibility.get(currentFieldId) ?? true,
-          isFieldPresent: currentFieldId =>
-            this.fieldPresence.get(currentFieldId) ?? true
-        }
-      )
+      formData: this.createOutputData()
     });
+  }
+
+  /** 按输出策略生成当前完整表单数据。 */
+  private createOutputData(): Record<string, unknown> {
+    return createFormOutputData(
+      this.schema.fields,
+      this.formData,
+      this.schema.key,
+      {
+        definitions: this.fieldDefinitions,
+        maxDepth: this.maxRenderDepth,
+        isFieldVisible: currentFieldId =>
+          this.fieldVisibility.get(currentFieldId) ?? true,
+        isFieldPresent: currentFieldId =>
+          this.fieldPresence.get(currentFieldId) ?? true
+      }
+    );
   }
 
   /** 写入完整表单数据，并为每一个字段发布 onChange 初始化事件。 */
@@ -606,27 +598,6 @@ export class FormEasy {
       : this.createPresetFormData(this.schema.fields, this.value, 0);
   }
 
-  /** 比较规范化后的表单值，避免 v-model 回写触发重复初始化。 */
-  private areValuesEqual(left: unknown, right: unknown): boolean {
-    if (Object.is(left, right)) return true;
-    if (Array.isArray(left) || Array.isArray(right)) {
-      if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-        return false;
-      }
-      return left.every((value, index) => this.areValuesEqual(value, right[index]));
-    }
-    if (this.isRecord(left) || this.isRecord(right)) {
-      if (!this.isRecord(left) || !this.isRecord(right)) return false;
-      const leftKeys = Object.keys(left);
-      const rightKeys = Object.keys(right);
-      if (leftKeys.length !== rightKeys.length) return false;
-      return leftKeys.every(key => (
-        Object.prototype.hasOwnProperty.call(right, key)
-        && this.areValuesEqual(left[key], right[key])
-      ));
-    }
-    return false;
-  }
 
   /** 深复制 JSON 结构的数组或对象值。 */
   private cloneValue(value: unknown): unknown {

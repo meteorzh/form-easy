@@ -23,7 +23,9 @@
       "name": "表单名称",
       "category": "basic",
       "dataType": "string",
-      "required": true
+      "optional": true,
+      "required": true,
+      "hint": "可选；设置后表单会渲染标题区域，不能为空。"
     },
     {
       "key": "labelPosition",
@@ -51,6 +53,7 @@
       "key": "definitions",
       "name": "可复用字段定义",
       "category": "record",
+      "optional": true,
       "defaultValue": {},
       "kvDef": {
         "key": {
@@ -674,14 +677,6 @@
       "key": "fields",
       "name": "顶层字段列表",
       "category": "array",
-      "required": true,
-      "rules": [
-        {
-          "type": "minLength",
-          "value": 1,
-          "message": "请至少配置一个字段。"
-        }
-      ],
       "element": {
         "$ref": "fieldDefinition"
       }

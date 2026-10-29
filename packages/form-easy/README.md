@@ -30,7 +30,7 @@ defineCustomElements();
 
 首次挂载以及替换 `schema` 或 `value` 时，表单会进入 loading 状态，用半透明蒙层遮住表单内容，直到嵌套字段全部挂载完成后再移出蒙层。开始加载时发出 `formLoading` 事件，加载结束时发出 `formReady` 事件，两者成对出现，载荷均为 `{ formKey }`。
 
-loading 期间字段逐层挂载产生的值变化不会逐条发出 `formChange`：由首次挂载或 `schema` 触发的加载，会在 `formReady` 之后补发一次 `formChange`，报告加载完成后的完整数据；由 `value` 触发的加载，数据由调用方给出，结束后不再发出 `formChange`。
+loading 期间字段逐层挂载产生的值变化不会逐条发出 `formChange`。加载会规范化传入的值：补齐缺失字段、套用默认值、去掉 schema 之外的属性，并按 optional、隐藏和 `omitNull` 策略过滤输出，初始化联动也可能改写字段。无论加载由首次挂载、`schema` 还是 `value` 触发，结束后只要实际生效的数据与传入的 `value` 不同，就会在 `formReady` 之后补发一次 `formChange`（`fieldId` 为表单 key，`value` 与 `formData` 均为完整数据）；没有变化则不发。设计器同理：载入结果与传入的 schema 不同（例如匿名模式生成了默认 key）时发出一次 `schemaChange`。
 
 `schema` 表示表单结构，`value` 表示对应的填充值。表单只有结构稳定后才能接受填充值，因此 loading 期间调用方不能修改 `schema` 或 `value`：一旦修改会在控制台记录错误并忽略该次修改，表单结构始终保持稳定。收到 `formReady` 时表单已经完全空闲，调用方可以在其中立即设置新的 `schema` 或 `value`；替换 `schema` 后应等 `formReady` 再设置填充值。
 
